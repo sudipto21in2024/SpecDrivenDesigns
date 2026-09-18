@@ -1,0 +1,6 @@
+/* Global tweaks beyond MUI CssBaseline. */
+html,
+body,
+#root {
+  min-height: 100vh;
+}

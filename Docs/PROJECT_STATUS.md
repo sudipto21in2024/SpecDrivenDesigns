@@ -42,7 +42,7 @@
 | # | Ticket | Description | Status |
 |---|---|---|---|
 | 0 | **LOGI-0000** | Scaffold: solution, Vite, CI skeleton, health endpoint, seed path, ADR-000..006 | 🟢 All ACs green (ready for DONE) |
-| 1 | LOGI-0001 | Warehouse CRUD | 🟠 BACKEND_DONE (9/9 integration tests green; frontend + Playwright E2E pending) |
+| 1 | LOGI-0001 | Warehouse CRUD | 🟠 INTEGRATION_READY (backend 9/9 + frontend 8/8 tests green; Playwright E2E pending) |
 | 2 | LOGI-0002 | SLA business-rules reference doc (spec-only) | ⬜ Not Started |
 | 3 | LOGI-0003 | Auth & roles (Identity + JWT + RBAC) | ⬜ Not Started |
 | 4 | LOGI-0004 | Vehicle CRUD + status enum | ⬜ Not Started |
@@ -96,10 +96,10 @@
 
 | Artifact | Status |
 |---|---|
-| `src/frontend/` | ✅ Vite scaffolded ( vanilla TypeScript template) |
+| `src/frontend/` | ✅ Vite scaffolded (vanilla TypeScript template) |
 | `npm install` | ✅ 16 packages, 0 vulnerabilities |
 | `npm run build` | ✅ Builds (300ms, dist/ produced) |
-| React + MUI setup | ⬜ Pending LOGI-0001 (template migrated) |
+| React + MUI setup | ✅ **Done in LOGI-0001** (React 18 + MUI v5 + TanStack Query v5 + RHF/Zod; 8 unit tests green) |
 
 ### 3.4 Contracts & CI
 
@@ -196,8 +196,9 @@ added `contracts/.spectral.yaml` ruleset (extends `spectral:oas`).
 3. ~~Verify AC-5~~ ✅ Spectral 0 errors (ruleset `contracts/.spectral.yaml` added).
 4. ~~Human checkpoint: LOGI-0000 → DONE~~ ✅ Proceeded per user instruction.
 5. ~~LOGI-0001 Warehouse CRUD (backend slice)~~ ✅ BACKEND_DONE (2026-09-18): contract extended (`/warehouses` CRUD), migration `20260918100153_LOGI-0001_AddWarehouses`, CQRS via MediatR + FluentValidation pipeline, RFC 7807 error middleware, 9/9 integration tests green (SQLite in-memory), live smoke-verified (health/list/create/validation).
-6. **LOGI-0001 remaining arms:** React/MUI frontend migration + MSW mocks (FRONTEND arm), Playwright E2E specs (QA arm), then INTEGRATION_READY → REVIEW.
-7. **Proceed to LOGI-0002** (SLA business-rules spec-only) and **LOGI-0003** (auth) — LOGI-0003 gates domain features.
+6. ~~LOGI-0001 frontend arm~~ ✅ **FRONTEND_DONE** (2026-09-18): React 18 + MUI v5 migration, openapi-typescript client (`npm run generate:api`), MSW contract-derived mocks, warehouses feature (paged table, search, create/edit dialogs, delete confirm, snackbars), RHF+Zod validation mirroring backend rules, 8/8 vitest tests green, build green. CI extended with frontend test step. **Ticket now INTEGRATION_READY.**
+7. **LOGI-0001 QA arm:** Playwright E2E specs vs integrated app (dotnet API + Vite dev) → E2E_PASSED → REVIEW_APPROVED → DONE.
+8. **Proceed to LOGI-0002** (SLA business-rules spec-only) and **LOGI-0003** (auth) — LOGI-0003 gates domain features.
 
 ---
 

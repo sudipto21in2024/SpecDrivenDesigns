@@ -35,5 +35,8 @@ jobs:
       - name: Build frontend
         run: npm --prefix src/frontend run build
 
+      - name: Test frontend
+        run: npm --prefix src/frontend run test
+
       - name: Lint OpenAPI contract
         run: npx --yes @stoplight/spectral@6 lint contracts/v1-openapi.yaml
