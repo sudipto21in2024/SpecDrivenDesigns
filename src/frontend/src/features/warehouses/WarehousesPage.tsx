@@ -25,9 +25,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import SearchIcon from '@mui/icons-material/Search';
+import { DeleteIcon, EditIcon, SearchIcon } from '../../components/icons';
 import type { Warehouse } from '../../api/client';
 import { useCreateWarehouse, useDeleteWarehouse, useUpdateWarehouse, useWarehouses } from './hooks';
 import WarehouseFormDialog from './WarehouseFormDialog';
@@ -93,7 +91,7 @@ export default function WarehousesPage() {
         <Typography variant="h5" component="h2">
           Warehouses
         </Typography>
-        <Button onClick={openCreate}>New Warehouse</Button>
+        <Button onClick={openCreate} data-testid="new-warehouse">New Warehouse</Button>
       </Box>
 
       <Box component="form" onSubmit={search} sx={{ display: 'flex', gap: 1, maxWidth: 480 }}>
@@ -202,7 +200,7 @@ export default function WarehousesPage() {
           <Button onClick={() => setDeleting(null)} color="inherit">
             Cancel
           </Button>
-          <Button onClick={handleDeleteConfirm} color="error" disabled={deleteMutation.isPending}>
+          <Button onClick={handleDeleteConfirm} color="error" disabled={deleteMutation.isPending} data-testid="confirm-delete">
             Delete
           </Button>
         </DialogActions>
@@ -213,6 +211,7 @@ export default function WarehousesPage() {
         autoHideDuration={4000}
         onClose={() => setSnackbar(null)}
         message={snackbar?.message}
+        data-testid="snackbar"
       />
     </Stack>
   );

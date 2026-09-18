@@ -42,7 +42,7 @@
 | # | Ticket | Description | Status |
 |---|---|---|---|
 | 0 | **LOGI-0000** | Scaffold: solution, Vite, CI skeleton, health endpoint, seed path, ADR-000..006 | 🟢 All ACs green (ready for DONE) |
-| 1 | LOGI-0001 | Warehouse CRUD | 🟠 INTEGRATION_READY (backend 9/9 + frontend 8/8 tests green; Playwright E2E pending) |
+| 1 | LOGI-0001 | Warehouse CRUD | 🟢 DONE (E2E 7/7 green vs integrated stack; CI pushed) |
 | 2 | LOGI-0002 | SLA business-rules reference doc (spec-only) | ⬜ Not Started |
 | 3 | LOGI-0003 | Auth & roles (Identity + JWT + RBAC) | ⬜ Not Started |
 | 4 | LOGI-0004 | Vehicle CRUD + status enum | ⬜ Not Started |
@@ -197,7 +197,7 @@ added `contracts/.spectral.yaml` ruleset (extends `spectral:oas`).
 4. ~~Human checkpoint: LOGI-0000 → DONE~~ ✅ Proceeded per user instruction.
 5. ~~LOGI-0001 Warehouse CRUD (backend slice)~~ ✅ BACKEND_DONE (2026-09-18): contract extended (`/warehouses` CRUD), migration `20260918100153_LOGI-0001_AddWarehouses`, CQRS via MediatR + FluentValidation pipeline, RFC 7807 error middleware, 9/9 integration tests green (SQLite in-memory), live smoke-verified (health/list/create/validation).
 6. ~~LOGI-0001 frontend arm~~ ✅ **FRONTEND_DONE** (2026-09-18): React 18 + MUI v5 migration, openapi-typescript client (`npm run generate:api`), MSW contract-derived mocks, warehouses feature (paged table, search, create/edit dialogs, delete confirm, snackbars), RHF+Zod validation mirroring backend rules, 8/8 vitest tests green, build green. CI extended with frontend test step. **Ticket now INTEGRATION_READY.**
-7. **LOGI-0001 QA arm:** Playwright E2E specs vs integrated app (dotnet API + Vite dev) → E2E_PASSED → REVIEW_APPROVED → DONE.
+7. ~~LOGI-0001 QA arm~~ ✅ **E2E_PASSED** (2026-09-18): Playwright E2E vs integrated stack (ASP.NET API on throwaway SQLite + `vite preview` per 06-testing-strategy §Environments). POM (`tests/e2e/pages/warehouses.page.ts`), AC-1..AC-7 mapped 1:1 with ticket-id comments, API-driven DB reset in globalSetup. Fixed a real defect found by E2E: `@mui/icons-material` deep-import interop broke the UI under Vite dev/preview — replaced with lean inline `SvgIcon` icons (MIT path data), package removed. 7/7 green, retraced all gates (9/9 + 8/8 + spectral 0 errors). CI gained an `e2e` job (chromium + playwright test + report artifact). **Ticket DONE.**
 8. **Proceed to LOGI-0002** (SLA business-rules spec-only) and **LOGI-0003** (auth) — LOGI-0003 gates domain features.
 
 ---

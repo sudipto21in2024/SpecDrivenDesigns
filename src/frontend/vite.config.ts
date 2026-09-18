@@ -14,6 +14,16 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    // Mirror the dev proxy for `vite preview` (E2E / CI runtime, per 06-testing-strategy).
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5199',
+        changeOrigin: true,
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,

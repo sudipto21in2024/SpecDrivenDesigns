@@ -37,3 +37,5 @@ secrets.json
 .idea/
 *.swp
 .DS_Store
+test-results/
+playwright-report/

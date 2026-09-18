@@ -1,7 +1,7 @@
 ---
 id: LOGI-0001
 title: Warehouse CRUD
-status: integration_ready
+status: done
 owner_agent: spec-agent
 created: 2026-09-18
 depends_on:

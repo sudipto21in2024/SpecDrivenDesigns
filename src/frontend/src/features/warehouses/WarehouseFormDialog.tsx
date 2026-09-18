@@ -134,7 +134,7 @@ export default function WarehouseFormDialog({ open, warehouse, onClose, onSubmit
         <Button onClick={onClose} color="inherit" disabled={isSubmitting}>
           Cancel
         </Button>
-        <Button onClick={submit} disabled={isSubmitting}>
+        <Button onClick={submit} disabled={isSubmitting} data-testid="warehouse-submit">
           {isEdit ? 'Save Changes' : 'Create'}
         </Button>
       </DialogActions>
