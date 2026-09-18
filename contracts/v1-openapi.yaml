@@ -54,6 +54,32 @@ components:
             type: array
             items: { type: string }
         traceId: { type: string, nullable: true, example: "00-abc123" }
+    WarehouseRequest:
+      type: object
+      required: [name, address]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Central DC
+        address:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: 12 Industrial Rd, Rotterdam
+        latitude: { type: number, format: double, minimum: -90, maximum: 90, example: 51.9244 }
+        longitude: { type: number, format: double, minimum: -180, maximum: 180, example: 4.4777 }
+    WarehouseResponse:
+      type: object
+      required: [id, name, address, createdAt]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        name: { type: string, example: Central DC }
+        address: { type: string, example: 12 Industrial Rd, Rotterdam }
+        latitude: { type: number, format: double, nullable: true, example: 51.9244 }
+        longitude: { type: number, format: double, nullable: true, example: 4.4777 }
+        createdAt: { type: string, format: date-time, example: 2026-09-18T08:00:00Z }
     PagedResponse:
       type: object
       description: Envelope for all list endpoints (max pageSize 100, default 25).
@@ -106,6 +132,97 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/HealthResponse' }
+  /warehouses:
+    get:
+      tags: [Warehouses]
+      summary: List warehouses (paged)
+      description: >
+        Returns a paged list of warehouses. Query params: page (default 1),
+        pageSize (default 25, max 100), q (name contains, case-insensitive).
+      security: []
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: listWarehouses
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1, minimum: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 25, minimum: 1, maximum: 100 } }
+        - { name: q, in: query, description: "Filter by name (contains, case-insensitive)", schema: { type: string } }
+      responses:
+        "200":
+          description: Paged warehouse list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PagedResponse' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/WarehouseResponse' }
+    post:
+      tags: [Warehouses]
+      summary: Create warehouse
+      description: Creates a warehouse. Name and address are required; coordinates optional but range-validated.
+      security: []
+      x-roles: [Admin, Dispatcher]
+      operationId: createWarehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseRequest' }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+  /warehouses/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [Warehouses]
+      summary: Get warehouse by id
+      security: []
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: getWarehouse
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseResponse' }
+        "404": { $ref: '#/components/responses/ValidationProblem' }
+    put:
+      tags: [Warehouses]
+      summary: Update warehouse (full update)
+      security: []
+      x-roles: [Admin, Dispatcher]
+      operationId: updateWarehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseRequest' }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "404": { $ref: '#/components/responses/ValidationProblem' }
+    delete:
+      tags: [Warehouses]
+      summary: Delete warehouse
+      description: Hard delete in v1 (no soft-delete column). Later restricted once shipments reference warehouses.
+      security: []
+      x-roles: [Admin]
+      operationId: deleteWarehouse
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: '#/components/responses/ValidationProblem' }
   /auth/login:
     post:
       tags: [Auth]

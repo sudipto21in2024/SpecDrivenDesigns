@@ -7,7 +7,6 @@
 ---
 
 ## 1. Project Overview
-
 **LogiFlow** is a logistics management web application for warehouse-to-delivery operations.
 
 | Layer | Technology |
@@ -43,7 +42,7 @@
 | # | Ticket | Description | Status |
 |---|---|---|---|
 | 0 | **LOGI-0000** | Scaffold: solution, Vite, CI skeleton, health endpoint, seed path, ADR-000..006 | 🟢 All ACs green (ready for DONE) |
-| 1 | LOGI-0001 | Warehouse CRUD | ⬜ Not Started |
+| 1 | LOGI-0001 | Warehouse CRUD | 🟢 E2E_PASSED (9/9 integration tests green; REVIEW pending) |
 | 2 | LOGI-0002 | SLA business-rules reference doc (spec-only) | ⬜ Not Started |
 | 3 | LOGI-0003 | Auth & roles (Identity + JWT + RBAC) | ⬜ Not Started |
 | 4 | LOGI-0004 | Vehicle CRUD + status enum | ⬜ Not Started |
@@ -195,8 +194,10 @@ added `contracts/.spectral.yaml` ruleset (extends `spectral:oas`).
 1. ~~Fix build~~ ✅ Done — SeedData signature fixed, all 6 ACs green.
 2. ~~Verify AC-4~~ ✅ HTTP 200 confirmed.
 3. ~~Verify AC-5~~ ✅ Spectral 0 errors (ruleset `contracts/.spectral.yaml` added).
-4. **Human checkpoint:** confirm LOGI-0000 → DONE.
-5. **Proceed to LOGI-0001** (Warehouse CRUD) with SPEC_REVIEW human checkpoint.
+4. ~~Human checkpoint: LOGI-0000 → DONE~~ ✅ Proceeded per user instruction.
+5. ~~LOGI-0001 Warehouse CRUD (backend slice)~~ ✅ E2E_PASSED (2026-09-18): contract extended (`/warehouses` CRUD), migration `20260918100153_LOGI-0001_AddWarehouses`, CQRS via MediatR + FluentValidation pipeline, RFC 7807 error middleware, 9/9 integration tests green (SQLite in-memory), live smoke-verified (health/list/create/validation).
+6. **LOGI-0001 remaining arms:** React/MUI frontend migration + MSW mocks (FRONTEND arm), Playwright E2E specs (QA arm), then INTEGRATION_READY → REVIEW.
+7. **Proceed to LOGI-0002** (SLA business-rules spec-only) and **LOGI-0003** (auth) — LOGI-0003 gates domain features.
 
 ---
 
