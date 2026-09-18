@@ -1,6 +1,7 @@
 # LogiFlow — Project Status
 
-> Generated 2026-09-18 · Covers the spec-driven bootstrap through ticket LOGI-0000.
+> Generated 2026-09-18 · Covers the spec-driven bootstrap through ticket LOGI-0001
+> (ticket DONE; remote CI green on GitHub — run `35339953505`).
 > **UPDATE 2026-09-18 (act mode):** LOGI-0000 build blocker resolved, AC-1/AC-4/AC-5 verified green (see §4), initial git commit made. LOGI-0000 ready to be marked DONE pending human checkpoint.
 
 
@@ -106,7 +107,7 @@
 | Artifact | Status |
 |---|---|
 | `contracts/v1-openapi.yaml` | ✅ Stub: security schemes, ProblemDetails, PagedResponse, /health, /auth/login, /auth/refresh |
-| `.github/workflows/ci.yml` | ✅ Skeleton: build, test, frontend build, spectral lint |
+| `.github/workflows/ci.yml` | ✅ **Green on GitHub.** `build-and-test`: .NET build/test + frontend install/build/test + Spectral lint (explicit `--ruleset`). `e2e`: chromium + Playwright vs integrated stack, report artifact on failure. |
 | `.gitignore` | ✅ Created (fixed over-broad patterns) |
 | `git init` | ✅ Repo initialized (no commits yet) |
 
@@ -127,14 +128,24 @@ npm --prefix src/frontend run build
 GET http://localhost:5199/api/v1/health
 → ✅ HTTP 200 {"status":"ok","service":"LogiFlow",...}
 
-npx @stoplight/spectral-cli lint contracts/v1-openapi.yaml
-→ ✅ 0 errors (7 benign warnings: unused stub components, missing op descriptions)
+npx @stoplight/spectral-cli lint contracts/v1-openapi.yaml --ruleset contracts/.spectral.yaml
+→ ✅ 0 errors, exit 0 (2 warnings: Unauthorized/Forbidden responses reserved for LOGI-0003)
 ```
 
-**Fix applied:** `SeedData.EnsureSeededAsync` no longer takes a `LogiFlowDbContext`
+**Fixes applied:** `SeedData.EnsureSeededAsync` no longer takes a `LogiFlowDbContext`
 parameter (context does not exist until LOGI-0001). Also fixed duplicate `required`
 key in `ProblemDetails` schema in `contracts/v1-openapi.yaml` (Spectral error) and
 added `contracts/.spectral.yaml` ruleset (extends `spectral:oas`).
+
+**CI lint fix (2026-09-18):** the remote `Lint OpenAPI contract` step failed while
+passing locally because Spectral resolves `.spectral.yaml` from the **working
+directory**, not the linted document — running from the repo root found no ruleset
+and exited non-zero. Additionally the step used the deprecated
+`@stoplight/spectral@6` monolith. Both corrected: `@stoplight/spectral-cli` plus an
+explicit `--ruleset contracts/.spectral.yaml`. The 5 `operation-description` warnings
+were also cleared by documenting `/health`, `GET`+`PUT /warehouses/{id}`,
+`/auth/login` and `/auth/refresh`. `src/api/schema.d.ts` regenerated from the
+contract (purely additive JSDoc, no type changes).
 
 ### LOGI-0000 AC Verifications — ALL GREEN
 
@@ -154,23 +165,25 @@ added `contracts/.spectral.yaml` ruleset (extends `spectral:oas`).
 
 | Area | Complete | In Progress | Remaining |
 |---|---|---|---|
-| Tickets | 0 / 13 | 1 (LOGI-0000) | 12 |
-| Backend projects | 0 (all empty except Program.cs + stub) | 5 scaffolded | Full implementation |
-| Frontend | 0 | 1 (scaffolded, vanilla TS) | React/MUI + features |
-| API contracts | 0 real endpoints | 1 stub (health) + 2 auth stubs | 5+ domain endpoints |
+| Tickets | 2 / 13 (LOGI-0000, LOGI-0001) | 0 | 11 |
+| Backend projects | 5 scaffolded + warehouse vertical slice (9 integration tests) | 0 | Domain features per ticket |
+| Frontend | React 18 + MUI v5, warehouses feature (8 unit tests) | 0 | Features per ticket, auth UI |
+| API contracts | health + warehouses CRUD (5 operations) | 2 auth stubs (LOGI-0003) | 5+ domain endpoints |
 | ADRs | 7 | 0 | — |
-| CI pipeline | 0 (commands unverified) | skeleton | Green CI |
-| E2E tests | 0 | — | Playwright per ticket |
-| Database | 0 migrations | — | EF Core per ticket |
+| CI pipeline | ✅ **Green on GitHub** (`build-and-test` + `e2e` jobs) | — | Expand per ticket |
+| E2E tests | 7 Playwright specs (LOGI-0001, AC-1..AC-7) | — | Playwright per ticket |
+| Database | 1 migration (`LOGI-0001_AddWarehouses`) | — | EF Core per ticket |
 
-**Estimated overall plan completion: ~5%** (LOGI-0000 in progress, all others not started).
+**Estimated overall plan completion: ~15%** (2 of 13 tickets DONE; the scaffold +
+first full vertical slice prove every layer of the pipeline end-to-end).
 
 ### Completion by Ticket
 
 | Ticket | % Done |
 |---|---|
-| LOGI-0000 | ~60% (scaffold done, build broken, health/Spectral unverified) |
-| LOGI-0001–LOGI-0012 | 0% each |
+| LOGI-0000 | ✅ 100% — all 6 ACs verified green; CI green |
+| LOGI-0001 | ✅ 100% — DONE (spec, contract, migration, backend 9/9, frontend 8/8, E2E 7/7) |
+| LOGI-0002–LOGI-0012 | 0% each |
 
 ---
 
@@ -198,7 +211,12 @@ added `contracts/.spectral.yaml` ruleset (extends `spectral:oas`).
 5. ~~LOGI-0001 Warehouse CRUD (backend slice)~~ ✅ BACKEND_DONE (2026-09-18): contract extended (`/warehouses` CRUD), migration `20260918100153_LOGI-0001_AddWarehouses`, CQRS via MediatR + FluentValidation pipeline, RFC 7807 error middleware, 9/9 integration tests green (SQLite in-memory), live smoke-verified (health/list/create/validation).
 6. ~~LOGI-0001 frontend arm~~ ✅ **FRONTEND_DONE** (2026-09-18): React 18 + MUI v5 migration, openapi-typescript client (`npm run generate:api`), MSW contract-derived mocks, warehouses feature (paged table, search, create/edit dialogs, delete confirm, snackbars), RHF+Zod validation mirroring backend rules, 8/8 vitest tests green, build green. CI extended with frontend test step. **Ticket now INTEGRATION_READY.**
 7. ~~LOGI-0001 QA arm~~ ✅ **E2E_PASSED** (2026-09-18): Playwright E2E vs integrated stack (ASP.NET API on throwaway SQLite + `vite preview` per 06-testing-strategy §Environments). POM (`tests/e2e/pages/warehouses.page.ts`), AC-1..AC-7 mapped 1:1 with ticket-id comments, API-driven DB reset in globalSetup. Fixed a real defect found by E2E: `@mui/icons-material` deep-import interop broke the UI under Vite dev/preview — replaced with lean inline `SvgIcon` icons (MIT path data), package removed. 7/7 green, retraced all gates (9/9 + 8/8 + spectral 0 errors). CI gained an `e2e` job (chromium + playwright test + report artifact). **Ticket DONE.**
-8. **Proceed to LOGI-0002** (SLA business-rules spec-only) and **LOGI-0003** (auth) — LOGI-0003 gates domain features.
+8. ~~Push to GitHub + green remote CI~~ ✅ (2026-09-18): bound to
+   `github.com/sudipto21in2024/SpecDrivenDesigns`, all commits enriched with detailed
+   bodies, pushed to `master`. Two remote-only CI failures diagnosed and fixed
+   (missing frontend install; Spectral ruleset resolution + deprecated CLI). Run
+   `35339953505` → **`build-and-test` ✅ + `e2e` ✅**.
+9. **Proceed to LOGI-0002** (SLA business-rules spec-only) and **LOGI-0003** (auth) — LOGI-0003 gates domain features (it activates the `Unauthorized`/`Forbidden` contract responses and removes the `security: []` placeholders on domain endpoints).
 
 ---
 
