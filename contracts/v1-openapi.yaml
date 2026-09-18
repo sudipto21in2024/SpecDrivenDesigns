@@ -123,6 +123,7 @@ paths:
     get:
       tags: [System]
       summary: Service health
+      description: Liveness probe used by CI, Playwright webServer readiness checks, and container orchestration.
       security: []
       x-roles: [Admin, Dispatcher, Driver, Viewer]
       operationId: getHealth
@@ -184,6 +185,7 @@ paths:
     get:
       tags: [Warehouses]
       summary: Get warehouse by id
+      description: Returns a single warehouse. Responds 404 when the id does not exist.
       security: []
       x-roles: [Admin, Dispatcher, Viewer]
       operationId: getWarehouse
@@ -197,6 +199,7 @@ paths:
     put:
       tags: [Warehouses]
       summary: Update warehouse (full update)
+      description: Replaces name, address and coordinates. Responds 404 when the id does not exist.
       security: []
       x-roles: [Admin, Dispatcher]
       operationId: updateWarehouse
@@ -227,6 +230,7 @@ paths:
     post:
       tags: [Auth]
       summary: Issue access + refresh tokens
+      description: Stub contract for LOGI-0003 (Identity + JWT + RBAC). Returns access and refresh tokens for valid credentials.
       security: []
       x-roles: [Admin, Dispatcher, Driver, Viewer]
       operationId: login
@@ -255,6 +259,7 @@ paths:
     post:
       tags: [Auth]
       summary: Refresh access token
+      description: Stub contract for LOGI-0003 (Identity + JWT + RBAC). Exchanges a valid refresh token for a new access token.
       security: []
       x-roles: [Admin, Dispatcher, Driver, Viewer]
       operationId: refresh

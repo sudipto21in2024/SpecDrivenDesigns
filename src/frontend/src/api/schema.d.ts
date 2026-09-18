@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Service health */
+        /**
+         * Service health
+         * @description Liveness probe used by CI, Playwright webServer readiness checks, and container orchestration.
+         */
         get: operations["getHealth"];
         put?: never;
         post?: never;
@@ -54,9 +57,15 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Get warehouse by id */
+        /**
+         * Get warehouse by id
+         * @description Returns a single warehouse. Responds 404 when the id does not exist.
+         */
         get: operations["getWarehouse"];
-        /** Update warehouse (full update) */
+        /**
+         * Update warehouse (full update)
+         * @description Replaces name, address and coordinates. Responds 404 when the id does not exist.
+         */
         put: operations["updateWarehouse"];
         post?: never;
         /**
@@ -78,7 +87,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Issue access + refresh tokens */
+        /**
+         * Issue access + refresh tokens
+         * @description Stub contract for LOGI-0003 (Identity + JWT + RBAC). Returns access and refresh tokens for valid credentials.
+         */
         post: operations["login"];
         delete?: never;
         options?: never;
@@ -95,7 +107,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Refresh access token */
+        /**
+         * Refresh access token
+         * @description Stub contract for LOGI-0003 (Identity + JWT + RBAC). Exchanges a valid refresh token for a new access token.
+         */
         post: operations["refresh"];
         delete?: never;
         options?: never;

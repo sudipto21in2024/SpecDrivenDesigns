@@ -41,8 +41,12 @@ jobs:
       - name: Test frontend
         run: npm --prefix src/frontend run test
 
+      # Spectral resolves the ruleset from the WORKING DIRECTORY, not from the
+      # linted document's location. Running from the repo root therefore found no
+      # ruleset and exited non-zero. Pass --ruleset explicitly so contracts/.spectral.yaml
+      # (extends spectral:oas, see ADR-001) is always applied, matching local runs.
       - name: Lint OpenAPI contract
-        run: npx --yes @stoplight/spectral@6 lint contracts/v1-openapi.yaml
+        run: npx --yes @stoplight/spectral-cli lint contracts/v1-openapi.yaml --ruleset contracts/.spectral.yaml
 
   e2e:
     runs-on: ubuntu-latest
