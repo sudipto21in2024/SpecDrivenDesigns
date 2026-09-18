@@ -32,6 +32,9 @@ jobs:
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
+      - name: Install frontend dependencies
+        run: npm ci --prefix src/frontend
+
       - name: Build frontend
         run: npm --prefix src/frontend run build
 
