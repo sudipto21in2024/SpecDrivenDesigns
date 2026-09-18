@@ -1,0 +1,3 @@
+# LogiFlow OpenAPI contract ruleset — default Spectral oas rules.
+# AC-5 of LOGI-0000: contract must pass `spectral lint` before REVIEW_APPROVED.
+extends: ["spectral:oas"]

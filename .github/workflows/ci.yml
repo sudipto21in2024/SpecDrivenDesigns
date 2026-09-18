@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Build backend
+        run: dotnet build src/backend/LogiFlow.sln --no-incremental -c Release
+
+      - name: Test backend
+        run: dotnet test src/backend/LogiFlow.sln --no-build -c Release --collect:"XPlat Code Coverage" --results-directory test-results
+        env:
+          DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+      - name: Build frontend
+        run: npm --prefix src/frontend run build
+
+      - name: Lint OpenAPI contract
+        run: npx --yes @stoplight/spectral@6 lint contracts/v1-openapi.yaml

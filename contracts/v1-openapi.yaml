@@ -1,0 +1,163 @@
+openapi: 3.1.0
+info:
+  title: LogiFlow API
+  version: 1.0.0
+  description: |
+    LogiFlow logistics management API. Single source of truth for backend and frontend.
+    Base path: /api/v1
+  contact:
+    name: LogiFlow
+    url: https://logiflow.dev
+  license:
+    name: Proprietary
+servers:
+  - url: https://localhost:5001/api/v1
+    description: Local development
+  - url: https://logiflow.example.com/api/v1
+    description: Production (single-node v1)
+tags:
+  - { name: System, description: Health and metadata }
+  - { name: Auth, description: Authentication and token management }
+  - { name: Warehouses, description: Warehouse master data }
+  - { name: Vehicles, description: Vehicle master data }
+  - { name: Drivers, description: Driver master data }
+  - { name: Shipments, description: Shipment lifecycle }
+  - { name: Routes, description: Route planning and assignment }
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Issue via POST /auth/login. Required on every endpoint except
+        /auth/login and /auth/refresh.
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        service: { type: string, example: LogiFlow }
+        timestamp: { type: string, format: date-time, example: 2026-09-18T00:00:00Z }
+      required: [status, service, timestamp]
+    ProblemDetails:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri, example: https://logiflow.dev/errors/validation }
+        title: { type: string, example: Validation failed }
+        status: { type: integer, format: int32, example: 400 }
+        detail: { type: string, nullable: true }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+        traceId: { type: string, nullable: true, example: "00-abc123" }
+    PagedResponse:
+      type: object
+      description: Envelope for all list endpoints (max pageSize 100, default 25).
+      required: [items, page, pageSize, totalCount, totalPages]
+      properties:
+        items:
+          type: array
+          items: {}
+          description: Array of resource objects (schema defined per endpoint).
+        page: { type: integer, minimum: 1, default: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        totalCount: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+  responses:
+    ValidationProblem:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Forbidden:
+      description: Authenticated but not authorized for this role/resource
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  # Conventions per 05-api-contract-standards.md §Auth + §Status transitions
+  x-role-sets:
+    Admin: [Admin]
+    Dispatcher: [Dispatcher]
+    Driver: [Driver]
+    Viewer: [Viewer]
+  x-conventions:
+    resource-naming: plural nouns
+    status-transitions: POST /{resource}/{id}/status-transitions with { "toStatus":"...", "note":"..." }
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Service health
+      security: []
+      x-roles: [Admin, Dispatcher, Driver, Viewer]
+      operationId: getHealth
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Issue access + refresh tokens
+      security: []
+      x-roles: [Admin, Dispatcher, Driver, Viewer]
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: dana@logiflow.dev }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Tokens issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  refresh_token: { type: string }
+                  expires_in: { type: integer }
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      x-roles: [Admin, Dispatcher, Driver, Viewer]
+      operationId: refresh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        "200":
+          description: New access token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  expires_in: { type: integer }
+security:
+  - BearerAuth: []

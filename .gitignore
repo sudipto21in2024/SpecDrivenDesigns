@@ -1,0 +1,39 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/*.dll
+**/*.exe
+*.pdb
+*.user
+*.userosscache
+
+# .NET
+*.suo
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database (SQLite v1, single-node; BRD §7)
+*.db
+*.sqlite
+*.sqlite3
+src/backend/LogiFlow.Api/logiflow.db
+
+# Logs (Serilog)
+Logs/
+*.log
+
+# Env / secrets
+.env
+.env.local
+secrets.json
+
+# IDE / OS
+.vs/
+.vscode/
+.idea/
+*.swp
+.DS_Store
