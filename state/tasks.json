@@ -1,18 +1,19 @@
 {
-  "generated": "2026-09-19T17:58:57.703Z",
+  "generated": "2026-09-19T17:59:23.065Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
       "arms": {
         "backend": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "main-orchestrator",
           "started": "2026-09-19T17:57:19.159Z",
           "lastStep": "step 2/3: ProblemDetails writer + exception handling + RBAC policies (pre-existing) — 401/403 verified by tests",
           "lastStepAt": "2026-09-19T17:58:57.430Z"
         }
       },
-      "status": "planned"
+      "status": "planned",
+      "next": "frontend"
     }
   }
 }

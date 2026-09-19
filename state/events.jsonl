@@ -5,3 +5,5 @@
 {"ts":"2026-09-19T17:58:57.430Z","type":"STEP_DONE","ticket":"LOGI-0003","arm":"backend","note":"step 1/3: Identity+JWT DI, auth endpoints, refresh rotation (pre-existing) — dotnet build/test green"}
 {"ts":"2026-09-19T17:58:57.430Z","type":"STEP_DONE","ticket":"LOGI-0003","arm":"backend","note":"step 2/3: ProblemDetails writer + exception handling + RBAC policies (pre-existing) — 401/403 verified by tests"}
 {"ts":"2026-09-19T17:58:57.701Z","type":"MICRO","ticket":"LOGI-0003","arm":"backend","action":"Reconciled plan manifest to actual tree; validated+locked+claimed; gates green","files":["state/plans/LOGI-0003-backend.plan.md","memory/journal/LOGI-0003.md"],"gate_result":"pass","next_step":"Scoped git commit of backend manifest files; then update memory/active.md; then frontend/qa reconciliation","detail":null}
+{"ts":"2026-09-19T17:59:23.034Z","type":"PLAN_DONE","ticket":"LOGI-0003","arm":"backend","plan_ptr":"state\\plans\\LOGI-0003-backend.plan.md"}
+{"ts":"2026-09-19T17:59:23.063Z","type":"HANDOFF","ticket":"LOGI-0003","from":"backend","to":"frontend","summary_ptr":"memory/journal/LOGI-0003.md#backend-arm","gates":["dotnet test 20/20","npm test 18/18"]}
