@@ -75,7 +75,9 @@ test.describe('LOGI-0003 Auth & roles', () => {
     const warehouses = new WarehousesPage(page);
     await warehouses.goto('Viewer');
 
-    await expect(warehouses.row(name)).toBeVisible();
+    // The table pages 5 rows at a time and the shared DB accumulates rows, so pull the seeded row
+    // into view via a server-side search before asserting on the affordances around it.
+    await warehouses.findRow(name);
     await expect(page.getByTestId('new-warehouse')).toBeHidden();
     await expect(page.getByRole('button', { name: `Edit warehouse ${name}` })).toBeHidden();
     await expect(page.getByRole('button', { name: `Delete warehouse ${name}` })).toBeHidden();
@@ -88,6 +90,9 @@ test.describe('LOGI-0003 Auth & roles', () => {
 
     const warehouses = new WarehousesPage(page);
     await warehouses.goto('Dispatcher');
+
+    // The seeded row may sit beyond page 1 (5 rows/page, shared DB) — search it into view first.
+    await warehouses.findRow(name);
 
     // Write affordances are present...
     await expect(page.getByTestId('new-warehouse')).toBeVisible();
@@ -103,6 +108,9 @@ test.describe('LOGI-0003 Auth & roles', () => {
 
     const warehouses = new WarehousesPage(page);
     await warehouses.goto('Admin');
+
+    // The seeded row may sit beyond page 1 (5 rows/page, shared DB) — search it into view first.
+    await warehouses.findRow(name);
 
     await expect(page.getByTestId('new-warehouse')).toBeVisible();
     await expect(page.getByRole('button', { name: `Edit warehouse ${name}` })).toBeVisible();
