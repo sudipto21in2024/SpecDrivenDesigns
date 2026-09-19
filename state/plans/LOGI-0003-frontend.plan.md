@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0003
 arm: frontend
-status: locked
+status: done
 created: 2026-09-19T18:10:00.000Z
 depends_on_plans: LOGI-0003-backend
 ---
