@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-
-const API = 'http://localhost:5199';
+import { request } from '@playwright/test';
+import { API, authHeaders, signIn } from './support/api';
 
 /**
  * Resets the E2E database to a known (empty) state before the run, per
@@ -10,6 +10,9 @@ const API = 'http://localhost:5199';
  * Playwright starts webServers BEFORE globalSetup, so the API is already up and
  * holds the throwaway SQLite file open. We therefore reset via the API (delete
  * every warehouse) and only opportunistically remove stale database files.
+ *
+ * LOGI-0003: the warehouse endpoints require a bearer token, so the reset signs in as the seeded
+ * Admin first. Development users are seeded by API startup and are deliberately never deleted here.
  */
 export default async function globalSetup(): Promise<void> {
   // Best-effort cleanup of leftovers from previous runs that exited uncleanly.
@@ -23,24 +26,32 @@ export default async function globalSetup(): Promise<void> {
     }
   }
 
-  // API-driven reset: collect all ids, then delete each.
-  const ids: number[] = [];
-  for (let page = 1; ; page++) {
-    const response = await fetch(`${API}/api/v1/warehouses?page=${page}&pageSize=100`);
-    if (!response.ok) {
-      throw new Error(`Reset failed: list endpoint returned ${response.status}`);
-    }
-    const body = (await response.json()) as { items: { id: number }[]; totalCount: number };
-    ids.push(...body.items.map((item) => item.id));
-    if (ids.length >= body.totalCount || body.items.length === 0) break;
-  }
+  // A real API context (not raw fetch) so the shared signIn helper — and therefore the same
+  // expectation/error reporting — is used here as in the specs.
+  const context = await request.newContext();
+  try {
+    const { accessToken } = await signIn(context, 'Admin');
+    const headers = authHeaders(accessToken);
 
-  await Promise.all(
-    ids.map(async (id) => {
-      const response = await fetch(`${API}/api/v1/warehouses/${id}`, { method: 'DELETE' });
-      if (!response.ok && response.status !== 404) {
-        throw new Error(`Reset failed: delete ${id} returned ${response.status}`);
+    // API-driven reset: collect all ids, then delete each.
+    const ids: number[] = [];
+    for (let page = 1; ; page++) {
+      const listResponse = await context.get(`${API}/api/v1/warehouses?page=${page}&pageSize=100`, { headers });
+      if (!listResponse.ok()) {
+        throw new Error(`Reset failed: list endpoint returned ${listResponse.status()}`);
       }
-    }),
-  );
+      const body = (await listResponse.json()) as { items: { id: number }[]; totalCount: number };
+      ids.push(...body.items.map((item) => item.id));
+      if (ids.length >= body.totalCount || body.items.length === 0) break;
+    }
+
+    for (const id of ids) {
+      const deleteResponse = await context.delete(`${API}/api/v1/warehouses/${id}`, { headers });
+      if (!deleteResponse.ok() && deleteResponse.status() !== 404) {
+        throw new Error(`Reset failed: delete ${id} returned ${deleteResponse.status()}`);
+      }
+    }
+  } finally {
+    await context.dispose();
+  }
 }

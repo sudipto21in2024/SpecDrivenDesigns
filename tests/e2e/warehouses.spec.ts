@@ -1,27 +1,26 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { WarehousesPage } from './pages/warehouses.page';
+import { API, authHeaders, seedWarehouse, signIn } from './support/api';
 
-const API = 'http://localhost:5199';
 // Unique per run so tests stay independent against the shared throwaway database.
 const token = `e2e${Date.now().toString(36)}`;
 
-/** Seeds a warehouse directly through the API (fast path, not UI). */
-async function seedWarehouse(request: APIRequestContext, name: string, address = '1 Seeded Rd'): Promise<number> {
-  const response = await request.post(`${API}/api/v1/warehouses`, {
-    data: { name, address, latitude: 51.92, longitude: 4.47 },
-  });
-  expect(response.status()).toBe(201);
-  const body = (await response.json()) as { id: number };
-  return body.id;
-}
-
 test.describe('LOGI-0001 Warehouse CRUD', () => {
   let warehouses: WarehousesPage;
+  /** Admin access token, used to seed data directly through the API. */
+  let adminToken: string;
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, request }) => {
+    adminToken = (await signIn(request, 'Admin')).accessToken;
     warehouses = new WarehousesPage(page);
-    await warehouses.goto();
+    // Signs in through the UI (the screen is behind authentication since LOGI-0003).
+    await warehouses.goto('Admin');
   });
+
+  /** Seeds a warehouse directly through the API (fast path, not UI). */
+  async function seed(request: APIRequestContext, name: string, address = '1 Seeded Rd'): Promise<number> {
+    return seedWarehouse(request, adminToken, name, address);
+  }
 
   // LOGI-0001 AC-1 — create warehouse via UI, see it in the list.
   test('AC-1: creates a warehouse and shows it in the list', async ({ page }) => {
@@ -35,7 +34,7 @@ test.describe('LOGI-0001 Warehouse CRUD', () => {
     await warehouses.submitCreate();
 
     await warehouses.expectToast('Warehouse created');
-    await expect(warehouses.row(name)).toBeVisible();
+    await warehouses.findRow(name);
   });
 
   // LOGI-0001 AC-2 — required fields enforced (client-side Zod mirrors backend rules).
@@ -60,8 +59,8 @@ test.describe('LOGI-0001 Warehouse CRUD', () => {
 
   // LOGI-0001 AC-4 — list is paginated and name-search filters server-side.
   test('AC-4: name search filters the paged list', async ({ request }) => {
-    await seedWarehouse(request, `${token} Alpha Depot`);
-    await seedWarehouse(request, `${token} Beta Depot`);
+    await seed(request, `${token} Alpha Depot`);
+    await seed(request, `${token} Beta Depot`);
 
     await warehouses.goto();
     await warehouses.search(`${token} Alpha`);
@@ -72,20 +71,31 @@ test.describe('LOGI-0001 Warehouse CRUD', () => {
 
   // LOGI-0001 AC-5 — get by id / not found (API-level contract behaviour).
   test('AC-5: API returns 404 ProblemDetails for a missing warehouse', async ({ request }) => {
-    const response = await request.get(`${API}/api/v1/warehouses/999999`);
+    // Authenticated: a 401 would make this assertion pass for the wrong reason.
+    const response = await request.get(`${API}/api/v1/warehouses/999999`, {
+      headers: authHeaders(adminToken),
+    });
     expect(response.status()).toBe(404);
     const problem = (await response.json()) as { title: string; status: number };
     expect(problem.title).toBe('Resource not found');
     expect(problem.status).toBe(404);
   });
 
+  // LOGI-0003 AC-4 — the same call without a token is rejected.
+  test('LOGI-0003 AC-4: the warehouses API rejects an unauthenticated request', async ({ request }) => {
+    const response = await request.get(`${API}/api/v1/warehouses`);
+    expect(response.status()).toBe(401);
+    expect(response.headers()['www-authenticate']).toContain('Bearer');
+  });
+
   // LOGI-0001 AC-6 — full update via the edit dialog.
   test('AC-6: edits an existing warehouse', async ({ request }) => {
     const oldName = `${token} Old Name`;
     const newName = `${token} New Name`;
-    await seedWarehouse(request, oldName, '99 Old Ave');
+    await seed(request, oldName, '99 Old Ave');
 
     await warehouses.goto();
+    await warehouses.findRow(oldName);
     await warehouses.openEdit(oldName);
     await warehouses.nameInput().fill(newName);
     await warehouses.saveEdit();
@@ -98,10 +108,10 @@ test.describe('LOGI-0001 Warehouse CRUD', () => {
   // LOGI-0001 AC-7 — delete with confirmation, row disappears.
   test('AC-7: deletes a warehouse after confirmation', async ({ request }) => {
     const name = `${token} Doomed DC`;
-    await seedWarehouse(request, name, '9 Gone St');
+    await seed(request, name, '9 Gone St');
 
     await warehouses.goto();
-    await expect(warehouses.row(name)).toBeVisible();
+    await warehouses.findRow(name);
     await warehouses.deleteRow(name);
 
     await warehouses.expectToast('Warehouse deleted');
