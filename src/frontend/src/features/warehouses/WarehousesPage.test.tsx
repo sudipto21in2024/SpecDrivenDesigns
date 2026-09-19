@@ -1,23 +1,11 @@
-import { render, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach } from 'vitest';
-import App from '../../App';
-import { resetWarehousesDb, seedWarehouse } from '../../mocks/handlers';
-
-function renderApp() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>,
-  );
-}
+import { seedWarehouse } from '../../mocks/handlers';
+import { renderAppAs, resetMocks } from '../../test/renderApp';
 
 beforeEach(() => {
-  resetWarehousesDb();
+  resetMocks();
 });
 
 describe('WarehousesPage (LOGI-0001)', () => {
@@ -25,7 +13,7 @@ describe('WarehousesPage (LOGI-0001)', () => {
     seedWarehouse({ name: 'Central DC', address: '12 Industrial Rd' });
     seedWarehouse({ name: 'West Hub', address: '1 Harbor Way' });
 
-    renderApp();
+    renderAppAs('Admin');
 
     expect(await screen.findByText('Central DC')).toBeInTheDocument();
     expect(screen.getByText('West Hub')).toBeInTheDocument();
@@ -33,13 +21,13 @@ describe('WarehousesPage (LOGI-0001)', () => {
   });
 
   it('shows an empty state when there are no warehouses', async () => {
-    renderApp();
+    renderAppAs('Admin');
     expect(await screen.findByText('No warehouses found')).toBeInTheDocument();
   });
 
   it('AC-2: blocks create with empty name/address and shows field errors', async () => {
     const user = userEvent.setup();
-    renderApp();
+    renderAppAs('Admin');
 
     await user.click(await screen.findByRole('button', { name: 'New Warehouse' }));
     await user.click(await screen.findByRole('button', { name: 'Create' }));
@@ -50,7 +38,7 @@ describe('WarehousesPage (LOGI-0001)', () => {
 
   it('AC-1: creates a warehouse and shows it in the list', async () => {
     const user = userEvent.setup();
-    renderApp();
+    renderAppAs('Admin');
 
     await user.click(await screen.findByRole('button', { name: 'New Warehouse' }));
     await user.type(screen.getByLabelText('Warehouse name'), 'West Hub');
@@ -63,7 +51,7 @@ describe('WarehousesPage (LOGI-0001)', () => {
 
   it('AC-3: rejects out-of-range latitude before submit', async () => {
     const user = userEvent.setup();
-    renderApp();
+    renderAppAs('Admin');
 
     await user.click(await screen.findByRole('button', { name: 'New Warehouse' }));
     await user.type(screen.getByLabelText('Warehouse name'), 'Bad Coords');
@@ -77,7 +65,7 @@ describe('WarehousesPage (LOGI-0001)', () => {
   it('AC-6: edits an existing warehouse', async () => {
     const user = userEvent.setup();
     const seeded = seedWarehouse({ name: 'Old Name', address: '1 Old Ave' });
-    renderApp();
+    renderAppAs('Admin');
 
     await user.click(await screen.findByRole('button', { name: 'Edit warehouse Old Name' }));
     const nameField = screen.getByLabelText('Warehouse name') as HTMLInputElement;
@@ -96,7 +84,7 @@ describe('WarehousesPage (LOGI-0001)', () => {
   it('AC-7: deletes a warehouse after confirmation', async () => {
     const user = userEvent.setup();
     seedWarehouse({ name: 'Doomed DC', address: '9 Gone St' });
-    renderApp();
+    renderAppAs('Admin');
 
     await user.click(await screen.findByRole('button', { name: 'Delete warehouse Doomed DC' }));
     const dialog = await screen.findByRole('dialog', { name: 'Delete warehouse' });
@@ -110,7 +98,7 @@ describe('WarehousesPage (LOGI-0001)', () => {
     const user = userEvent.setup();
     seedWarehouse({ name: 'Central DC' });
     seedWarehouse({ name: 'West Hub' });
-    renderApp();
+    renderAppAs('Admin');
 
     await user.type(await screen.findByLabelText('Search by name'), 'west');
     await user.click(screen.getByRole('button', { name: 'Search warehouses' }));

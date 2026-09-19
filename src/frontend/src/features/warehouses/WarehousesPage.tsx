@@ -27,15 +27,23 @@ import {
 } from '@mui/material';
 import { DeleteIcon, EditIcon, SearchIcon } from '../../components/icons';
 import type { Warehouse } from '../../api/client';
+import { useAuth } from '../auth/AuthContext';
+import { can } from '../auth/permissions';
 import { useCreateWarehouse, useDeleteWarehouse, useUpdateWarehouse, useWarehouses } from './hooks';
 import WarehouseFormDialog from './WarehouseFormDialog';
 
-/** Warehouse master-data page — AC-1..AC-7 of LOGI-0001. */
+/** Warehouse master-data page — AC-1..AC-7 of LOGI-0001, role-gated per LOGI-0003 AC-12. */
 export default function WarehousesPage() {
   const [page, setPage] = useState(0); // MUI TablePagination is zero-based
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [searchText, setSearchText] = useState('');
   const [q, setQ] = useState('');
+
+  // Affordance gating derived from the contract's x-roles for /warehouses. Hiding these controls is
+  // a UX decision only — the server enforces the same rules and returns 403 regardless (HLD §7).
+  const { user } = useAuth();
+  const canEdit = user != null && can(user.role, 'editWarehouses');
+  const canDelete = user != null && can(user.role, 'deleteWarehouses');
 
   const { data, isPending, isError, error, refetch } = useWarehouses(page + 1, rowsPerPage, q);
   const createMutation = useCreateWarehouse();
@@ -91,7 +99,11 @@ export default function WarehousesPage() {
         <Typography variant="h5" component="h2">
           Warehouses
         </Typography>
-        <Button onClick={openCreate} data-testid="new-warehouse">New Warehouse</Button>
+        {canEdit && (
+          <Button onClick={openCreate} data-testid="new-warehouse">
+            New Warehouse
+          </Button>
+        )}
       </Box>
 
       <Box component="form" onSubmit={search} sx={{ display: 'flex', gap: 1, maxWidth: 480 }}>
@@ -154,16 +166,20 @@ export default function WarehousesPage() {
                   </TableCell>
                   <TableCell>{new Date(warehouse.createdAt).toLocaleString()}</TableCell>
                   <TableCell align="right">
-                    <Tooltip title="Edit">
-                      <IconButton size="small" aria-label={`Edit warehouse ${warehouse.name}`} onClick={() => openEdit(warehouse)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton size="small" aria-label={`Delete warehouse ${warehouse.name}`} onClick={() => setDeleting(warehouse)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    {canEdit && (
+                      <Tooltip title="Edit">
+                        <IconButton size="small" aria-label={`Edit warehouse ${warehouse.name}`} onClick={() => openEdit(warehouse)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {canDelete && (
+                      <Tooltip title="Delete">
+                        <IconButton size="small" aria-label={`Delete warehouse ${warehouse.name}`} onClick={() => setDeleting(warehouse)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

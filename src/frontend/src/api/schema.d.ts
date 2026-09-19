@@ -89,7 +89,7 @@ export interface paths {
         put?: never;
         /**
          * Issue access + refresh tokens
-         * @description Stub contract for LOGI-0003 (Identity + JWT + RBAC). Returns access and refresh tokens for valid credentials.
+         * @description Authenticates an email/password pair and returns a short-lived access token plus a single-use refresh token. Anonymous endpoint. Invalid credentials return 401 without revealing whether the email exists (BR-driven anti-enumeration).
          */
         post: operations["login"];
         delete?: never;
@@ -108,10 +108,50 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Refresh access token
-         * @description Stub contract for LOGI-0003 (Identity + JWT + RBAC). Exchanges a valid refresh token for a new access token.
+         * Rotate refresh token
+         * @description Exchanges a valid refresh token for a NEW access token and a NEW refresh token. The presented token is revoked in the same operation (rotation), so replaying it fails with 401. Anonymous endpoint — the refresh token itself is the credential.
          */
         post: operations["refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke a refresh token
+         * @description Revokes the supplied refresh token so it can never be exchanged again. Idempotent from the caller's perspective: returns 204 and does not disclose whether the token existed.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current authenticated user
+         * @description Returns the identity carried by the presented access token. Used by the SPA on start-up to restore session state and decide which UI affordances to render for the user's role.
+         */
+        get: operations["getCurrentUser"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -152,6 +192,51 @@ export interface components {
             };
             /** @example 00-abc123 */
             traceId?: string | null;
+        };
+        LoginRequest: {
+            /**
+             * Format: email
+             * @example dana@logiflow.dev
+             */
+            email: string;
+            /** Format: password */
+            password: string;
+        };
+        RefreshRequest: {
+            refreshToken: string;
+        };
+        /** @description Identity of an authenticated user. Never carries credential material (no hash, no stamp, no token). */
+        AuthUser: {
+            /**
+             * Format: int64
+             * @example 2
+             */
+            id: number;
+            /**
+             * Format: email
+             * @example dana@logiflow.dev
+             */
+            email: string;
+            /** @example Dana Doolittle */
+            fullName: string;
+            /**
+             * @example Dispatcher
+             * @enum {string}
+             */
+            role: "Admin" | "Dispatcher" | "Driver" | "Viewer";
+        };
+        TokenResponse: {
+            /** @description Signed JWT bearer token (lifetime = expiresIn seconds). */
+            accessToken: string;
+            /** @description Opaque, single-use rotating refresh token. Consumed and replaced by POST /auth/refresh. */
+            refreshToken: string;
+            /**
+             * Format: int32
+             * @description Access token lifetime in seconds.
+             * @example 900
+             */
+            expiresIn: number;
+            user: components["schemas"]["AuthUser"];
         };
         WarehouseRequest: {
             /** @example Central DC */
@@ -235,6 +320,15 @@ export interface components {
                 "application/json": components["schemas"]["ProblemDetails"];
             };
         };
+        /** @description The requested resource does not exist */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ProblemDetails"];
+            };
+        };
     };
     parameters: never;
     requestBodies: never;
@@ -288,6 +382,8 @@ export interface operations {
                     };
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     createWarehouse: {
@@ -313,6 +409,8 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getWarehouse: {
@@ -335,7 +433,9 @@ export interface operations {
                     "application/json": components["schemas"]["WarehouseResponse"];
                 };
             };
-            404: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     updateWarehouse: {
@@ -363,7 +463,9 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationProblem"];
-            404: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     deleteWarehouse: {
@@ -384,7 +486,9 @@ export interface operations {
                 };
                 content?: never;
             };
-            404: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     login: {
@@ -396,15 +500,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    /**
-                     * Format: email
-                     * @example dana@logiflow.dev
-                     */
-                    email: string;
-                    /** Format: password */
-                    password: string;
-                };
+                "application/json": components["schemas"]["LoginRequest"];
             };
         };
         responses: {
@@ -414,13 +510,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        access_token?: string;
-                        refresh_token?: string;
-                        expires_in?: number;
-                    };
+                    "application/json": components["schemas"]["TokenResponse"];
                 };
             };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     refresh: {
@@ -430,26 +524,67 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
-                "application/json": {
-                    refresh_token: string;
-                };
+                "application/json": components["schemas"]["RefreshRequest"];
             };
         };
         responses: {
-            /** @description New access token */
+            /** @description New token pair issued; the presented refresh token is revoked */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        access_token?: string;
-                        expires_in?: number;
-                    };
+                    "application/json": components["schemas"]["TokenResponse"];
                 };
             };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description Refresh token revoked (or already unusable) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationProblem"];
+        };
+    };
+    getCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authenticated user's identity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUser"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
 }
