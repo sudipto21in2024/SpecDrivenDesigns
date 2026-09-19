@@ -31,6 +31,7 @@ with minimal human intervention. Every file here is a contract the agents read, 
 | `08-ticketing-jira-analysis.md` | Jira free-tier + MCP cost/feasibility analysis and recommendation |
 | `09-sample-feature-spec.md` | Template + one worked example (Shipment Creation) |
 | `10-orchestration-kilocode-config.md` | Agent handoff protocol, state machine, guardrails |
+| `11-agent-context-and-execution.md` | State store, plans, micro-logging, handoffs, recovery (`tools/tracker/`) |
 | `11-BRD.md` | Business Requirements Document — objectives, scope, business rules |
 | `12-PRD.md` | Product Requirements Document — personas, features, flows, NFRs |
 | `13-HLD.md` | High-Level Design — architecture, components, diagrams, data flow, deployment |
