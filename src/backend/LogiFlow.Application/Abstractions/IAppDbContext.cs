@@ -9,5 +9,12 @@ namespace LogiFlow.Application.Abstractions;
 public interface IAppDbContext
 {
     DbSet<Domain.Warehouse> Warehouses { get; }
+
+    /// <summary>User accounts (ASP.NET Core Identity, `users` table) — LOGI-0003.</summary>
+    DbSet<Domain.AppUser> Users { get; }
+
+    /// <summary>Rotating refresh tokens (`refresh_tokens` table) — LOGI-0003.</summary>
+    DbSet<Domain.RefreshToken> RefreshTokens { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

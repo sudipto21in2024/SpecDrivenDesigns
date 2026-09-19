@@ -17,6 +17,13 @@ public static class DependencyInjection
         services.AddScoped<IValidator<Features.Warehouses.CreateWarehouseCommand>, Features.Warehouses.CreateWarehouseValidator>();
         services.AddScoped<IValidator<Features.Warehouses.UpdateWarehouseCommand>, Features.Warehouses.UpdateWarehouseValidator>();
         services.AddScoped<IValidator<Features.Warehouses.ListWarehousesQuery>, Features.Warehouses.ListWarehousesValidator>();
+
+        // LOGI-0003 auth use cases. Registered per-type (not assembly-scanned) to match the existing
+        // convention and keep the pipeline's validator set explicit.
+        services.AddScoped<IValidator<Features.Auth.LoginCommand>, Features.Auth.LoginCommandValidator>();
+        services.AddScoped<IValidator<Features.Auth.RefreshCommand>, Features.Auth.RefreshCommandValidator>();
+        services.AddScoped<IValidator<Features.Auth.LogoutCommand>, Features.Auth.LogoutCommandValidator>();
+
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
         return services;

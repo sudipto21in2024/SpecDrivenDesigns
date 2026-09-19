@@ -11,6 +11,11 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+    <!-- JwtTokenService builds/reads JWTs directly. Pinned to the exact version the Api project's
+         JwtBearer 9.0.0 resolves transitively, so the two projects cannot disagree at runtime. -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+    <!-- Bind JwtOptions from the "Jwt" configuration section (Configure<T>(IConfigurationSection)). -->
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>

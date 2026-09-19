@@ -1,19 +1,16 @@
-using System.Text.Json;
 using FluentValidation;
 using LogiFlow.Application.Common;
-using Microsoft.AspNetCore.Http.Json;
 
 namespace LogiFlow.Api.Middleware;
 
 /// <summary>
 /// Converts application exceptions into the RFC 7807 ProblemDetails envelope defined in
 /// 05-api-contract-standards.md: ValidationException → 400 with errors map,
-/// NotFoundException → 404, anything else → 500 (details hidden).
+/// UnauthorizedException → 401 with a bearer challenge, NotFoundException → 404,
+/// anything else → 500 (details hidden).
 /// </summary>
 public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     public async Task InvokeAsync(HttpContext context)
     {
         try
@@ -26,13 +23,22 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
                 .GroupBy(failure => failure.PropertyName, failure => failure.ErrorMessage)
                 .ToDictionary(group => ToCamelCase(group.Key), group => group.ToArray());
 
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest,
+            await ProblemDetailsWriter.WriteAsync(context, StatusCodes.Status400BadRequest,
                 "https://logiflow.dev/errors/validation", "Validation failed",
                 "One or more validation errors occurred.", errors);
         }
+        catch (UnauthorizedException unauthorized)
+        {
+            // Raised by the auth handlers for bad credentials or an unusable refresh token
+            // (LOGI-0003 AC-2, AC-7). A bearer challenge accompanies the 401 for consistency with
+            // the framework's own authentication failures.
+            await ProblemDetailsWriter.WriteAsync(context, StatusCodes.Status401Unauthorized,
+                "https://logiflow.dev/errors/unauthorized", "Unauthorized",
+                unauthorized.Message, null, bearerChallenge: true);
+        }
         catch (NotFoundException notFound)
         {
-            await WriteProblemAsync(context, StatusCodes.Status404NotFound,
+            await ProblemDetailsWriter.WriteAsync(context, StatusCodes.Status404NotFound,
                 "https://logiflow.dev/errors/not-found", "Resource not found",
                 notFound.Message, null);
         }
@@ -40,7 +46,7 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         {
             logger.LogError(exception, "Unhandled exception while processing {Method} {Path}",
                 context.Request.Method, context.Request.Path);
-            await WriteProblemAsync(context, StatusCodes.Status500InternalServerError,
+            await ProblemDetailsWriter.WriteAsync(context, StatusCodes.Status500InternalServerError,
                 "https://logiflow.dev/errors/internal", "Internal server error",
                 "An unexpected error occurred.", null);
         }
@@ -48,29 +54,4 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
 
     private static string ToCamelCase(string name) =>
         string.IsNullOrEmpty(name) ? name : char.ToLowerInvariant(name[0]) + name[1..];
-
-    private static async Task WriteProblemAsync(HttpContext context, int statusCode, string type,
-        string title, string? detail, Dictionary<string, string[]>? errors)
-    {
-        if (context.Response.HasStarted)
-        {
-            return;
-        }
-
-        context.Response.Clear();
-        context.Response.StatusCode = statusCode;
-        context.Response.ContentType = "application/problem+json";
-
-        var problem = new Dictionary<string, object?>
-        {
-            ["type"] = type,
-            ["title"] = title,
-            ["status"] = statusCode,
-            ["detail"] = detail,
-            ["errors"] = errors,
-            ["traceId"] = context.TraceIdentifier,
-        };
-
-        await context.Response.WriteAsync(JsonSerializer.Serialize(problem, JsonOptions));
-    }
 }

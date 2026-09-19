@@ -2,21 +2,37 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using LogiFlow.Domain.Security;
 using Xunit;
 
 namespace LogiFlow.Api.Tests;
 
-/// <summary>Integration tests for the warehouse CRUD endpoints (LOGI-0001 ACs).</summary>
-public class WarehouseEndpointsTests : IClassFixture<LogiFlowTestFactory>
+/// <summary>
+/// Integration tests for the warehouse CRUD endpoints (LOGI-0001 ACs).
+///
+/// Since LOGI-0003 these endpoints enforce the contract's x-roles, so the suite signs in as the
+/// seeded Admin — the only role permitted the full create/read/update/delete set. Role-restricted
+/// behaviour (401 without a token, 403 for a disallowed role) is asserted in
+/// <see cref="AuthEndpointsTests"/> rather than duplicated here.
+/// </summary>
+public class WarehouseEndpointsTests : IClassFixture<LogiFlowTestFactory>, IAsyncLifetime
 {
     private readonly LogiFlowTestFactory _factory;
-    private readonly HttpClient _client;
+    private HttpClient _client = null!;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    public WarehouseEndpointsTests(LogiFlowTestFactory factory)
+    public WarehouseEndpointsTests(LogiFlowTestFactory factory) => _factory = factory;
+
+    public async Task InitializeAsync()
     {
-        _factory = factory;
-        _client = factory.CreateClient();
+        _client = _factory.CreateClient();
+        await _client.SignInAsync(Roles.Admin);
+    }
+
+    public Task DisposeAsync()
+    {
+        _client.Dispose();
+        return Task.CompletedTask;
     }
 
     private async Task<long> CreateWarehouseAsync(string name = "Central DC", string address = "12 Industrial Rd")

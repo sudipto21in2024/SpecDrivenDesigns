@@ -1,5 +1,8 @@
+using LogiFlow.Domain;
+using LogiFlow.Infrastructure;
 using LogiFlow.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace LogiFlow.Api.Tests;
 
@@ -37,7 +41,11 @@ public class LogiFlowTestFactory : WebApplicationFactory<Program>
         });
     }
 
-    /// <summary>Applies the schema to the shared in-memory database before requests are served.</summary>
+    /// <summary>
+    /// Applies the schema to the shared in-memory database and seeds the role-representative users
+    /// before requests are served. Seeding goes through the same <see cref="SeedData"/> the API uses
+    /// in Development, so test credentials cannot drift from the documented dev credentials.
+    /// </summary>
     private class DatabaseInitializerHostedService(Func<IServiceScope> scopeFactory) : IHostedService
     {
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -45,6 +53,11 @@ public class LogiFlowTestFactory : WebApplicationFactory<Program>
             using var scope = scopeFactory();
             var db = scope.ServiceProvider.GetRequiredService<LogiFlowDbContext>();
             await db.Database.EnsureCreatedAsync(cancellationToken);
+
+            await SeedData.EnsureSeededAsync(
+                scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>(),
+                scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(SeedData)),
+                cancellationToken);
         }
 
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
