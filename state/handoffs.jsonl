@@ -1,2 +1,3 @@
 {"ts":"2026-09-19T17:59:23.061Z","type":"HANDOFF","ticket":"LOGI-0003","from":"backend","to":"frontend","summary_ptr":"memory/journal/LOGI-0003.md#backend-arm","gates":["dotnet test 20/20","npm test 18/18"]}
 {"ts":"2026-09-19T18:08:31.199Z","type":"HANDOFF","ticket":"LOGI-0003","from":"frontend","to":"qa","summary_ptr":"memory/journal/LOGI-0003.md#frontend-arm","gates":["npm test 18/18","npm run build green"]}
+{"ts":"2026-09-19T18:48:21.057Z","type":"HANDOFF","ticket":"LOGI-0003","from":"qa","to":"docs","summary_ptr":"memory/journal/LOGI-0003.md#qa-arm","gates":["npx playwright test 21/21","tsc --noEmit green","git tree free of runtime artifacts"]}
