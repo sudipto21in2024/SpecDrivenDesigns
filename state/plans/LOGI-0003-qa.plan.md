@@ -33,7 +33,7 @@ green locally.
 ## 4. Steps (each with verify gate)
 - [x] 1. Verify/finish `seedWarehouse` signature reconciliation across specs + page objects → verify: `npx tsc --noEmit` (e2e) green — 2026-09-19 (tsc 5.9.3 exit 0)
 - [x] 2. Fix AC-12 auth.spec pagination-visible assertions (use `findRow`) → verify: `npx tsc --noEmit` green — 2026-09-19 (all 3 AC-12 tests now search-then-assert)
-- [ ] 3. Add `.gitignore` entries for SQLite sidecars; remove stale `test-results/` traces → verify: `git status` clean of runtime artifacts
+- [x] 3. Add `.gitignore` entries for SQLite sidecars; remove stale `test-results/` traces → verify: `git status` clean of runtime artifacts — 2026-09-19 (tracked `logiflow.db-shm/-wal` deletions staged; test-results was already ignored, stale traces deleted)
 - [ ] 4. Run full e2e gate → verify: `npx playwright test` green (all specs)
 
 ## 5. Risks / open questions
