@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0003
 arm: qa
-status: locked
+status: done
 created: 2026-09-19T18:26:46.167Z
 depends_on_plans: LOGI-0003-backend,LOGI-0003-frontend
 ---
@@ -34,7 +34,7 @@ green locally.
 - [x] 1. Verify/finish `seedWarehouse` signature reconciliation across specs + page objects → verify: `npx tsc --noEmit` (e2e) green — 2026-09-19 (tsc 5.9.3 exit 0)
 - [x] 2. Fix AC-12 auth.spec pagination-visible assertions (use `findRow`) → verify: `npx tsc --noEmit` green — 2026-09-19 (all 3 AC-12 tests now search-then-assert)
 - [x] 3. Add `.gitignore` entries for SQLite sidecars; remove stale `test-results/` traces → verify: `git status` clean of runtime artifacts — 2026-09-19 (tracked `logiflow.db-shm/-wal` deletions staged; test-results was already ignored, stale traces deleted)
-- [ ] 4. Run full e2e gate → verify: `npx playwright test` green (all specs)
+- [x] 4. Run full e2e gate → verify: `npx playwright test` green (all specs) — 2026-09-19: run 1 20/21 (AC-6 stale old-name filter → findRow(newName) fix), run 2 **21/21 green (20.2s, 2 workers)**
 
 ## 5. Risks / open questions
 - Prior local run failed 3/16 (AC-12 Admin controls, AC-6, AC-7) because both spec files ran
@@ -45,6 +45,11 @@ green locally.
   timing — the pagination fix makes order irrelevant.
 - Playwright needs a Release backend build (`--no-build`) + frontend build in webServer; both exist.
 - Playwright browsers must be installed locally (`npx playwright install`) if missing.
+- RESOLVED during execution: two root causes of the prior failed run — (1) pagination: rows beyond
+  page 1 only reachable via server-side search → all row-visibility asserts now go through
+  `findRow()`; (2) AC-6 rename: the list stays filtered by the old name server-side → re-search by
+  the new name after the toast. `fullyParallel: false` + default 2 workers kept as-is: run 2 proved
+  the file interleave harmless once asserts are search-driven (name-token scoped, no count asserts).
 
 ## 6. Exit gates
 - `npx playwright test` green (all specs, from `tests/e2e`)

@@ -101,7 +101,10 @@ test.describe('LOGI-0001 Warehouse CRUD', () => {
     await warehouses.saveEdit();
 
     await warehouses.expectToast('Warehouse updated');
-    await expect(warehouses.row(newName)).toBeVisible();
+
+    // The search box still filters by the old name server-side after the rename, so the renamed row
+    // never enters the current page: re-search by the new name, then assert the old name is gone.
+    await warehouses.findRow(newName);
     await expect(warehouses.row(oldName)).toBeHidden();
   });
 
