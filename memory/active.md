@@ -4,31 +4,31 @@
 > Authoritative position: `node tools/tracker/index.mjs current` + this file.
 
 ## Current work
-- **Session 2026-09-20: queue drained — LOGI-0003 docs arm + LOGI-0002 both DONE.**
-  - LOGI-0003 docs arm sealed: plan `state/plans/LOGI-0003-docs.plan.md` (3/3 ticked, done).
-    Commit `d1ec277` (manifest-exact, 4 files 416+/41−): ADR-007 + auth contract (root
-    `security: [BearerAuth]`; anonymous only /health + /auth/*; 401/403 on every protected op;
-    camelCase TokenResponse; /auth/logout 204 + /auth/me; 404→NotFound) + schema mirror
-    (Identity `users` + `refresh_tokens`) + spec front matter → `done`. Handoff docs→done.
-  - LOGI-0002 (spec-only) sealed: plan `state/plans/LOGI-0002-docs.plan.md` (4/4 ticked, done).
-    AC-1..7 verified vs `11-BRD.md` §6; one gap closed (AC-4 whole-second precision now
-    explicit in BR doc §3). Commits: `896d3ab` (BR doc + spec, 2 files 284+) → `55c4641`
-    (PROJECT_STATUS rows #2/#3 → DONE, §7 item 9). Journal `memory/journal/LOGI-0002.md`.
-    Handoff docs→done.
-  - Gates this session: content reviews (contract ⇔ 21/21 e2e, schema ⇔ migration, BR doc ⇔
-    BRD §6); **spectral lint green locally for the first time** — `npx -y @stoplight/spectral-cli
-    lint contracts/v1-openapi.yaml` → "No results with a severity of 'error' found".
-  - Housekeeping: removed stray untracked `nul` file (POSIX `2>nul` slip).
+- **Session 2026-09-20 (cont.): LOGI-0004 architect arm DONE, handed off to backend.**
+  - Plan `state/plans/LOGI-0004-architect.plan.md` (3/3 ticked, done): was a stale
+    template from the previous session — rewrote with real §2/§3/§4, validated, locked,
+    claimed, executed in the main thread (single-session orchestration; no child tasks).
+  - Step 1: `specs/features/LOGI-0004-vehicles-crud.md` (AC-1..AC-9, PRD F2; RBAC from
+    day one per ADR-007) → front matter `spec_approved`.
+  - Step 2: `contracts/v1-openapi.yaml` additive 143+/0− (`VehicleRequest`/`VehicleResponse`,
+    `/vehicles` + `/vehicles/{id}`, `Conflict` component; x-roles mirror warehouses) →
+    spectral (`--ruleset contracts/.spectral.yaml`) **0 errors**; 15 operationIds, no dupes.
+  - Step 3: journal `memory/journal/LOGI-0004.md` sealed; **human checkpoint APPROVED**
+    → commit `f1964d2` (3 files, 307+) → `STEP_DONE` + plan `done` + handoff
+    architect→backend (gates: spectral-0-errors, additive-143+/0−, checkpoint-approved).
+  - Note: spectral needs the explicit `--ruleset contracts/.spectral.yaml` flag locally
+    (bare `lint <file>` exits 2 with "No ruleset has been found").
 - Scoreboard: LOGI-0000 ✅ · LOGI-0001 ✅ (CI 35339953505) · LOGI-0002 ✅ · LOGI-0003 ✅
-  (backend 20/20 + frontend 18/18 + e2e 21/21). Pushed through `55c4641` (docs commits).
+  (backend 20/20 + frontend 18/18 + e2e 21/21) · LOGI-0004 architect ✅ (spec+contract).
 
 ## Next action
-1. **LOGI-0004 (Vehicle CRUD + status enum) — spec-first:** author
-   `specs/features/LOGI-0004-*.md` + `/vehicles` contract extension (x-roles + 401/403 per the
-   ADR-007 pattern now live repo-wide) + schema-doc `vehicles` mirror (+ ADR only if a new
-   decision is made); human checkpoint per `03-spec-driven-workflow.md`; then plan+lock
-   backend/frontend/qa arms as for LOGI-0003.
-2. Watch the GitHub CI run for `55c4641..` (docs-only changes; spectral verified green locally).
+1. **LOGI-0004 backend arm:** plan+lock `state/plans/LOGI-0004-backend.plan.md`
+   (migration `<Timestamp>_LOGI-0004_AddVehicles` + MediatR CRUD + unique-plate 409 +
+   RBAC policies + tests), then frontend (typed client regen + `features/vehicles/*`),
+   then QA (`tests/e2e/vehicles.spec.ts` AC-1..AC-9). Migration plan + deferred items
+   (delete-when-referenced 409 enforcement → LOGI-0009; no status lifecycle in v1) are in
+   the journal architect-arm section.
+2. Push `f1964d2` (+ platform chore) and watch GitHub CI.
 
 ## Blockers / open questions
 - None blocking. All LOGI-0002/0003 artifacts committed & pushed; working tree clean after
