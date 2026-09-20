@@ -119,6 +119,39 @@ components:
         latitude: { type: number, format: double, nullable: true, example: 51.9244 }
         longitude: { type: number, format: double, nullable: true, example: 4.4777 }
         createdAt: { type: string, format: date-time, example: 2026-09-18T08:00:00Z }
+    VehicleRequest:
+      type: object
+      required: [plateNumber, type, capacityKg]
+      properties:
+        plateNumber:
+          type: string
+          minLength: 1
+          maxLength: 20
+          example: RT-8421-X
+        type:
+          type: string
+          enum: [Van, Truck, Trailer]
+          example: Truck
+        capacityKg:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+          example: 12000
+        status:
+          type: string
+          enum: [Available, InRoute, Maintenance]
+          default: Available
+          example: Available
+    VehicleResponse:
+      type: object
+      required: [id, plateNumber, type, capacityKg, status, createdAt]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        plateNumber: { type: string, example: RT-8421-X }
+        type: { type: string, enum: [Van, Truck, Trailer], example: Truck }
+        capacityKg: { type: number, format: double, example: 12000 }
+        status: { type: string, enum: [Available, InRoute, Maintenance], example: Available }
+        createdAt: { type: string, format: date-time, example: 2026-09-20T00:00:00Z }
     PagedResponse:
       type: object
       description: Envelope for all list endpoints (max pageSize 100, default 25).
@@ -150,6 +183,11 @@ components:
           schema: { $ref: '#/components/schemas/ProblemDetails' }
     NotFound:
       description: The requested resource does not exist
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Conflict:
+      description: Conflicting state — e.g. a unique constraint violation or a referenced resource
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ProblemDetails' }
@@ -274,6 +312,111 @@ paths:
         "401": { $ref: '#/components/responses/Unauthorized' }
         "403": { $ref: '#/components/responses/Forbidden' }
         "404": { $ref: '#/components/responses/NotFound' }
+  /vehicles:
+    get:
+      tags: [Vehicles]
+      summary: List vehicles (paged)
+      description: >
+        Returns a paged list of vehicles. Query params: page (default 1),
+        pageSize (default 25, max 100), q (plate number contains, case-insensitive),
+        status (Available/InRoute/Maintenance), type (Van/Truck/Trailer).
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: listVehicles
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1, minimum: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 25, minimum: 1, maximum: 100 } }
+        - { name: q, in: query, description: "Filter by plate number (contains, case-insensitive)", schema: { type: string } }
+        - { name: status, in: query, description: "Filter by status", schema: { type: string, enum: [Available, InRoute, Maintenance] } }
+        - { name: type, in: query, description: "Filter by vehicle type", schema: { type: string, enum: [Van, Truck, Trailer] } }
+      responses:
+        "200":
+          description: Paged vehicle list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PagedResponse' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/VehicleResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Vehicles]
+      summary: Create vehicle
+      description: Creates a vehicle. Plate number, type and a positive capacityKg are required; status defaults to Available. Duplicate plate numbers are rejected with 409.
+      x-roles: [Admin, Dispatcher]
+      operationId: createVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VehicleRequest' }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VehicleResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /vehicles/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [Vehicles]
+      summary: Get vehicle by id
+      description: Returns a single vehicle. Responds 404 when the id does not exist.
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: getVehicle
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VehicleResponse' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Vehicles]
+      summary: Update vehicle (full update)
+      description: Replaces plate number, type, capacity and status. Responds 404 when the id does not exist, 409 when the plate number collides with another vehicle.
+      x-roles: [Admin, Dispatcher]
+      operationId: updateVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VehicleRequest' }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VehicleResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "409": { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Vehicles]
+      summary: Delete vehicle
+      description: Hard delete in v1 (no soft-delete column). Responds 409 when the vehicle is referenced by a route (routes arrive in LOGI-0009).
+      x-roles: [Admin]
+      operationId: deleteVehicle
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }
   /auth/login:
     post:
       tags: [Auth]
