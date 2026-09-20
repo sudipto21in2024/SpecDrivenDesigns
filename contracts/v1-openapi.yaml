@@ -54,6 +54,45 @@ components:
             type: array
             items: { type: string }
         traceId: { type: string, nullable: true, example: "00-abc123" }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 256, example: dana@logiflow.dev }
+        password: { type: string, format: password, minLength: 1, maxLength: 128 }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string, minLength: 1 }
+    AuthUser:
+      type: object
+      description: Identity of an authenticated user. Never carries credential material (no hash, no stamp, no token).
+      required: [id, email, fullName, role]
+      properties:
+        id: { type: integer, format: int64, example: 2 }
+        email: { type: string, format: email, example: dana@logiflow.dev }
+        fullName: { type: string, example: Dana Doolittle }
+        role:
+          type: string
+          enum: [Admin, Dispatcher, Driver, Viewer]
+          example: Dispatcher
+    TokenResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresIn, user]
+      properties:
+        accessToken:
+          type: string
+          description: Signed JWT bearer token (lifetime = expiresIn seconds).
+        refreshToken:
+          type: string
+          description: Opaque, single-use rotating refresh token. Consumed and replaced by POST /auth/refresh.
+        expiresIn:
+          type: integer
+          format: int32
+          description: Access token lifetime in seconds.
+          example: 900
+        user: { $ref: '#/components/schemas/AuthUser' }
     WarehouseRequest:
       type: object
       required: [name, address]
@@ -109,6 +148,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ProblemDetails' }
+    NotFound:
+      description: The requested resource does not exist
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
   # Conventions per 05-api-contract-standards.md §Auth + §Status transitions
   x-role-sets:
     Admin: [Admin]
@@ -125,7 +169,6 @@ paths:
       summary: Service health
       description: Liveness probe used by CI, Playwright webServer readiness checks, and container orchestration.
       security: []
-      x-roles: [Admin, Dispatcher, Driver, Viewer]
       operationId: getHealth
       responses:
         "200":
@@ -140,7 +183,6 @@ paths:
       description: >
         Returns a paged list of warehouses. Query params: page (default 1),
         pageSize (default 25, max 100), q (name contains, case-insensitive).
-      security: []
       x-roles: [Admin, Dispatcher, Viewer]
       operationId: listWarehouses
       parameters:
@@ -160,11 +202,12 @@ paths:
                       items:
                         type: array
                         items: { $ref: '#/components/schemas/WarehouseResponse' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Warehouses]
       summary: Create warehouse
       description: Creates a warehouse. Name and address are required; coordinates optional but range-validated.
-      security: []
       x-roles: [Admin, Dispatcher]
       operationId: createWarehouse
       requestBody:
@@ -179,6 +222,8 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/WarehouseResponse' }
         "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
   /warehouses/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
@@ -186,7 +231,6 @@ paths:
       tags: [Warehouses]
       summary: Get warehouse by id
       description: Returns a single warehouse. Responds 404 when the id does not exist.
-      security: []
       x-roles: [Admin, Dispatcher, Viewer]
       operationId: getWarehouse
       responses:
@@ -195,12 +239,13 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WarehouseResponse' }
-        "404": { $ref: '#/components/responses/ValidationProblem' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
     put:
       tags: [Warehouses]
       summary: Update warehouse (full update)
       description: Replaces name, address and coordinates. Responds 404 when the id does not exist.
-      security: []
       x-roles: [Admin, Dispatcher]
       operationId: updateWarehouse
       requestBody:
@@ -215,71 +260,98 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/WarehouseResponse' }
         "400": { $ref: '#/components/responses/ValidationProblem' }
-        "404": { $ref: '#/components/responses/ValidationProblem' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
     delete:
       tags: [Warehouses]
       summary: Delete warehouse
       description: Hard delete in v1 (no soft-delete column). Later restricted once shipments reference warehouses.
-      security: []
       x-roles: [Admin]
       operationId: deleteWarehouse
       responses:
         "204": { description: Deleted }
-        "404": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
   /auth/login:
     post:
       tags: [Auth]
       summary: Issue access + refresh tokens
-      description: Stub contract for LOGI-0003 (Identity + JWT + RBAC). Returns access and refresh tokens for valid credentials.
+      description: >
+        Authenticates an email/password pair and returns a short-lived access token plus a
+        single-use refresh token. Anonymous endpoint. Invalid credentials return 401 without
+        revealing whether the email exists (BR-driven anti-enumeration).
       security: []
-      x-roles: [Admin, Dispatcher, Driver, Viewer]
       operationId: login
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [email, password]
-              properties:
-                email: { type: string, format: email, example: dana@logiflow.dev }
-                password: { type: string, format: password }
+            schema: { $ref: '#/components/schemas/LoginRequest' }
       responses:
         "200":
           description: Tokens issued
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  access_token: { type: string }
-                  refresh_token: { type: string }
-                  expires_in: { type: integer }
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
   /auth/refresh:
     post:
       tags: [Auth]
-      summary: Refresh access token
-      description: Stub contract for LOGI-0003 (Identity + JWT + RBAC). Exchanges a valid refresh token for a new access token.
+      summary: Rotate refresh token
+      description: >
+        Exchanges a valid refresh token for a NEW access token and a NEW refresh token. The
+        presented token is revoked in the same operation (rotation), so replaying it fails with
+        401. Anonymous endpoint — the refresh token itself is the credential.
       security: []
-      x-roles: [Admin, Dispatcher, Driver, Viewer]
       operationId: refresh
       requestBody:
+        required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [refresh_token]
-              properties:
-                refresh_token: { type: string }
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
       responses:
         "200":
-          description: New access token
+          description: New token pair issued; the presented refresh token is revoked
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  access_token: { type: string }
-                  expires_in: { type: integer }
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke a refresh token
+      description: >
+        Revokes the supplied refresh token so it can never be exchanged again. Idempotent from the
+        caller's perspective: returns 204 and does not disclose whether the token existed.
+      security: []
+      operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        "204": { description: Refresh token revoked (or already unusable) }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Current authenticated user
+      description: >
+        Returns the identity carried by the presented access token. Used by the SPA on start-up to
+        restore session state and decide which UI affordances to render for the user's role.
+      operationId: getCurrentUser
+      x-roles: [Admin, Dispatcher, Driver, Viewer]
+      responses:
+        "200":
+          description: Authenticated user's identity
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthUser' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
 security:
   - BearerAuth: []

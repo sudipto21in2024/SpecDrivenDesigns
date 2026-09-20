@@ -76,12 +76,35 @@ User      1---1 Driver (optional link, for driver-role logins)
 | actual_end | TEXT NULL | |
 
 ### users
+ASP.NET Core Identity table, extended. `IdentityUser<long>` with an added scalar `role`; the schema
+deliberately uses a single role column instead of the `AspNetUserRoles` join table (ADR-007).
+
 | Column | Type | Notes |
 |---|---|---|
-| id | INTEGER PK | ASP.NET Core Identity table, extended |
-| email | TEXT NOT NULL UNIQUE | |
+| id | INTEGER PK | `long`, Identity-generated |
+| email | TEXT NOT NULL UNIQUE | `IdentityUser.Email`; normalised copy `normalized_email` is UNIQUE |
+| normalized_email | TEXT NOT NULL UNIQUE | Identity requirement for case-insensitive lookup |
+| password_hash | TEXT NOT NULL | Identity default PBKDF2 (`IdentityV3`, 100k iterations) — never plaintext |
+| security_stamp | TEXT | Identity requirement; rotated on credential change |
+| full_name | TEXT NOT NULL | Display name (Identity `DisplayName` is unused in favour of this) |
 | role | TEXT NOT NULL | enum: Admin, Dispatcher, Driver, Viewer |
-| full_name | TEXT NOT NULL | |
+| concurrency_stamp | TEXT | Identity requirement |
+| email_confirmed | INTEGER NOT NULL | Identity requirement; seeded users are confirmed |
+| lockout_enabled | INTEGER NOT NULL | Identity requirement |
+| access_failed_count | INTEGER NOT NULL | Identity requirement (lockout support) |
+| lockout_end | TEXT NULL | Identity requirement |
+
+### refresh_tokens
+Opaque rotating refresh tokens (ADR-007). Tokens are stored **hashed**, never in clear text.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | INTEGER PK | |
+| user_id | INTEGER FK -> users.id | Cascade delete |
+| token_hash | TEXT NOT NULL UNIQUE | SHA-256 of the opaque token; the raw token is only ever returned to the client |
+| expires_at | TEXT NOT NULL | ISO8601 UTC; 7 days from issue |
+| created_at | TEXT NOT NULL | ISO8601 UTC |
+| revoked_at | TEXT NULL | Set on rotation, logout and reuse attempts; NULL = active |
 
 ### shipment_status_history (audit trail)
 | Column | Type | Notes |
@@ -97,7 +120,8 @@ User      1---1 Driver (optional link, for driver-role logins)
 ## Indexing rules (Database Agent must apply)
 
 - Unique index on `shipments.reference_code`, `vehicles.plate_number`, `drivers.license_number`.
-- Index on `shipments.status` and `shipments.sla_due_at` (dashboard queries filter/sort on these).
+- Unique index on `users.normalized_email` and on `refresh_tokens.token_hash` (refresh lookups are by hash).
+- Index on `refresh_tokens.user_id` (revoke-all-for-user) and on `shipments.status` and `shipments.sla_due_at` (dashboard queries filter/sort on these).
 - Index on `routes.status`.
 - Foreign keys enforced (`PRAGMA foreign_keys = ON` in SQLite connection string).
 
