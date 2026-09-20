@@ -20,6 +20,15 @@ export const capabilities = {
 
   /** DELETE /warehouses/{id} — x-roles: [Admin] only. */
   deleteWarehouses: (role: Role): boolean => role === 'Admin',
+
+  /** GET /vehicles, /vehicles/{id} — every authenticated role may read master data. */
+  viewVehicles: (role: Role): boolean => allRoles.includes(role),
+
+  /** POST/PUT /vehicles — x-roles: [Admin, Dispatcher] (same matrix as warehouses). */
+  editVehicles: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
+
+  /** DELETE /vehicles/{id} — x-roles: [Admin] only. */
+  deleteVehicles: (role: Role): boolean => role === 'Admin',
 } as const;
 
 const allRoles: readonly Role[] = ['Admin', 'Dispatcher', 'Driver', 'Viewer'];

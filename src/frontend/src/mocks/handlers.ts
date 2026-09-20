@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AuthUser, ProblemDetails, Role, Warehouse, WarehouseInput } from '../api/client';
+import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput } from '../api/client';
 
 /**
  * MSW handlers derived from contracts/v1-openapi.yaml (ADR-004). The in-memory store mirrors the API
@@ -12,6 +12,7 @@ import type { AuthUser, ProblemDetails, Role, Warehouse, WarehouseInput } from '
  */
 
 export const warehousesDb: Warehouse[] = [];
+export const vehiclesDb: Vehicle[] = [];
 let nextId = 1;
 
 /** Access tokens issued by the mock login, mapped to the user they identify. */
@@ -38,6 +39,28 @@ const roleRules: Record<Role, { read: boolean; write: boolean; delete: boolean }
 
 export function resetWarehousesDb(seed: Warehouse[] = []): void {
   warehousesDb.splice(0, warehousesDb.length, ...seed);
+}
+
+/** Clears the vehicle store and re-seeds the shared id counter when both stores are empty. */
+export function resetVehiclesDb(seed: Vehicle[] = []): void {
+  vehiclesDb.splice(0, vehiclesDb.length, ...seed);
+  if (warehousesDb.length === 0 && seed.length === 0) nextId = 1;
+}
+
+/** Inserts a vehicle into the mock store, mirroring the API defaults (status → Available). */
+export function seedVehicle(overrides: Partial<Vehicle> = {}): Vehicle {
+  const id = nextId++;
+  const vehicle: Vehicle = {
+    id,
+    plateNumber: `RT-${String(id).padStart(4, '0')}-X`,
+    type: 'Truck',
+    capacityKg: 12000,
+    status: 'Available',
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  };
+  vehiclesDb.push(vehicle);
+  return vehicle;
 }
 
 /** Clears issued sessions — call alongside resetWarehousesDb in tests. */
@@ -126,6 +149,36 @@ function validate(body: Partial<WarehouseInput>): Record<string, string[]> | und
   if (body.longitude !== null && body.longitude !== undefined && (body.longitude < -180 || body.longitude > 180))
     errors.longitude = ['Longitude must be between -180 and 180'];
   return Object.keys(errors).length > 0 ? errors : undefined;
+}
+
+const vehicleTypes = ['Van', 'Truck', 'Trailer'];
+const vehicleStatuses = ['Available', 'InRoute', 'Maintenance'];
+
+/** Mirrors the CreateVehicleValidator rules (LOGI-0004 AC-2/AC-4/AC-5/AC-6). */
+function validateVehicle(body: Partial<VehicleInput>): Record<string, string[]> | undefined {
+  const errors: Record<string, string[]> = {};
+  if (!body.plateNumber || body.plateNumber.trim() === '') errors.plateNumber = ['Plate number is required'];
+  else if (body.plateNumber.length > 20) errors.plateNumber = ['Plate number must be at most 20 characters'];
+  if (!body.type || !vehicleTypes.includes(body.type)) errors.type = ['Type must be one of: Van, Truck, Trailer.'];
+  if (body.capacityKg === null || body.capacityKg === undefined || body.capacityKg <= 0)
+    errors.capacityKg = ['Capacity must be greater than 0'];
+  if (body.status !== null && body.status !== undefined && !vehicleStatuses.includes(body.status))
+    errors.status = ['Status must be one of: Available, InRoute, Maintenance.'];
+  return Object.keys(errors).length > 0 ? errors : undefined;
+}
+
+/** 409 for unique-key collisions (duplicate plate), mirroring ConflictException → problem+json. */
+function problem409(detail: string): HttpResponse<ProblemDetails> {
+  return HttpResponse.json(
+    {
+      type: 'https://logiflow.dev/errors/conflict',
+      title: 'Conflict',
+      status: 409,
+      detail,
+      traceId: 'msw',
+    },
+    { status: 409 },
+  );
 }
 
 export const handlers = [
@@ -260,6 +313,105 @@ export const handlers = [
     const index = warehousesDb.findIndex((w) => w.id === Number(params.id));
     if (index === -1) return problem(404, 'Resource not found', `Warehouse with id '${String(params.id)}' was not found.`);
     warehousesDb.splice(index, 1);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  // ---------------------------------------------------------------- Vehicles (LOGI-0004)
+
+  http.get('/api/v1/vehicles', ({ request }) => {
+    const auth = authorize(request, 'read', 'vehicles');
+    if (!('user' in auth)) return auth;
+
+    const url = new URL(request.url);
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? '1'));
+    const pageSize = Math.min(100, Math.max(1, Number(url.searchParams.get('pageSize') ?? '25')));
+    const q = (url.searchParams.get('q') ?? '').toLowerCase();
+    const status = url.searchParams.get('status');
+    const type = url.searchParams.get('type');
+
+    const filtered = vehiclesDb.filter(
+      (v) =>
+        (q === '' || v.plateNumber.toLowerCase().includes(q)) &&
+        (status === null || status === '' || v.status === status) &&
+        (type === null || type === '' || v.type === type),
+    );
+    const totalCount = filtered.length;
+    const items = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+    return HttpResponse.json({
+      items,
+      page,
+      pageSize,
+      totalCount,
+      totalPages: Math.ceil(totalCount / pageSize),
+    });
+  }),
+
+  http.get('/api/v1/vehicles/:id', ({ request, params }) => {
+    const auth = authorize(request, 'read', 'vehicles');
+    if (!('user' in auth)) return auth;
+
+    const vehicle = vehiclesDb.find((v) => v.id === Number(params.id));
+    return vehicle
+      ? HttpResponse.json(vehicle)
+      : problem(404, 'Resource not found', `Vehicle with id '${String(params.id)}' was not found.`);
+  }),
+
+  http.post('/api/v1/vehicles', async ({ request }) => {
+    const auth = authorize(request, 'write', 'vehicles');
+    if (!('user' in auth)) return auth;
+
+    const body = (await request.json()) as VehicleInput;
+    const errors = validateVehicle(body);
+    if (errors) return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+
+    const plate = body.plateNumber.trim();
+    if (vehiclesDb.some((v) => v.plateNumber === plate)) {
+      return problem409(`Vehicle with key '${plate}' already exists.`);
+    }
+
+    const created: Vehicle = {
+      id: nextId++,
+      plateNumber: plate,
+      type: body.type,
+      capacityKg: body.capacityKg,
+      status: body.status ?? 'Available',
+      createdAt: new Date().toISOString(),
+    };
+    vehiclesDb.push(created);
+    return HttpResponse.json(created, { status: 201 });
+  }),
+
+  http.put('/api/v1/vehicles/:id', async ({ request, params }) => {
+    const auth = authorize(request, 'write', 'vehicles');
+    if (!('user' in auth)) return auth;
+
+    const vehicle = vehiclesDb.find((v) => v.id === Number(params.id));
+    if (!vehicle) return problem(404, 'Resource not found', `Vehicle with id '${String(params.id)}' was not found.`);
+
+    const body = (await request.json()) as VehicleInput;
+    const errors = validateVehicle(body);
+    if (errors) return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+
+    const plate = body.plateNumber.trim();
+    if (vehiclesDb.some((v) => v.id !== vehicle.id && v.plateNumber === plate)) {
+      return problem409(`Vehicle with key '${plate}' already exists.`);
+    }
+
+    vehicle.plateNumber = plate;
+    vehicle.type = body.type;
+    vehicle.capacityKg = body.capacityKg;
+    vehicle.status = body.status ?? 'Available';
+    return HttpResponse.json(vehicle);
+  }),
+
+  http.delete('/api/v1/vehicles/:id', ({ request, params }) => {
+    const auth = authorize(request, 'delete', 'vehicles');
+    if (!('user' in auth)) return auth;
+
+    const index = vehiclesDb.findIndex((v) => v.id === Number(params.id));
+    if (index === -1) return problem(404, 'Resource not found', `Vehicle with id '${String(params.id)}' was not found.`);
+    vehiclesDb.splice(index, 1);
     return new HttpResponse(null, { status: 204 });
   }),
 ];

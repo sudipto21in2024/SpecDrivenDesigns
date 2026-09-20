@@ -78,6 +78,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List vehicles (paged)
+         * @description Returns a paged list of vehicles. Query params: page (default 1), pageSize (default 25, max 100), q (plate number contains, case-insensitive), status (Available/InRoute/Maintenance), type (Van/Truck/Trailer).
+         */
+        get: operations["listVehicles"];
+        put?: never;
+        /**
+         * Create vehicle
+         * @description Creates a vehicle. Plate number, type and a positive capacityKg are required; status defaults to Available. Duplicate plate numbers are rejected with 409.
+         */
+        post: operations["createVehicle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vehicles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * Get vehicle by id
+         * @description Returns a single vehicle. Responds 404 when the id does not exist.
+         */
+        get: operations["getVehicle"];
+        /**
+         * Update vehicle (full update)
+         * @description Replaces plate number, type, capacity and status. Responds 404 when the id does not exist, 409 when the plate number collides with another vehicle.
+         */
+        put: operations["updateVehicle"];
+        post?: never;
+        /**
+         * Delete vehicle
+         * @description Hard delete in v1 (no soft-delete column). Responds 409 when the vehicle is referenced by a route (routes arrive in LOGI-0009).
+         */
+        delete: operations["deleteVehicle"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -280,6 +334,55 @@ export interface components {
              */
             createdAt: string;
         };
+        VehicleRequest: {
+            /** @example RT-8421-X */
+            plateNumber: string;
+            /**
+             * @example Truck
+             * @enum {string}
+             */
+            type: "Van" | "Truck" | "Trailer";
+            /**
+             * Format: double
+             * @example 12000
+             */
+            capacityKg: number;
+            /**
+             * @default Available
+             * @example Available
+             * @enum {string}
+             */
+            status: "Available" | "InRoute" | "Maintenance";
+        };
+        VehicleResponse: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id: number;
+            /** @example RT-8421-X */
+            plateNumber: string;
+            /**
+             * @example Truck
+             * @enum {string}
+             */
+            type: "Van" | "Truck" | "Trailer";
+            /**
+             * Format: double
+             * @example 12000
+             */
+            capacityKg: number;
+            /**
+             * @example Available
+             * @enum {string}
+             */
+            status: "Available" | "InRoute" | "Maintenance";
+            /**
+             * Format: date-time
+             * @example 2026-09-20T00:00:00Z
+             */
+            createdAt: string;
+        };
         /** @description Envelope for all list endpoints (max pageSize 100, default 25). */
         PagedResponse: {
             /** @description Array of resource objects (schema defined per endpoint). */
@@ -322,6 +425,15 @@ export interface components {
         };
         /** @description The requested resource does not exist */
         NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /** @description Conflicting state — e.g. a unique constraint violation or a referenced resource */
+        Conflict: {
             headers: {
                 [name: string]: unknown;
             };
@@ -489,6 +601,148 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listVehicles: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                /** @description Filter by plate number (contains, case-insensitive) */
+                q?: string;
+                /** @description Filter by status */
+                status?: "Available" | "InRoute" | "Maintenance";
+                /** @description Filter by vehicle type */
+                type?: "Van" | "Truck" | "Trailer";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged vehicle list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PagedResponse"] & {
+                        items?: components["schemas"]["VehicleResponse"][];
+                    };
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleResponse"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleResponse"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     login: {

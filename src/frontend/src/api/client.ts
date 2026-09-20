@@ -10,6 +10,10 @@ import { tokenStore } from './tokenStore';
 
 export type Warehouse = components['schemas']['WarehouseResponse'];
 export type WarehouseInput = components['schemas']['WarehouseRequest'];
+export type Vehicle = components['schemas']['VehicleResponse'];
+export type VehicleInput = components['schemas']['VehicleRequest'];
+export type VehicleStatus = NonNullable<Vehicle['status']>;
+export type VehicleType = NonNullable<Vehicle['type']>;
 export type ProblemDetails = components['schemas']['ProblemDetails'];
 export type AuthUser = components['schemas']['AuthUser'];
 export type LoginInput = components['schemas']['LoginRequest'];
@@ -159,6 +163,31 @@ export const api = {
   },
   deleteWarehouse(id: number): Promise<void> {
     return request<void>(`/api/v1/warehouses/${id}`, { method: 'DELETE' });
+  },
+  listVehicles(
+    page = 1,
+    pageSize = 25,
+    q?: string,
+    status?: string,
+    type?: string,
+  ): Promise<Paged<Vehicle>> {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (q) params.set('q', q);
+    if (status) params.set('status', status);
+    if (type) params.set('type', type);
+    return request<Paged<Vehicle>>(`/api/v1/vehicles?${params.toString()}`);
+  },
+  getVehicle(id: number): Promise<Vehicle> {
+    return request<Vehicle>(`/api/v1/vehicles/${id}`);
+  },
+  createVehicle(body: VehicleInput): Promise<Vehicle> {
+    return request<Vehicle>('/api/v1/vehicles', { method: 'POST', body: JSON.stringify(body) });
+  },
+  updateVehicle(id: number, body: VehicleInput): Promise<Vehicle> {
+    return request<Vehicle>(`/api/v1/vehicles/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+  },
+  deleteVehicle(id: number): Promise<void> {
+    return request<void>(`/api/v1/vehicles/${id}`, { method: 'DELETE' });
   },
 
   /** AC-1/AC-2: exchange credentials for a token pair. */

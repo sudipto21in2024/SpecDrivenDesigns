@@ -21,6 +21,8 @@ import { AccountIcon, LogoutIcon } from './components/icons';
 import AuthGate from './features/auth/AuthGate';
 import { AuthProvider, useAuth } from './features/auth/AuthContext';
 import WarehousesPage from './features/warehouses/WarehousesPage';
+import VehiclesPage from './features/vehicles/VehiclesPage';
+import { Tab, Tabs } from '@mui/material';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -92,6 +94,8 @@ function AppHeader() {
 }
 
 export default function App() {
+  const [tab, setTab] = useState<'warehouses' | 'vehicles'>('warehouses');
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
@@ -102,7 +106,16 @@ export default function App() {
           <AuthGate>
             <AppHeader />
             <Container maxWidth="lg" sx={{ mt: 3, mb: 6 }}>
-              <WarehousesPage />
+              <Tabs
+                value={tab}
+                onChange={(_, next) => setTab(next)}
+                aria-label="Master data sections"
+                sx={{ mb: 2 }}
+              >
+                <Tab value="warehouses" label="Warehouses" data-testid="tab-warehouses" />
+                <Tab value="vehicles" label="Vehicles" data-testid="tab-vehicles" />
+              </Tabs>
+              {tab === 'warehouses' ? <WarehousesPage /> : <VehiclesPage />}
             </Container>
           </AuthGate>
         </AuthProvider>
