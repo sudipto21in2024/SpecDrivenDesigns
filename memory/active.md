@@ -4,51 +4,40 @@
 > Authoritative position: `node tools/tracker/index.mjs current` + this file.
 
 ## Current work
-- **Session 2026-09-20 (cont.): LOGI-0004 backend arm DONE (`c488279`), handed off to frontend.**
-  - Plan `state/plans/LOGI-0004-backend.plan.md` (5/5 ticked, done):
-    domain `Vehicle` + `IAppDbContext.Vehicles` + `vehicles` mapping (unique
-    `IX_vehicles_plate_number`), `ConflictException` → 409 middleware,
-    `Features/Vehicles/*` (dup-plate pre-check + UNIQUE backstop on POST+PUT,
-    status default Available, paged q/status/type list), `VehicleEndpoints.cs`
-    (RBAC = contract x-roles) + `Program.cs`; migration
-    `20260920060044_LOGI-0004_AddVehicles` via `dotnet ef` 9.0.8;
-    `VehicleEndpointsTests` 10 tests AC-1..AC-9.
-  - Gates: `dotnet build` 0/0; `dotnet test` **30/30 green** (20 pre-existing + 10 new).
-  - Commits: `c488279` (16 files, manifest-exact) → `fe2a3d5` (platform chore:
-    plan done + handoff backend→frontend).
-  - Design notes (journal backend-arm): plate uniqueness SQLite BINARY
-    (case-sensitive after trim); delete-referenced-by-route 409 stays
-    declared-only until LOGI-0009 (v1 hard-deletes).
-  - Plan `state/plans/LOGI-0004-architect.plan.md` (3/3 ticked, done): was a stale
-    template from the previous session — rewrote with real §2/§3/§4, validated, locked,
-    claimed, executed in the main thread (single-session orchestration; no child tasks).
-  - Step 1: `specs/features/LOGI-0004-vehicles-crud.md` (AC-1..AC-9, PRD F2; RBAC from
-    day one per ADR-007) → front matter `spec_approved`.
-  - Step 2: `contracts/v1-openapi.yaml` additive 143+/0− (`VehicleRequest`/`VehicleResponse`,
-    `/vehicles` + `/vehicles/{id}`, `Conflict` component; x-roles mirror warehouses) →
-    spectral (`--ruleset contracts/.spectral.yaml`) **0 errors**; 15 operationIds, no dupes.
-  - Step 3: journal `memory/journal/LOGI-0004.md` sealed; **human checkpoint APPROVED**
-    → commit `f1964d2` (3 files, 307+) → `STEP_DONE` + plan `done` + handoff
-    architect→backend (gates: spectral-0-errors, additive-143+/0−, checkpoint-approved).
-  - Note: spectral needs the explicit `--ruleset contracts/.spectral.yaml` flag locally
-    (bare `lint <file>` exits 2 with "No ruleset has been found").
-- Scoreboard: LOGI-0000 ✅ · LOGI-0001 ✅ (CI 35339953505) · LOGI-0002 ✅ · LOGI-0003 ✅
-  (backend 20/20 + frontend 18/18 + e2e 21/21) · LOGI-0004 architect ✅ (spec+contract)
-  + backend ✅ (API + migration, 30/30 tests).
+- **Session 2026-09-20 (resume): LOGI-0004 COMPLETE — all four arms done (architect → backend →
+  frontend → qa).**
+  - Frontend arm sealed on resume: gates re-verified first (tsc clean, vitest **25/25** in 3
+    suites) → commits `b4687f0` (feat: typed client + `features/vehicles` UI, 12 files
+    manifest-exact) + `db0238d` (chore: plan done, handoff frontend→qa). The previous session had
+    died mid-seal (steps 1-4 done, PLAN_DONE logged, nothing committed).
+  - QA arm: recovered a draft plan + half-written files (api.ts corrupted by a mid-edit crash:
+    duplicate `seedVehicle`, literal `\n` junk, `seedWarehouse` name lost → warehouses.spec.ts
+    import broken). Locked the plan (validate → lock → claim), repaired api.ts, rebuilt the page
+    object + spec, then gated: backend Release build 0/0 + `npx playwright test` → **30/30 green**
+    (9 vehicles AC-1..AC-9 + 7 warehouses + 14 auth). Commits `f8823eb` (feat qa, manifest-exact)
+    + `433570c` (chore: plan done, handoff qa→done — ticket complete).
+  - MUI Select e2e lessons (journal qa-arm): Select is a `div[role=combobox]` — click + menu
+    option, never `selectOption`; dialog selects have combined accessible names ("Type Vehicle
+    type"); list filters render with NO accessible name (locate via
+    `.MuiFormControl-root:has(#vehicle-<x>-label) .MuiSelect-select`); seeded rows need a re-goto
+    or search (stale react-query list); >5 rows push seeds to page 2.
+- Scoreboard: LOGI-0000 ✅ · LOGI-0001 ✅ · LOGI-0002 ✅ · LOGI-0003 ✅ (backend 20/20 + frontend
+  18/18 + e2e 21/21) · **LOGI-0004 ✅ — architect ✅ (spec + contract, spectral 0 errors) +
+  backend ✅ (dotnet 30/30) + frontend ✅ (vitest 25/25) + qa ✅ (playwright 30/30)**.
 
 ## Next action
-1. **LOGI-0004 frontend arm:** plan+lock `state/plans/LOGI-0004-frontend.plan.md`
-   (typed-client regen for `/vehicles` + `features/vehicles/*` UI: list with
-   q/status/type filters, create/edit forms with enum selects + status default,
-   409 conflict surfacing, role-gated actions), then QA
-   (`tests/e2e/vehicles.spec.ts` AC-1..AC-9). Architect + backend arms done
-   (spec+contract+migration+API+30/30 tests); deferred items are in the journal.
-2. Push `c488279` (+ platform chores) and watch GitHub CI.
-2. Push `f1964d2` (+ platform chore) and watch GitHub CI.
+1. Push `f1964d2..433570c` (9 commits: architect docs+chore, backend feat+chore, frontend
+   feat+chore, qa feat+chore) and watch GitHub CI — local gates all green (spectral 0 errors,
+   dotnet 30/30, vitest 25/25, playwright 30/30).
+2. Next ticket from the backlog (LOGI-0005 Drivers?): architect arm first — spec + additive
+   contract, human checkpoint, then backend/frontend/qa fan-out. RBAC matrix per ADR-007 from
+   day one.
 
 ## Blockers / open questions
-- None blocking. All LOGI-0002/0003 artifacts committed & pushed; working tree clean after
-  the platform chore commit.
+- None. Working tree clean; all LOGI-0004 artifacts committed (tracker: every arm done).
+- Deferred items recorded in journal LOGI-0004: delete-referenced-by-route 409 waits for the
+  LOGI-0009 routes FK; vehicle status lifecycle needs a BRD revision; MUI select a11y naming is
+  worth a docs note/ADR if it bites again.
 
 ## Working agreements (quick ref)
 - Main thread never edits source — dispatch via `new_task`.
