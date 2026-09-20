@@ -42,6 +42,13 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
                 "https://logiflow.dev/errors/not-found", "Resource not found",
                 notFound.Message, null);
         }
+        catch (ConflictException conflict)
+        {
+            // Duplicate unique key (e.g. vehicle plate number, LOGI-0004 AC-3).
+            await ProblemDetailsWriter.WriteAsync(context, StatusCodes.Status409Conflict,
+                "https://logiflow.dev/errors/conflict", "Conflict",
+                conflict.Message, null);
+        }
         catch (Exception exception)
         {
             logger.LogError(exception, "Unhandled exception while processing {Method} {Path}",

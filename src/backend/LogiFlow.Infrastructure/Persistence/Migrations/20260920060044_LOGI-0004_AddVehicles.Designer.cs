@@ -3,6 +3,7 @@ using System;
 using LogiFlow.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LogiFlow.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LogiFlowDbContext))]
-    partial class LogiFlowDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920060044_LOGI-0004_AddVehicles")]
+    partial class LOGI0004_AddVehicles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");

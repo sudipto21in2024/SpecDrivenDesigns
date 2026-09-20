@@ -21,6 +21,8 @@ public class LogiFlowDbContext(DbContextOptions<LogiFlowDbContext> options)
 {
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
 
+    public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -38,6 +40,20 @@ public class LogiFlowDbContext(DbContextOptions<LogiFlowDbContext> options)
             entity.Property(w => w.Longitude).HasColumnName("longitude");
             entity.Property(w => w.CreatedAt).HasColumnName("created_at");
             entity.HasIndex(w => w.Name);
+        });
+
+        modelBuilder.Entity<Vehicle>(entity =>
+        {
+            entity.ToTable("vehicles");
+            entity.HasKey(v => v.Id);
+            entity.Property(v => v.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            entity.Property(v => v.PlateNumber).HasColumnName("plate_number").IsRequired().HasMaxLength(20);
+            entity.Property(v => v.Type).HasColumnName("type").IsRequired().HasMaxLength(20);
+            entity.Property(v => v.CapacityKg).HasColumnName("capacity_kg").IsRequired();
+            entity.Property(v => v.Status).HasColumnName("status").IsRequired().HasMaxLength(20);
+            entity.Property(v => v.CreatedAt).HasColumnName("created_at");
+            // Plate lookup is the uniqueness key (AC-3) and the list filter key (AC-7).
+            entity.HasIndex(v => v.PlateNumber).IsUnique();
         });
 
         ConfigureIdentityTables(modelBuilder);
