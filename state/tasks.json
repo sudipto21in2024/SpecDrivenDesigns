@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-19T18:48:21.063Z",
+  "generated": "2026-09-20T05:35:29.705Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -24,10 +24,31 @@
           "started": "2026-09-19T18:30:19.349Z",
           "lastStep": "step 4/4: npx playwright test 21/21 green — e2e gate established",
           "lastStepAt": "2026-09-19T18:45:24.770Z"
+        },
+        "docs": {
+          "status": "done",
+          "agent": "main-orchestrator",
+          "started": "2026-09-20T05:26:08.892Z",
+          "lastStep": "step 3/3: sealed — journal docs-arm section + handoff docs→done + plan status done",
+          "lastStepAt": "2026-09-20T05:29:33.171Z"
         }
       },
       "status": "planned",
-      "next": "docs"
+      "next": "done"
+    },
+    "LOGI-0002": {
+      "ticket": "LOGI-0002",
+      "arms": {
+        "docs": {
+          "status": "done",
+          "agent": "main-orchestrator",
+          "started": "2026-09-20T05:31:12.543Z",
+          "lastStep": "step 4/4: sealed — journal + handoff docs→done + plan status done",
+          "lastStepAt": "2026-09-20T05:35:29.703Z"
+        }
+      },
+      "status": "planned",
+      "next": "done"
     }
   }
 }

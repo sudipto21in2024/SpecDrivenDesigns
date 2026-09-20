@@ -4,30 +4,35 @@
 > Authoritative position: `node tools/tracker/index.mjs current` + this file.
 
 ## Current work
-- **LOGI-0003 COMPLETE — all three arms done (2026-09-19).** qa arm sealed this session:
-  plan `state/plans/LOGI-0003-qa.plan.md` (4/4 ticked, status done). Root causes fixed: e2e row
-  asserts now `findRow()`-based (pagination beyond page 1) + AC-6 rename re-searches by new name
-  (stale old-name server-side filter). Gates: `npx playwright test` **21/21** (20.2s),
-  tsc --noEmit green. Commits: `87d5d57` → `95ea2f6` → `ec796bb` → `ce485a8`.
-  Platform: `.gitignore` += `*.db-shm`/`*.db-wal`; deleted tracked `logiflow.db-shm/-wal`.
-- Backend arm done (`0b04a02`, dotnet 20/20) · frontend arm done (`2c254a7`, vitest 18/18 +
-  build). Ticket-wide gates all green; AC-1..12 covered by ≥1 e2e test each.
-- **Remaining uncommitted (docs/architect only):** `Docs/adr/007-auth-model-identity-jwt-rbac.md`,
-  `contracts/v1-openapi.yaml`, `Docs/ProjectTechGuidence/04-database-schema.md`,
-  `specs/features/LOGI-0003-auth-roles.md`, `specs/features/LOGI-0002-sla-business-rules.md`,
-  `Docs/business-rules/` — commit via a docs arm or fold into LOGI-0002. ⚠ confirm
-  `Docs/business-rules/` belongs to LOGI-0002 before committing; review ADR-007 content.
-- Earlier: LOGI-0001 (Warehouse CRUD) DONE; CI run 35339953505 green.
+- **Session 2026-09-20: queue drained — LOGI-0003 docs arm + LOGI-0002 both DONE.**
+  - LOGI-0003 docs arm sealed: plan `state/plans/LOGI-0003-docs.plan.md` (3/3 ticked, done).
+    Commit `d1ec277` (manifest-exact, 4 files 416+/41−): ADR-007 + auth contract (root
+    `security: [BearerAuth]`; anonymous only /health + /auth/*; 401/403 on every protected op;
+    camelCase TokenResponse; /auth/logout 204 + /auth/me; 404→NotFound) + schema mirror
+    (Identity `users` + `refresh_tokens`) + spec front matter → `done`. Handoff docs→done.
+  - LOGI-0002 (spec-only) sealed: plan `state/plans/LOGI-0002-docs.plan.md` (4/4 ticked, done).
+    AC-1..7 verified vs `11-BRD.md` §6; one gap closed (AC-4 whole-second precision now
+    explicit in BR doc §3). Commits: `896d3ab` (BR doc + spec, 2 files 284+) → `55c4641`
+    (PROJECT_STATUS rows #2/#3 → DONE, §7 item 9). Journal `memory/journal/LOGI-0002.md`.
+    Handoff docs→done.
+  - Gates this session: content reviews (contract ⇔ 21/21 e2e, schema ⇔ migration, BR doc ⇔
+    BRD §6); **spectral lint green locally for the first time** — `npx -y @stoplight/spectral-cli
+    lint contracts/v1-openapi.yaml` → "No results with a severity of 'error' found".
+  - Housekeeping: removed stray untracked `nul` file (POSIX `2>nul` slip).
+- Scoreboard: LOGI-0000 ✅ · LOGI-0001 ✅ (CI 35339953505) · LOGI-0002 ✅ · LOGI-0003 ✅
+  (backend 20/20 + frontend 18/18 + e2e 21/21). Pushed through `55c4641` (docs commits).
 
 ## Next action
-1. Plan + lock the docs arm (or LOGI-0002 plan folding the architect artifacts in):
-   commit ADR-007, `contracts/v1-openapi.yaml`, `04-database-schema.md`, both feature specs,
-   `Docs/business-rules/` after ownership/content review.
-2. Then LOGI-0002 (SLA spec-only doc) per original plan order.
+1. **LOGI-0004 (Vehicle CRUD + status enum) — spec-first:** author
+   `specs/features/LOGI-0004-*.md` + `/vehicles` contract extension (x-roles + 401/403 per the
+   ADR-007 pattern now live repo-wide) + schema-doc `vehicles` mirror (+ ADR only if a new
+   decision is made); human checkpoint per `03-spec-driven-workflow.md`; then plan+lock
+   backend/frontend/qa arms as for LOGI-0003.
+2. Watch the GitHub CI run for `55c4641..` (docs-only changes; spectral verified green locally).
 
 ## Blockers / open questions
-- None blocking. E2E playwright gate now verified locally (21/21, 2 workers, 20.2s).
-- OpenAPI spectral lint still CI-only; business-rules content unreviewed.
+- None blocking. All LOGI-0002/0003 artifacts committed & pushed; working tree clean after
+  the platform chore commit.
 
 ## Working agreements (quick ref)
 - Main thread never edits source — dispatch via `new_task`.
