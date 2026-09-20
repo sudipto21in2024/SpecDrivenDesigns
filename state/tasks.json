@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-20T15:35:50.429Z",
+  "generated": "2026-09-20T16:03:50.741Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -75,10 +75,17 @@
           "started": "2026-09-20T06:09:27.062Z",
           "lastStep": "step 5/5 seal: journal frontend-arm written + gates re-verified on resume (tsc clean, 25/25 tests); commit manifest-exact next; handoff frontend-to-qa",
           "lastStepAt": "2026-09-20T15:35:50.292Z"
+        },
+        "qa": {
+          "status": "done",
+          "agent": "main-orchestrator",
+          "started": "2026-09-20T15:40:13.532Z",
+          "lastStep": "steps 1-4/4 verified: e2e suite 30/30 green (9 vehicles AC-1..AC-9 + 7 warehouses + 14 auth); seedWarehouse corruption repaired; commit manifest-exact next",
+          "lastStepAt": "2026-09-20T16:03:50.565Z"
         }
       },
       "status": "planned",
-      "next": "qa"
+      "next": "done"
     }
   }
 }
