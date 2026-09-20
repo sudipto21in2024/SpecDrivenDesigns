@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0004
 arm: backend
-status: locked
+status: done
 created: 2026-09-20T05:57:09.598Z
 depends_on_plans: LOGI-0004-architect
 ---
