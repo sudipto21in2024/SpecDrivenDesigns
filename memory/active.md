@@ -4,40 +4,37 @@
 > Authoritative position: `node tools/tracker/index.mjs current` + this file.
 
 ## Current work
-- **Session 2026-09-20 (resume): LOGI-0004 COMPLETE — all four arms done (architect → backend →
-  frontend → qa).**
-  - Frontend arm sealed on resume: gates re-verified first (tsc clean, vitest **25/25** in 3
-    suites) → commits `b4687f0` (feat: typed client + `features/vehicles` UI, 12 files
-    manifest-exact) + `db0238d` (chore: plan done, handoff frontend→qa). The previous session had
-    died mid-seal (steps 1-4 done, PLAN_DONE logged, nothing committed).
-  - QA arm: recovered a draft plan + half-written files (api.ts corrupted by a mid-edit crash:
-    duplicate `seedVehicle`, literal `\n` junk, `seedWarehouse` name lost → warehouses.spec.ts
-    import broken). Locked the plan (validate → lock → claim), repaired api.ts, rebuilt the page
-    object + spec, then gated: backend Release build 0/0 + `npx playwright test` → **30/30 green**
-    (9 vehicles AC-1..AC-9 + 7 warehouses + 14 auth). Commits `f8823eb` (feat qa, manifest-exact)
-    + `433570c` (chore: plan done, handoff qa→done — ticket complete).
-  - MUI Select e2e lessons (journal qa-arm): Select is a `div[role=combobox]` — click + menu
-    option, never `selectOption`; dialog selects have combined accessible names ("Type Vehicle
-    type"); list filters render with NO accessible name (locate via
-    `.MuiFormControl-root:has(#vehicle-<x>-label) .MuiSelect-select`); seeded rows need a re-goto
-    or search (stale react-query list); >5 rows push seeds to page 2.
-- Scoreboard: LOGI-0000 ✅ · LOGI-0001 ✅ · LOGI-0002 ✅ · LOGI-0003 ✅ (backend 20/20 + frontend
-  18/18 + e2e 21/21) · **LOGI-0004 ✅ — architect ✅ (spec + contract, spectral 0 errors) +
-  backend ✅ (dotnet 30/30) + frontend ✅ (vitest 25/25) + qa ✅ (playwright 30/30)**.
+- **Session 2026-09-20: LOGI-0004 pushed and CI-verified (run #10 `fa324be` success); LOGI-0005
+  (Driver CRUD, PRD F3) started — architect arm COMPLETE + handed off.**
+  - Plan `state/plans/LOGI-0005-architect.plan.md` locked and 3/3 ticked; human checkpoint
+    approved (SPEC_REVIEW→SPEC_APPROVED + CONTRACT_REVIEW→CONTRACT_APPROVED, as presented).
+  - Spec `specs/features/LOGI-0005-drivers-crud.md` (AC-1..AC-9, `spec_approved`) + contract
+    `/drivers` + `/drivers/{id}` + `DriverRequest`/`DriverResponse` (+149/−0 additive, spectral
+    0 errors with `contracts/.spectral.yaml`, 20 unique operationIds) + journal
+    `memory/journal/LOGI-0005.md`. Commit `a3a369d` (docs, manifest-exact); handoff
+    architect→backend recorded; plan status done.
+  - Key spec decisions: RBAC mirrors vehicles (read [Admin, Dispatcher, Viewer], write
+    [Admin, Dispatcher], delete [Admin]; Driver role 403 on master data — F12/F13 are the
+    driver surfaces); optional `User 1---1` link (userId nonexistent → 400, already linked →
+    409, PUT userId null clears); status Active/OffDuty/Suspended default Active; **no
+    createdAt** (approved schema §drivers has no created_at); licenseNumber unique (409),
+    contract length 1..40; DELETE 409 declared-only until LOGI-0009 routes FK.
+- Scoreboard: LOGI-0000 ✅ · LOGI-0001 ✅ · LOGI-0002 ✅ · LOGI-0003 ✅ · LOGI-0004 ✅ ·
+  **LOGI-0005 🟡 — architect ✅ (`a3a369d`) · backend ⬜ · frontend ⬜ · qa ⬜**.
 
 ## Next action
-1. Push `f1964d2..433570c` (9 commits: architect docs+chore, backend feat+chore, frontend
-   feat+chore, qa feat+chore) and watch GitHub CI — local gates all green (spectral 0 errors,
-   dotnet 30/30, vitest 25/25, playwright 30/30).
-2. Next ticket from the backlog (LOGI-0005 Drivers?): architect arm first — spec + additive
-   contract, human checkpoint, then backend/frontend/qa fan-out. RBAC matrix per ADR-007 from
-   day one.
+1. **LOGI-0005 backend arm** (fresh-window child task per protocol; main thread never edits
+   source): `tracker ready` → `resume-check`/`claim` → plan+lock `state/plans/LOGI-0005-backend.plan.md`
+   → MediatR CRUD mirroring vehicles, unique-license 409, userId existence (400) / 1:1 (409)
+   checks, migration `<Timestamp>_LOGI-0005_AddDrivers` (unique index `license_number`, nullable
+   FK `user_id`→users.id NO ACTION), endpoint RBAC = contract x-roles, tests AC-1..AC-9.
+2. Then frontend arm (typed-client regen + `features/drivers/*`, no createdAt in the UI model),
+   then qa arm (`tests/e2e/drivers.spec.ts` AC-1..AC-9). Push after each seal and watch CI.
 
 ## Blockers / open questions
-- None. Working tree clean; all LOGI-0004 artifacts committed (tracker: every arm done).
-- Deferred items recorded in journal LOGI-0004: delete-referenced-by-route 409 waits for the
-  LOGI-0009 routes FK; vehicle status lifecycle needs a BRD revision; MUI select a11y naming is
-  worth a docs note/ADR if it bites again.
+- None. Tree clean after the chore commit; `a3a369d` is docs-only (CI green expected).
+- Deferred (journal LOGI-0005): role=Driver requirement on the user link; delete-referenced-by-
+  route 409 enforcement (LOGI-0009); driver status lifecycle needs a BRD revision if wanted.
 
 ## Working agreements (quick ref)
 - Main thread never edits source — dispatch via `new_task`.
@@ -47,3 +44,4 @@
 - End of every session: update this file + journal; `tracker handoff` if mid-ticket.
 - Editor-written plan files land CRLF — `sed -i 's/\r$//'` before validate/lock;
   `git check-ignore` consults the index (tracked files always report unignored).
+
