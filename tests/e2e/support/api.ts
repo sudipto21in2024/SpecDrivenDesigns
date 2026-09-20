@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext } from '@playwright/test';
+import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput } from '../../../src/frontend/src/api/client';
 
 /**
  * Shared E2E helpers for authentication (LOGI-0003).
@@ -50,6 +51,22 @@ export async function seedWarehouse(
     data: { name, address, latitude: 51.92, longitude: 4.47 },
   });
   expect(response.status(), `seeding '${name}' must succeed`).toBe(201);
+  const body = (await response.json()) as { id: number };
+  return body.id;
+}
+
+/** Seeds a vehicle directly through the API (fast path, not UI). Returns its id. */
+export async function seedVehicle(
+  request: APIRequestContext,
+  accessToken: string,
+  plateNumber: string,
+  overrides: Partial<VehicleInput> = {},
+): Promise<number> {
+  const response = await request.post(`${API}/api/v1/vehicles`, {
+    headers: authHeaders(accessToken),
+    data: { plateNumber, type: 'Truck', capacityKg: 12000, ...overrides },
+  });
+  expect(response.status(), `seeding '${plateNumber}' must succeed`).toBe(201);
   const body = (await response.json()) as { id: number };
   return body.id;
 }

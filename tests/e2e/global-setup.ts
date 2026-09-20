@@ -48,10 +48,32 @@ export default async function globalSetup(): Promise<void> {
     for (const id of ids) {
       const deleteResponse = await context.delete(`${API}/api/v1/warehouses/${id}`, { headers });
       if (!deleteResponse.ok() && deleteResponse.status() !== 404) {
-        throw new Error(`Reset failed: delete ${id} returned ${deleteResponse.status()}`);
+        throw new Error(`Reset failed: warehouse delete ${id} returned ${deleteResponse.status()}`);
+      }
+    }
+
+    // Vehicles (LOGI-0004): same delete-all pattern; a 404 on the list means the endpoint
+    // is not deployed yet — skip silently so the suite still boots.
+    const vIds: number[] = [];
+    for (let page = 1; ; page++) {
+      const listResponse = await context.get(`${API}/api/v1/vehicles?page=${page}&pageSize=100`, { headers });
+      if (listResponse.status() === 404) break;
+      if (!listResponse.ok()) {
+        throw new Error(`Reset failed: vehicles list returned ${listResponse.status()}`);
+      }
+      const body = (await listResponse.json()) as { items: { id: number }[]; totalCount: number };
+      vIds.push(...body.items.map((item) => item.id));
+      if (vIds.length >= body.totalCount || body.items.length === 0) break;
+    }
+
+    for (const id of vIds) {
+      const deleteResponse = await context.delete(`${API}/api/v1/vehicles/${id}`, { headers });
+      if (!deleteResponse.ok() && deleteResponse.status() !== 404) {
+        throw new Error(`Reset failed: vehicles delete ${id} returned ${deleteResponse.status()}`);
       }
     }
   } finally {
     await context.dispose();
   }
 }
+
