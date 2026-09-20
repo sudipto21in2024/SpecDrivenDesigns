@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-20T06:04:12.705Z",
+  "generated": "2026-09-20T15:35:50.429Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -68,10 +68,17 @@
           "planStatus": "locked",
           "lastStep": "steps 1-5/5 verified: build 0/0 + tests 30/30 + migration 20260920060044 + 409 on POST/PUT; commit backend feat",
           "lastStepAt": "2026-09-20T06:04:07.896Z"
+        },
+        "frontend": {
+          "status": "done",
+          "agent": "main-orchestrator",
+          "started": "2026-09-20T06:09:27.062Z",
+          "lastStep": "step 5/5 seal: journal frontend-arm written + gates re-verified on resume (tsc clean, 25/25 tests); commit manifest-exact next; handoff frontend-to-qa",
+          "lastStepAt": "2026-09-20T15:35:50.292Z"
         }
       },
       "status": "planned",
-      "next": "frontend"
+      "next": "qa"
     }
   }
 }
