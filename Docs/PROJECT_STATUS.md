@@ -3,6 +3,7 @@
 > Generated 2026-09-18 · Covers the spec-driven bootstrap through ticket LOGI-0001
 > (ticket DONE; remote CI green on GitHub — run `35339953505`).
 > **UPDATE 2026-09-18 (act mode):** LOGI-0000 build blocker resolved, AC-1/AC-4/AC-5 verified green (see §4), initial git commit made. LOGI-0000 ready to be marked DONE pending human checkpoint.
+> **UPDATE 2026-09-20 (act mode):** LOGI-0002 (SLA BR reference, spec-only) and LOGI-0003 (Identity + JWT + RBAC) are **DONE** — gates: backend `dotnet test` 20/20, frontend vitest 18/18 + build, e2e `playwright` 21/21 (AC-1..12 covered). See §7 item 9.
 
 
 ---
@@ -29,7 +30,7 @@
 
 | Rule | Location |
 |---|---|
-| BR-1 / BR-2 (SLA) | Shipment creation (BR-1: due = created_at + 48h Standard / +12h Express) and SLA computation only |
+| BR-1 / BR-2 (SLA) | Authoritative reference: `Docs/business-rules/BR-sla-rules.md`; enforced at shipment creation (BR-1: due = created_at + 48h Standard / +12h Express) and read-time SLA projection |
 | BR-3 / BR-4 (capacity overlap) | Route assignment |
 | BR-5 (capacity check) | Shipment→Route assignment |
 | BR-7 (status transition) | `Shipment.TransitionTo` only |
@@ -44,8 +45,8 @@
 |---|---|---|---|
 | 0 | **LOGI-0000** | Scaffold: solution, Vite, CI skeleton, health endpoint, seed path, ADR-000..006 | 🟢 All ACs green (ready for DONE) |
 | 1 | LOGI-0001 | Warehouse CRUD | 🟢 DONE (E2E 7/7 green vs integrated stack; CI pushed) |
-| 2 | LOGI-0002 | SLA business-rules reference doc (spec-only) | ⬜ Not Started |
-| 3 | LOGI-0003 | Auth & roles (Identity + JWT + RBAC) | ⬜ Not Started |
+| 2 | LOGI-0002 | SLA business-rules reference doc (spec-only) | 🟢 DONE (BR-1/BR-2 reference: `Docs/business-rules/BR-sla-rules.md`; executable rules → LOGI-0007) |
+| 3 | LOGI-0003 | Auth & roles (Identity + JWT + RBAC) | 🟢 DONE (backend 20/20 + frontend 18/18 + e2e 21/21; ADR-007) |
 | 4 | LOGI-0004 | Vehicle CRUD + status enum | ⬜ Not Started |
 | 5 | LOGI-0005 | Driver CRUD + `user_id` link to Identity | ⬜ Not Started |
 | 6 | LOGI-0006 | Shipment status lifecycle (`TransitionTo`) | ⬜ Not Started |
@@ -216,7 +217,7 @@ first full vertical slice prove every layer of the pipeline end-to-end).
    bodies, pushed to `master`. Two remote-only CI failures diagnosed and fixed
    (missing frontend install; Spectral ruleset resolution + deprecated CLI). Run
    `35339953505` → **`build-and-test` ✅ + `e2e` ✅**.
-9. **Proceed to LOGI-0002** (SLA business-rules spec-only) and **LOGI-0003** (auth) — LOGI-0003 gates domain features (it activates the `Unauthorized`/`Forbidden` contract responses and removes the `security: []` placeholders on domain endpoints).
+9. ~~**Proceed to LOGI-0002** (SLA business-rules spec-only) and **LOGI-0003** (auth)~~ ✅ **BOTH DONE (2026-09-20).** LOGI-0002: BR-1/BR-2 authoritative reference (`Docs/business-rules/BR-sla-rules.md`) + feature spec committed (`896d3ab`); AC-1..7 verified against BRD §6. LOGI-0003: Identity + JWT + RBAC across backend (`0b04a02`, dotnet 20/20), frontend (`2c254a7`, vitest 18/18 + build) and e2e (`ce485a8`, playwright 21/21) arms; architect artifacts committed (`d1ec277`): ADR-007, root `security: [BearerAuth]` contract (anonymous only /health + /auth/*, 401/403 on every protected operation), schema mirror. **Next: LOGI-0004 (Vehicle CRUD + status enum).**
 
 ---
 
