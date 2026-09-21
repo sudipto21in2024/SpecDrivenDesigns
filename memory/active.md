@@ -4,7 +4,25 @@
 > Authoritative position: `node tools/tracker/index.mjs current` + this file.
 
 ## Current work
-- **Session 2026-09-21: LOGI-0005 backend arm SEALED — handoff backend→frontend recorded. Next: plan the frontend arm.**
+- **Session 2026-09-21 (2): root-caused and fixed the platform-wide red `e2e` CI job as ticket
+  LOGI-0013 (qa arm, inline).** Verification of run #14's log + the green #10 baseline proved the
+  failure was environmental, not the LOGI-0005 backend arm.
+  - **Root cause:** `global-setup.ts` deleted the live `e2e-logiflow.db`(+`-wal`/`-shm`) while the API
+    held them open. Linux `unlink` succeeds → SQLite writes into deleted inodes → the next connection
+    re-creates an empty DB → `no such table …` → `POST /auth/login` 500s for the rest of the run
+    (#10 was green only as *flaky*: same error, recovered on retry). Windows locks the file, so local
+    runs never reproduced it.
+  - **Fix (4 files):** `tests/e2e/start-api.mjs` (new webServer wrapper: clean the throwaway DB, then
+    start the API with an absolute `Data Source`), `playwright.config.ts` (absolute `E2E_DB_PATH`),
+    `global-setup.ts` (no file deletion; API-only row reset, now incl. `drivers` for the qa arm),
+    `.github/workflows/ci.yml` (on failure upload `Logs/` + DB + `test-results` — the API's own
+    exception was never visible in CI).
+  - **Gates:** local `npx playwright test` **30 passed / 0 flaky**; migrations applied with **0**
+    `no such table` lines; config lists 30 tests; ci.yml parsed. **CI confirmed green: run #17
+    (`75c039e`) — `build-and-test` ✅ + `e2e` ✅, remote summary `30 passed (34.9s)`, 0 flaky.**
+  - Commits `f404e8c` → `afd16e4` → `b308efc` → `75c039e` (pushed; run #16).
+- **Session 2026-09-21 (1): LOGI-0005 backend arm SEALED — handoff backend→frontend recorded.**
+
   - Executed INLINE by the main thread (user explicitly approved overriding the fresh-window
     rule for this environment; agent name `orchestrator-inline` in the event log). All 5 steps
     green with per-step commits: `2195d47` (entity+migration) → `80a4664` (commands/queries+DI) →
@@ -33,12 +51,12 @@
 3. Push each seal and watch CI (no gh CLI — verify via GitHub web or the public API).
 
 ## Blockers / open questions
-- **CI `e2e` job red platform-wide (not this ticket's regression):** runs #11–#14 all fail at the
-  e2e step — login returns 500 mid-run (variable onset: 9–22 tests in), including on docs-only
-  commits (#11–#13). Runs #10 and earlier were green; Node 20→24 forcing + a .NET 10 runtime now
-  installed by setup-dotnet changed in between. `build-and-test` (backend+frontend+spectral) is
-  green on #14. Deterministic (rerun + docs-only #15 failed too); see memory/progress.md. Frontend/qa arms should not be
-  trusted to CI until this is root-caused (local suites are the gates meanwhile).
+- **CI `e2e` job red platform-wide → RESOLVED (LOGI-0013, run #17 green).** Root cause was the harness,
+  not the runner: `global-setup.ts` unlinked the live SQLite file (Linux allows it → SQLite wrote into
+  deleted inodes → empty DB re-created → `no such table` → 500s). Fix: DB prepared *before* the API
+  starts (`start-api.mjs`) + absolute `Data Source`; CI now uploads the API's Serilog log + DB +
+  `test-results` when e2e fails, so future failures are self-diagnosing. Confirmed: run #17 `75c039e`
+  = `build-and-test` ✅ + `e2e` ✅ (30 passed, 0 flaky). CI gates can be trusted again.
 - None blocking the backend arm itself: journal LOGI-0005 #backend-arm records the 1:1 race
   accepted for v1; non-unique `IX_drivers_user_id` convention artifact; deferred items (role=Driver
   check on the link, delete-referenced 409 in LOGI-0009, status lifecycle).

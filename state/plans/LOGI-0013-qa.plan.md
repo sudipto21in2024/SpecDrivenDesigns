@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0013
 arm: qa
-status: locked
+status: done
 created: 2026-09-21T00:00:00.000Z
 depends_on_plans:
 ---
@@ -46,7 +46,7 @@ runs) and make the CI job self-diagnosing (upload the API's Serilog file log on 
   `test-results`, `playwright-report`) → verify: YAML parses.
 - [x] 4. Full local e2e suite (`npx playwright test` from `tests/e2e`) → verify: 30 passed, 0 flaky;
   fresh migration lines in `src/backend/LogiFlow.Api/Logs/logiflow-<today>.txt`, no `no such table`.
-- [ ] 5. Push and watch CI → verify: `e2e` job green on the new SHA (the real gate).
+- [x] 5. Push and watch CI → verify: `e2e` job green on the new SHA (the real gate).
 
 ## 5. Risks / open questions
 - The unlink mechanism is a high-confidence diagnosis, not a certainty: steps 3+5 make the next red run

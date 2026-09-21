@@ -112,3 +112,6 @@
 {"ts":"2026-09-21T05:20:37.079Z","type":"STEP_DONE","ticket":"LOGI-0013","arm":"qa","note":"step 2/5: global-setup no longer deletes live DB files; API-only reset incl. drivers"}
 {"ts":"2026-09-21T05:20:38.508Z","type":"STEP_DONE","ticket":"LOGI-0013","arm":"qa","note":"step 4/5: local e2e 30 passed / 0 flaky; migrations applied; 0 'no such table'"}
 {"ts":"2026-09-21T05:20:38.521Z","type":"STEP_DONE","ticket":"LOGI-0013","arm":"qa","note":"step 3/5: CI uploads Serilog Logs + throwaway DB on failure; yaml parsed OK"}
+{"ts":"2026-09-21T05:29:50.572Z","type":"STEP_DONE","ticket":"LOGI-0013","arm":"qa","note":"step 5/5: CI run #17 (75c039e) GREEN - build-and-test + e2e success, 30 passed (34.9s)"}
+{"ts":"2026-09-21T05:29:50.713Z","type":"PLAN_DONE","ticket":"LOGI-0013","arm":"qa","plan_ptr":"state\\plans\\LOGI-0013-qa.plan.md"}
+{"ts":"2026-09-21T05:29:50.894Z","type":"HANDOFF","ticket":"LOGI-0013","from":"qa","to":"orchestrator","summary_ptr":"memory/journal/LOGI-0013.md#qa-arm","gates":["local-e2e-30-30","ci-run-17-green"]}

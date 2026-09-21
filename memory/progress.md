@@ -11,6 +11,7 @@ Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS
 | LOGI-0004 | Vehicle CRUD | 🟢 DONE — architect ✅ (`f1964d2`, spec AC-1..AC-9 + `/vehicles` contract, spectral 0 errors) + backend ✅ (`c488279`, dotnet 30/30) + frontend ✅ (`b4687f0`, vitest 25/25) + qa ✅ (`f8823eb`, playwright 30/30) |
 | LOGI-0005 | Driver CRUD + user link | 🟡 IN PROGRESS — architect ✅ (`a3a369d`, spec AC-1..AC-9 `spec_approved` + `/drivers` contract +149/−0, spectral 0 errors, human checkpoint approved) · backend ✅ (`c615744`, dotnet 42/42, migration `20260921041528_LOGI-0005_AddDrivers`) · frontend ⬜ qa ⬜ |
 | LOGI-0006..0012 | Shipments, Routes, Board, Dashboard | ⬜ Backlog |
+| LOGI-0013 | E2E harness: throwaway-DB lifecycle + CI diagnostics (platform fix) | 🟢 DONE — root cause: `global-setup.ts` unlinked the live SQLite file (CI/Linux only) → empty DB → `/auth/login` 500s. Fix: `start-api.mjs` prepares the DB before the API starts + absolute `Data Source` + API-log/test-results artifacts on failure. Local 30/30; **CI run #17 `75c039e` green (e2e 30 passed, 0 flaky)** |
 
 Remote CI: last verified green (run #10 `35522784324`, 2026-09-20, `fa324be` — the LOGI-0004 push:
 spectral 0 errors, dotnet 30/30, vitest 25/25, playwright 30/30 all confirmed remotely).
@@ -27,3 +28,12 @@ Also noted: actions run with Node 20→24 forced (deprecation warning) and setup
 a .NET 10 runtime alongside the 9.0 SDK — both changed between #10 and #11. Next diagnostic step:
 reproduce the e2e suite locally (`tests/e2e`) — green locally ⇒ runner-specific (pin image/actions);
 red locally ⇒ debuggable with full logs.
+2026-09-21 (2): **diagnosed and fixed as ticket LOGI-0013** — the harness, not the runner, was at
+fault: `global-setup.ts` deleted the live `e2e-logiflow.db`(+`-wal`/`-shm`) while the API held them
+open; Linux unlink succeeds, so SQLite kept writing deleted inodes and the next connection re-created
+an empty DB (`no such table` ⇒ `/auth/login` 500 for the rest of the run; run #10 had been green only
+as *flaky*). Fix: `tests/e2e/start-api.mjs` prepares the throwaway DB before the API starts (+ absolute
+`Data Source`), `global-setup.ts` resets rows through the API only, and CI uploads the API's Serilog
+log + DB + `test-results` on failure. Local 30/30; **CI run #17 `75c039e`: `build-and-test` ✅ +
+`e2e` ✅ (30 passed, 0 flaky)** — remote gates trustworthy again (runs #18+ should be watched for
+regressions of this shape).
