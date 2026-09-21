@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-21T07:35:16.261Z",
+  "generated": "2026-09-21T07:35:16.736Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -106,8 +106,8 @@
           "status": "in_progress",
           "agent": "orchestrator-inline",
           "started": "2026-09-21T07:33:09.249Z",
-          "lastStep": "step 2/6: npm run generate:api reproduces api/schema.d.ts with ZERO diff (238 insertions unchanged); driver types + 5 CRUD methods verified in client.ts; permissions viewDrivers/editDrivers/deleteDrivers; mocks x-roles matrix == contract (read Admin/Dispatcher/Viewer, write Admin/Dispatcher, delete Admin, Driver 403 on reads)",
-          "lastStepAt": "2026-09-21T07:35:16.111Z"
+          "lastStep": "step 3/6: features/drivers UI audited vs spec; corrected 2 tsc errors left by the interrupted run (DriversPage handleFormSubmit now typed DriverInput per the vehicles idiom); status default Active + 3 enum options, 409 to licenseNumber/userId field, dialog re-seeds userId so PUT preserves or clears the link, table has no createdAt column; npx tsc --noEmit clean",
+          "lastStepAt": "2026-09-21T07:35:16.577Z"
         }
       },
       "status": "planned",
