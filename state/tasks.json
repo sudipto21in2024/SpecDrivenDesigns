@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-21T07:35:16.736Z",
+  "generated": "2026-09-21T07:43:16.441Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -106,8 +106,8 @@
           "status": "in_progress",
           "agent": "orchestrator-inline",
           "started": "2026-09-21T07:33:09.249Z",
-          "lastStep": "step 3/6: features/drivers UI audited vs spec; corrected 2 tsc errors left by the interrupted run (DriversPage handleFormSubmit now typed DriverInput per the vehicles idiom); status default Active + 3 enum options, 409 to licenseNumber/userId field, dialog re-seeds userId so PUT preserves or clears the link, table has no createdAt column; npx tsc --noEmit clean",
-          "lastStepAt": "2026-09-21T07:35:16.577Z"
+          "lastStep": "step 4/6: App.tsx - tab state moved into MasterDataTabs below AuthProvider; the Drivers Tab is a direct Tabs child rendered only when can(role, viewDrivers) (Driver role excluded per spec 2); npm test 25/25 pre-existing suites still green",
+          "lastStepAt": "2026-09-21T07:43:16.277Z"
         }
       },
       "status": "planned",

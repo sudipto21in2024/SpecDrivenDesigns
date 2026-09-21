@@ -20,8 +20,10 @@ import { theme } from './theme';
 import { AccountIcon, LogoutIcon } from './components/icons';
 import AuthGate from './features/auth/AuthGate';
 import { AuthProvider, useAuth } from './features/auth/AuthContext';
+import { can } from './features/auth/permissions';
 import WarehousesPage from './features/warehouses/WarehousesPage';
 import VehiclesPage from './features/vehicles/VehiclesPage';
+import DriversPage from './features/drivers/DriversPage';
 import { Tab, Tabs } from '@mui/material';
 
 const queryClient = new QueryClient({
@@ -93,9 +95,40 @@ function AppHeader() {
   );
 }
 
-export default function App() {
-  const [tab, setTab] = useState<'warehouses' | 'vehicles'>('warehouses');
+/**
+ * Master-data tabs and body.
+ *
+ * Lives below AuthProvider because the tab set depends on the signed-in role: the Driver persona is
+ * deliberately excluded from driver master data (spec §2 / AC-9) — hiding the tab is affordance
+ * hygiene, the API returns 403 regardless.
+ *
+ * NOTE: the Tab elements must stay *direct* children of Tabs — Material UI injects the selection
+ * props (value/onChange/indicator) into its children with cloneElement, so wrapping a Tab in another
+ * component silently breaks tab switching.
+ */
+function MasterDataTabs() {
+  const { user } = useAuth();
+  const [tab, setTab] = useState<'warehouses' | 'vehicles' | 'drivers'>('warehouses');
+  const canViewDrivers = user != null && can(user.role, 'viewDrivers');
 
+  return (
+    <Container maxWidth="lg" sx={{ mt: 3, mb: 6 }}>
+      <Tabs
+        value={tab}
+        onChange={(_, next) => setTab(next)}
+        aria-label="Master data sections"
+        sx={{ mb: 2 }}
+      >
+        <Tab value="warehouses" label="Warehouses" data-testid="tab-warehouses" />
+        <Tab value="vehicles" label="Vehicles" data-testid="tab-vehicles" />
+        {canViewDrivers && <Tab value="drivers" label="Drivers" data-testid="tab-drivers" />}
+      </Tabs>
+      {tab === 'warehouses' ? <WarehousesPage /> : tab === 'vehicles' ? <VehiclesPage /> : <DriversPage />}
+    </Container>
+  );
+}
+
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
@@ -105,18 +138,7 @@ export default function App() {
         <AuthProvider>
           <AuthGate>
             <AppHeader />
-            <Container maxWidth="lg" sx={{ mt: 3, mb: 6 }}>
-              <Tabs
-                value={tab}
-                onChange={(_, next) => setTab(next)}
-                aria-label="Master data sections"
-                sx={{ mb: 2 }}
-              >
-                <Tab value="warehouses" label="Warehouses" data-testid="tab-warehouses" />
-                <Tab value="vehicles" label="Vehicles" data-testid="tab-vehicles" />
-              </Tabs>
-              {tab === 'warehouses' ? <WarehousesPage /> : <VehiclesPage />}
-            </Container>
+            <MasterDataTabs />
           </AuthGate>
         </AuthProvider>
       </ThemeProvider>
