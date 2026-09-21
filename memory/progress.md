@@ -37,3 +37,8 @@ as *flaky*). Fix: `tests/e2e/start-api.mjs` prepares the throwaway DB before the
 log + DB + `test-results` on failure. Local 30/30; **CI run #17 `75c039e`: `build-and-test` ✅ +
 `e2e` ✅ (30 passed, 0 flaky)** — remote gates trustworthy again (runs #18+ should be watched for
 regressions of this shape).
+2026-09-21 (3): **LOGI-0005 frontend arm sealed** (`725dbe2`, recovered from an interrupted inline run —
+the code was in the tree with no locked plan, so the plan audited it by gate: typed-client regen
+zero-diff, tsc, 16 new vitest specs). Gates: vitest **41/41**, `tsc --noEmit` clean, `vite build` OK,
+local e2e **30/30** on the rebuilt UI, **CI run #20 (`725dbe2`) green** (`build-and-test` + `e2e`).
+Next: LOGI-0005 qa arm (`tests/e2e/drivers.spec.ts`, AC-1..AC-9).

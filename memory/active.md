@@ -24,6 +24,8 @@
     **direct** children and has no TabsContext — a `Tab` wrapped in another component renders but never
     switches (first attempt: 15/16 specs failed). Tab state now lives in `MasterDataTabs`, below
     `AuthProvider`, with the `Tab`s as direct children of `Tabs`.
+  - **Remote CI run #20 (`725dbe2`) green** (`build-and-test` + `e2e`); local e2e re-run on the rebuilt
+    frontend also 30/30, so the new chrome does not disturb the existing specs.
 - **Session 2026-09-21 (2): root-caused and fixed the platform-wide red `e2e` CI job as ticket
   LOGI-0013 (qa arm, inline).** Verification of run #14's log + the green #10 baseline proved the
   failure was environmental, not the LOGI-0005 backend arm.
