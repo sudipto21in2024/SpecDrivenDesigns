@@ -88,5 +88,21 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: tests/e2e/playwright-report
+          path: |
+            tests/e2e/playwright-report
+            tests/e2e/test-results
+          retention-days: 7
+
+      # The API runs as a Playwright webServer, so its stdout never reaches the run log (only the
+      # frontend server's output does). Serilog's rolling file log holds the exception behind any
+      # HTTP 5xx, and the throwaway database preserves the state that caused it — without these
+      # artifacts a failing e2e run is undiagnosable from CI alone (LOGI-0013).
+      - name: Upload API logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-logs
+          path: |
+            src/backend/LogiFlow.Api/Logs
+            src/backend/LogiFlow.Api/e2e-logiflow.db*
           retention-days: 7

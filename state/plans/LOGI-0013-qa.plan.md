@@ -42,9 +42,9 @@ runs) and make the CI job self-diagnosing (upload the API's Serilog file log on 
 - [x] 2. Remove the live-file `rmSync` block from `tests/e2e/global-setup.ts`; keep the API-driven row
   reset and extend it to `/drivers` (404-tolerant, for the LOGI-0005 qa arm) → verify: grep shows no
   `rmSync` left in the harness; suite green.
-- [ ] 3. Add the on-failure diagnostics artifact step to `.github/workflows/ci.yml` (Serilog `Logs`,
+- [x] 3. Add the on-failure diagnostics artifact step to `.github/workflows/ci.yml` (Serilog `Logs`,
   `test-results`, `playwright-report`) → verify: YAML parses.
-- [ ] 4. Full local e2e suite (`npx playwright test` from `tests/e2e`) → verify: 30 passed, 0 flaky;
+- [x] 4. Full local e2e suite (`npx playwright test` from `tests/e2e`) → verify: 30 passed, 0 flaky;
   fresh migration lines in `src/backend/LogiFlow.Api/Logs/logiflow-<today>.txt`, no `no such table`.
 - [ ] 5. Push and watch CI → verify: `e2e` job green on the new SHA (the real gate).
 
