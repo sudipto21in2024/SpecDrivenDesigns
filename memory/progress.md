@@ -15,5 +15,12 @@ Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS
 Remote CI: last verified green (run #10 `35522784324`, 2026-09-20, `fa324be` — the LOGI-0004 push:
 spectral 0 errors, dotnet 30/30, vitest 25/25, playwright 30/30 all confirmed remotely).
 2026-09-20: LOGI-0005 architect arm sealed (`a3a369d`, docs-only) — CI for it pending push.
-2026-09-21: LOGI-0005 backend arm sealed (`c615744`, dotnet 42/42 local) — pushed; remote CI
-verification pending (no gh CLI — check the Actions tab or the public API).
+2026-09-21: LOGI-0005 backend arm sealed (`c615744`, dotnet 42/42 local) — pushed. CI run #14:
+**`build-and-test` job GREEN** (backend 42/42, frontend build+test, spectral 0 errors — verified
+remotely), but the **`e2e` job FAILS**: login returns **500 mid-run** (22/30 tests passed before
+onset; `support/api.ts:33` Expected:200 Received:500; no API stderr in the log; vite preview
+proxies /api→localhost:5199, so the 500 may be proxy-vs-API). **NOT caused by the backend arm:**
+runs #11–#13 (docs-only architect pushes, 2026-09-20) fail identically — environmental regression
+on the runner since #10 (last green). Rerun of #14 triggered to separate flake vs deterministic.
+Also noted: actions run with Node 20→24 forced (deprecation warning) and setup-dotnet now installs
+a .NET 10 runtime alongside the 9.0 SDK — both changed between #10 and #11.

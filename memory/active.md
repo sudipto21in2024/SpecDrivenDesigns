@@ -33,12 +33,19 @@
 3. Push each seal and watch CI (no gh CLI — verify via GitHub web or the public API).
 
 ## Blockers / open questions
-- None blocking. Journal LOGI-0005 #backend-arm records: 1:1 race accepted for v1; non-unique
-  `IX_drivers_user_id` convention artifact; deferred items (role=Driver check on the link,
-  delete-referenced 409 in LOGI-0009, status lifecycle).
+- **CI `e2e` job red platform-wide (not this ticket's regression):** runs #11–#14 all fail at the
+  e2e step — login returns 500 mid-run (variable onset: 9–22 tests in), including on docs-only
+  commits (#11–#13). Runs #10 and earlier were green; Node 20→24 forcing + a .NET 10 runtime now
+  installed by setup-dotnet changed in between. `build-and-test` (backend+frontend+spectral) is
+  green on #14. Rerun of #14 triggered; see memory/progress.md. Frontend/qa arms should not be
+  trusted to CI until this is root-caused (local suites are the gates meanwhile).
+- None blocking the backend arm itself: journal LOGI-0005 #backend-arm records the 1:1 race
+  accepted for v1; non-unique `IX_drivers_user_id` convention artifact; deferred items (role=Driver
+  check on the link, delete-referenced 409 in LOGI-0009, status lifecycle).
 - `graphify extract` unavailable (0.6.0 lacks the 0.9.33 `extract` command) — §3 scoping done by
   targeted reads; optional to update graphify later.
-- `gh` CLI not installed — CI checks need the web UI or the public API.
+- `gh` CLI not installed — CI checks done via the public API + the repo's own stored credential
+  (used read-only for log/artifact download; token never echoed).
 
 ## Working agreements (quick ref)
 - Main thread never edits source — dispatch via `new_task` (user may approve inline overrides).
