@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-21T07:43:16.441Z",
+  "generated": "2026-09-21T07:43:16.907Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -106,8 +106,8 @@
           "status": "in_progress",
           "agent": "orchestrator-inline",
           "started": "2026-09-21T07:33:09.249Z",
-          "lastStep": "step 4/6: App.tsx - tab state moved into MasterDataTabs below AuthProvider; the Drivers Tab is a direct Tabs child rendered only when can(role, viewDrivers) (Driver role excluded per spec 2); npm test 25/25 pre-existing suites still green",
-          "lastStepAt": "2026-09-21T07:43:16.277Z"
+          "lastStep": "step 5/6: DriversPage.test.tsx added (16 tests, AC-1..AC-9 incl. Active default, licence 409, link preserve/clear, page/status filtering, Viewer/Dispatcher/Driver affordances); full vitest suite 41/41 across 4 files; npx tsc --noEmit clean; npm run build OK",
+          "lastStepAt": "2026-09-21T07:43:16.736Z"
         }
       },
       "status": "planned",

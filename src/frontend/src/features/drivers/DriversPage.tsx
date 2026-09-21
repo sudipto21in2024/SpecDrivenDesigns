@@ -117,7 +117,7 @@ export default function DriversPage() {
           label="Search by full name"
           value={searchText}
           onChange={(event) => setSearchText(event.target.value)}
-          InputProps={{ 'aria-label': 'Search drivers by full name' }}
+          inputProps={{ 'aria-label': 'Search drivers by full name' }}
         />
         <FormControl size="small" sx={{ minWidth: 140 }}>
           <InputLabel id="driver-status-label">Status</InputLabel>
@@ -211,19 +211,19 @@ export default function DriversPage() {
                 </TableRow>
               ))}
             </TableBody>
-            <TablePagination
-              component="div"
-              count={data.totalCount}
-              page={page}
-              onPageChange={(_, newPage) => setPage(newPage)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(event) => {
-                setRowsPerPage(Number(event.target.value));
-                setPage(0);
-              }}
-              rowsPerPageOptions={[5, 10, 25]}
-            />
           </Table>
+          <TablePagination
+            component="div"
+            count={data.totalCount}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(Number(event.target.value));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[5, 10, 25]}
+          />
         </TableContainer>
       )}
 
