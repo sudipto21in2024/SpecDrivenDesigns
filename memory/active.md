@@ -37,7 +37,7 @@
   e2e step — login returns 500 mid-run (variable onset: 9–22 tests in), including on docs-only
   commits (#11–#13). Runs #10 and earlier were green; Node 20→24 forcing + a .NET 10 runtime now
   installed by setup-dotnet changed in between. `build-and-test` (backend+frontend+spectral) is
-  green on #14. Rerun of #14 triggered; see memory/progress.md. Frontend/qa arms should not be
+  green on #14. Deterministic (rerun + docs-only #15 failed too); see memory/progress.md. Frontend/qa arms should not be
   trusted to CI until this is root-caused (local suites are the gates meanwhile).
 - None blocking the backend arm itself: journal LOGI-0005 #backend-arm records the 1:1 race
   accepted for v1; non-unique `IX_drivers_user_id` convention artifact; deferred items (role=Driver

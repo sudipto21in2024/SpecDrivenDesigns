@@ -21,6 +21,9 @@ remotely), but the **`e2e` job FAILS**: login returns **500 mid-run** (22/30 tes
 onset; `support/api.ts:33` Expected:200 Received:500; no API stderr in the log; vite preview
 proxies /api→localhost:5199, so the 500 may be proxy-vs-API). **NOT caused by the backend arm:**
 runs #11–#13 (docs-only architect pushes, 2026-09-20) fail identically — environmental regression
-on the runner since #10 (last green). Rerun of #14 triggered to separate flake vs deterministic.
+on the runner since #10 (last green). **Deterministic, not flaky:** rerun of #14 (attempt 2) and
+run #15 (docs-only memory push) both failed the same way — 5 failures in a row (#11–#15).
 Also noted: actions run with Node 20→24 forced (deprecation warning) and setup-dotnet now installs
-a .NET 10 runtime alongside the 9.0 SDK — both changed between #10 and #11.
+a .NET 10 runtime alongside the 9.0 SDK — both changed between #10 and #11. Next diagnostic step:
+reproduce the e2e suite locally (`tests/e2e`) — green locally ⇒ runner-specific (pin image/actions);
+red locally ⇒ debuggable with full logs.
