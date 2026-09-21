@@ -132,6 +132,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/drivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List drivers (paged)
+         * @description Returns a paged list of drivers. Query params: page (default 1), pageSize (default 25, max 100), q (full name contains, case-insensitive), status (Active/OffDuty/Suspended).
+         */
+        get: operations["listDrivers"];
+        put?: never;
+        /**
+         * Create driver
+         * @description Creates a driver. fullName and licenseNumber are required; status defaults to Active. licenseNumber must be unique (409). userId optionally links a login user account — the user must exist (400) and may be linked to at most one driver (409).
+         */
+        post: operations["createDriver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drivers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * Get driver by id
+         * @description Returns a single driver. Responds 404 when the id does not exist.
+         */
+        get: operations["getDriver"];
+        /**
+         * Update driver (full update)
+         * @description Replaces full name, license number, phone, status and the optional user link. Responds 404 when the id does not exist, 409 when the license number collides with another driver or the target user is already linked to another driver.
+         */
+        put: operations["updateDriver"];
+        post?: never;
+        /**
+         * Delete driver
+         * @description Hard delete in v1 (no soft-delete column). Responds 409 when the driver is referenced by a route (routes arrive in LOGI-0009).
+         */
+        delete: operations["deleteDriver"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -382,6 +436,50 @@ export interface components {
              * @example 2026-09-20T00:00:00Z
              */
             createdAt: string;
+        };
+        DriverRequest: {
+            /** @example Raj Patil */
+            fullName: string;
+            /** @example DL-112-4589 */
+            licenseNumber: string;
+            /** @example +31 6 1234 5678 */
+            phone?: string;
+            /**
+             * @default Active
+             * @example Active
+             * @enum {string}
+             */
+            status: "Active" | "OffDuty" | "Suspended";
+            /**
+             * Format: int64
+             * @description Optional link to a login user account (users.id). The user must exist and may be linked to at most one driver (User 1---1 Driver).
+             * @example 7
+             */
+            userId?: number;
+        };
+        /** @description Driver master data. Deliberately carries no createdAt — the approved schema §drivers defines no created_at column. */
+        DriverResponse: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id: number;
+            /**
+             * Format: int64
+             * @example 7
+             */
+            userId?: number | null;
+            /** @example Raj Patil */
+            fullName: string;
+            /** @example DL-112-4589 */
+            licenseNumber: string;
+            /** @example +31 6 1234 5678 */
+            phone?: string | null;
+            /**
+             * @example Active
+             * @enum {string}
+             */
+            status: "Active" | "OffDuty" | "Suspended";
         };
         /** @description Envelope for all list endpoints (max pageSize 100, default 25). */
         PagedResponse: {
@@ -722,6 +820,146 @@ export interface operations {
         };
     };
     deleteVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listDrivers: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                /** @description Filter by full name (contains, case-insensitive) */
+                q?: string;
+                /** @description Filter by status */
+                status?: "Active" | "OffDuty" | "Suspended";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged driver list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PagedResponse"] & {
+                        items?: components["schemas"]["DriverResponse"][];
+                    };
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createDriver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriverRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverResponse"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getDriver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateDriver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriverRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverResponse"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteDriver: {
         parameters: {
             query?: never;
             header?: never;

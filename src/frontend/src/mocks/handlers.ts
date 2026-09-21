@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput } from '../api/client';
+import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput } from '../api/client';
 
 /**
  * MSW handlers derived from contracts/v1-openapi.yaml (ADR-004). The in-memory store mirrors the API
@@ -13,6 +13,7 @@ import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, 
 
 export const warehousesDb: Warehouse[] = [];
 export const vehiclesDb: Vehicle[] = [];
+export const driversDb: Driver[] = [];
 let nextId = 1;
 
 /** Access tokens issued by the mock login, mapped to the user they identify. */
@@ -37,6 +38,17 @@ const roleRules: Record<Role, { read: boolean; write: boolean; delete: boolean }
   Viewer: { read: true, write: false, delete: false },
 };
 
+/**
+ * Driver role rules — the Driver persona is excluded from /drivers entirely
+ * (master-data surface per spec §2: Driver role 403 even on reads).
+ */
+const driverRoleRules: Record<Role, { read: boolean; write: boolean; delete: boolean }> = {
+  Admin: { read: true, write: true, delete: true },
+  Dispatcher: { read: true, write: true, delete: false },
+  Driver: { read: false, write: false, delete: false },
+  Viewer: { read: true, write: false, delete: false },
+};
+
 export function resetWarehousesDb(seed: Warehouse[] = []): void {
   warehousesDb.splice(0, warehousesDb.length, ...seed);
 }
@@ -45,6 +57,27 @@ export function resetWarehousesDb(seed: Warehouse[] = []): void {
 export function resetVehiclesDb(seed: Vehicle[] = []): void {
   vehiclesDb.splice(0, vehiclesDb.length, ...seed);
   if (warehousesDb.length === 0 && seed.length === 0) nextId = 1;
+}
+
+/** Clears the driver store. */
+export function resetDriversDb(seed: Driver[] = []): void {
+  driversDb.splice(0, driversDb.length, ...seed);
+}
+
+/** Inserts a driver into the mock store, mirroring the API defaults (status → Active, no createdAt). */
+export function seedDriver(overrides: Partial<Driver> = {}): Driver {
+  const id = nextId++;
+  const driver: Driver = {
+    id,
+    fullName: 'Raj Patil',
+    licenseNumber: `DL-${String(id).padStart(4, '0')}-X`,
+    phone: null,
+    status: 'Active',
+    userId: null,
+    ...overrides,
+  };
+  driversDb.push(driver);
+  return driver;
 }
 
 /** Inserts a vehicle into the mock store, mirroring the API defaults (status → Available). */
@@ -112,12 +145,13 @@ function authorize(
   request: Request,
   operation: 'read' | 'write' | 'delete',
   path: string,
+  rules: Record<Role, { read: boolean; write: boolean; delete: boolean }> = roleRules,
 ): HttpResponse<ProblemDetails> | { user: AuthUser } {
   const user = bearerUser(request);
   if (user === null) {
     return problem(401, 'Unauthorized', 'A valid bearer token is required to access this resource.');
   }
-  if (!roleRules[user.role][operation]) {
+  if (!rules[user.role][operation]) {
     return problem(403, 'Forbidden', `The ${user.role} role is not permitted to ${operation} ${path}.`);
   }
   return { user };
@@ -179,6 +213,22 @@ function problem409(detail: string): HttpResponse<ProblemDetails> {
     },
     { status: 409 },
   );
+}
+
+const driverStatuses = ['Active', 'OffDuty', 'Suspended'];
+
+/** Mirrors the CreateDriverValidator / UpdateDriverValidator rules (LOGI-0005 AC-2..AC-5). */
+function validateDriver(body: Partial<DriverInput>): Record<string, string[]> | undefined {
+  const errors: Record<string, string[]> = {};
+  if (!body.fullName || body.fullName.trim() === '') errors.fullName = ['Full name is required'];
+  else if (body.fullName.length > 200) errors.fullName = ['Full name must be at most 200 characters'];
+  if (!body.licenseNumber || body.licenseNumber.trim() === '') errors.licenseNumber = ['License number is required'];
+  else if (body.licenseNumber.length > 40) errors.licenseNumber = ['License number must be at most 40 characters'];
+  if (body.phone !== null && body.phone !== undefined && body.phone.length > 40)
+    errors.phone = ['Phone must be at most 40 characters'];
+  if (body.status !== null && body.status !== undefined && !driverStatuses.includes(body.status))
+    errors.status = ['Status must be one of: Active, OffDuty, Suspended.'];
+  return Object.keys(errors).length > 0 ? errors : undefined;
 }
 
 export const handlers = [
@@ -412,6 +462,130 @@ export const handlers = [
     const index = vehiclesDb.findIndex((v) => v.id === Number(params.id));
     if (index === -1) return problem(404, 'Resource not found', `Vehicle with id '${String(params.id)}' was not found.`);
     vehiclesDb.splice(index, 1);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  // ---------------------------------------------------------------- Drivers (LOGI-0005)
+
+  http.get('/api/v1/drivers', ({ request }) => {
+    const auth = authorize(request, 'read', 'drivers', driverRoleRules);
+    if (!('user' in auth)) return auth;
+
+    const url = new URL(request.url);
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? '1'));
+    const pageSize = Math.min(100, Math.max(1, Number(url.searchParams.get('pageSize') ?? '25')));
+    const q = (url.searchParams.get('q') ?? '').toLowerCase();
+    const status = url.searchParams.get('status');
+
+    const filtered = driversDb.filter(
+      (d) =>
+        (q === '' || d.fullName.toLowerCase().includes(q)) &&
+        (status === null || status === '' || d.status === status),
+    );
+    const totalCount = filtered.length;
+    const items = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+    return HttpResponse.json({
+      items,
+      page,
+      pageSize,
+      totalCount,
+      totalPages: Math.ceil(totalCount / pageSize),
+    });
+  }),
+
+  http.get('/api/v1/drivers/:id', ({ request, params }) => {
+    const auth = authorize(request, 'read', 'drivers', driverRoleRules);
+    if (!('user' in auth)) return auth;
+
+    const driver = driversDb.find((d) => d.id === Number(params.id));
+    return driver
+      ? HttpResponse.json(driver)
+      : problem(404, 'Resource not found', `Driver with id '${String(params.id)}' was not found.`);
+  }),
+
+  http.post('/api/v1/drivers', async ({ request }) => {
+    const auth = authorize(request, 'write', 'drivers', driverRoleRules);
+    if (!('user' in auth)) return auth;
+
+    const body = (await request.json()) as DriverInput;
+    const errors = validateDriver(body);
+    if (errors) return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+
+    const license = body.licenseNumber.trim();
+    if (driversDb.some((d) => d.licenseNumber === license)) {
+      return problem409(`Driver with key '${license}' already exists.`);
+    }
+
+    // AC-5/6: nonexistent user (400) is checked before the 1:1 rule (409).
+    if (body.userId != null) {
+      const existingUser = mockUsers.find((u) => u.id === body.userId);
+      if (existingUser === undefined) {
+        return problem(400, 'Validation failed', 'One or more validation errors occurred.', {
+          userId: [`User with id '${body.userId}' was not found.`],
+        });
+      }
+      if (driversDb.some((d) => d.userId === body.userId)) {
+        return problem409(`User with id '${body.userId}' is already linked to a driver.`);
+      }
+    }
+
+    const created: Driver = {
+      id: nextId++,
+      fullName: body.fullName.trim(),
+      licenseNumber: license,
+      phone: body.phone ?? null,
+      status: body.status ?? 'Active',
+      userId: body.userId ?? null,
+    };
+    driversDb.push(created);
+    return HttpResponse.json(created, { status: 201 });
+  }),
+
+  http.put('/api/v1/drivers/:id', async ({ request, params }) => {
+    const auth = authorize(request, 'write', 'drivers', driverRoleRules);
+    if (!('user' in auth)) return auth;
+
+    const driver = driversDb.find((d) => d.id === Number(params.id));
+    if (!driver) return problem(404, 'Resource not found', `Driver with id '${String(params.id)}' was not found.`);
+
+    const body = (await request.json()) as DriverInput;
+    const errors = validateDriver(body);
+    if (errors) return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+
+    const license = body.licenseNumber.trim();
+    if (driversDb.some((d) => d.id !== driver.id && d.licenseNumber === license)) {
+      return problem409(`Driver with key '${license}' already exists.`);
+    }
+
+    if (body.userId != null) {
+      const existingUser = mockUsers.find((u) => u.id === body.userId);
+      if (existingUser === undefined) {
+        return problem(400, 'Validation failed', 'One or more validation errors occurred.', {
+          userId: [`User with id '${body.userId}' was not found.`],
+        });
+      }
+      if (driversDb.some((d) => d.id !== driver.id && d.userId === body.userId)) {
+        return problem409(`User with id '${body.userId}' is already linked to a driver.`);
+      }
+    }
+
+    driver.fullName = body.fullName.trim();
+    driver.licenseNumber = license;
+    driver.phone = body.phone ?? null;
+    driver.status = body.status ?? 'Active';
+    // userId null/omitted clears the link (full update semantics).
+    driver.userId = body.userId ?? null;
+    return HttpResponse.json(driver);
+  }),
+
+  http.delete('/api/v1/drivers/:id', ({ request, params }) => {
+    const auth = authorize(request, 'delete', 'drivers', driverRoleRules);
+    if (!('user' in auth)) return auth;
+
+    const index = driversDb.findIndex((d) => d.id === Number(params.id));
+    if (index === -1) return problem(404, 'Resource not found', `Driver with id '${String(params.id)}' was not found.`);
+    driversDb.splice(index, 1);
     return new HttpResponse(null, { status: 204 });
   }),
 ];

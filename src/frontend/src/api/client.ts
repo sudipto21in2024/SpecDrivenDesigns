@@ -14,6 +14,10 @@ export type Vehicle = components['schemas']['VehicleResponse'];
 export type VehicleInput = components['schemas']['VehicleRequest'];
 export type VehicleStatus = NonNullable<Vehicle['status']>;
 export type VehicleType = NonNullable<Vehicle['type']>;
+export type Driver = components['schemas']['DriverResponse'];
+export type DriverInput = components['schemas']['DriverRequest'];
+export type DriverStatus = NonNullable<Driver['status']>;
+export type UserId = NonNullable<Driver['userId']>;
 export type ProblemDetails = components['schemas']['ProblemDetails'];
 export type AuthUser = components['schemas']['AuthUser'];
 export type LoginInput = components['schemas']['LoginRequest'];
@@ -188,6 +192,35 @@ export const api = {
   },
   deleteVehicle(id: number): Promise<void> {
     return request<void>(`/api/v1/vehicles/${id}`, { method: 'DELETE' });
+  },
+
+  /** AC-1/AC-7: paged driver list with full-name search + status filter. */
+  listDrivers(
+    page = 1,
+    pageSize = 25,
+    q?: string,
+    status?: string,
+  ): Promise<Paged<Driver>> {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (q) params.set('q', q);
+    if (status) params.set('status', status);
+    return request<Paged<Driver>>(`/api/v1/drivers?${params.toString()}`);
+  },
+  /** AC-8: get driver by id. */
+  getDriver(id: number): Promise<Driver> {
+    return request<Driver>(`/api/v1/drivers/${id}`);
+  },
+  /** AC-1: create driver. */
+  createDriver(body: DriverInput): Promise<Driver> {
+    return request<Driver>('/api/v1/drivers', { method: 'POST', body: JSON.stringify(body) });
+  },
+  /** AC-6/AC-8: full update driver (PUT null/omitted userId clears the user link). */
+  updateDriver(id: number, body: DriverInput): Promise<Driver> {
+    return request<Driver>(`/api/v1/drivers/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+  },
+  /** AC-8: delete driver. */
+  deleteDriver(id: number): Promise<void> {
+    return request<void>(`/api/v1/drivers/${id}`, { method: 'DELETE' });
   },
 
   /** AC-1/AC-2: exchange credentials for a token pair. */

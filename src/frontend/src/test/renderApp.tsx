@@ -3,7 +3,7 @@ import { beforeEach } from 'vitest';
 import App from '../App';
 import type { Role } from '../api/client';
 import { tokenStore } from '../api/tokenStore';
-import { resetAuthDb, resetVehiclesDb, resetWarehousesDb, seedSession } from '../mocks/handlers';
+import { resetAuthDb, resetVehiclesDb, resetWarehousesDb, resetDriversDb, seedSession } from '../mocks/handlers';
 
 /**
  * Shared test harness (LOGI-0003).
@@ -18,6 +18,7 @@ import { resetAuthDb, resetVehiclesDb, resetWarehousesDb, seedSession } from '..
 export function resetMocks(): void {
   resetWarehousesDb();
   resetVehiclesDb();
+  resetDriversDb();
   resetAuthDb();
   tokenStore.clear();
 }

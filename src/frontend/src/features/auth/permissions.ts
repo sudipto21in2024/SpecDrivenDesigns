@@ -29,6 +29,15 @@ export const capabilities = {
 
   /** DELETE /vehicles/{id} — x-roles: [Admin] only. */
   deleteVehicles: (role: Role): boolean => role === 'Admin',
+
+  /** GET /drivers, /drivers/{id} — x-roles: [Admin, Dispatcher, Viewer]; Driver excluded (master-data surface). */
+  viewDrivers: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher' || role === 'Viewer',
+
+  /** POST/PUT /drivers — x-roles: [Admin, Dispatcher]. */
+  editDrivers: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
+
+  /** DELETE /drivers/{id} — x-roles: [Admin] only. */
+  deleteDrivers: (role: Role): boolean => role === 'Admin',
 } as const;
 
 const allRoles: readonly Role[] = ['Admin', 'Dispatcher', 'Driver', 'Viewer'];
