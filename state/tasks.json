@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-21T05:30:50.892Z",
+  "generated": "2026-09-21T07:33:23.279Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -101,6 +101,13 @@
           "status": "done",
           "agent": "orchestrator-inline",
           "started": "2026-09-21T04:09:01.841Z"
+        },
+        "frontend": {
+          "status": "in_progress",
+          "agent": "orchestrator-inline",
+          "started": "2026-09-21T07:33:09.249Z",
+          "lastStep": "step 1/6: plan locked (validate-plan ok); DriverFormDialog.tsx relocated from the stray C/ path; stray C/ tree + root nul removed",
+          "lastStepAt": "2026-09-21T07:33:23.102Z"
         }
       },
       "status": "planned",
