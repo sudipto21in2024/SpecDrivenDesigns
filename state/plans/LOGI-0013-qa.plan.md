@@ -39,7 +39,7 @@ runs) and make the CI job self-diagnosing (upload the API's Serilog file log on 
 - [x] 1. Add `tests/e2e/start-api.mjs` and wire it into `playwright.config.ts` (absolute
   `Database__ConnectionString`, `E2E_DB_PATH`) → verify: wrapper prints the DB path it prepares and
   the suite still boots (local run reaches the tests).
-- [ ] 2. Remove the live-file `rmSync` block from `tests/e2e/global-setup.ts`; keep the API-driven row
+- [x] 2. Remove the live-file `rmSync` block from `tests/e2e/global-setup.ts`; keep the API-driven row
   reset and extend it to `/drivers` (404-tolerant, for the LOGI-0005 qa arm) → verify: grep shows no
   `rmSync` left in the harness; suite green.
 - [ ] 3. Add the on-failure diagnostics artifact step to `.github/workflows/ci.yml` (Serilog `Logs`,

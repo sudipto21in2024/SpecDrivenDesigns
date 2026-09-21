@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-21T05:20:36.748Z",
+  "generated": "2026-09-21T05:20:37.082Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -113,8 +113,8 @@
           "status": "in_progress",
           "agent": null,
           "started": "2026-09-21T05:14:32.109Z",
-          "lastStep": "step 1/5: start-api.mjs wrapper + absolute DB path config; playwright --list 30 tests",
-          "lastStepAt": "2026-09-21T05:20:36.745Z"
+          "lastStep": "step 2/5: global-setup no longer deletes live DB files; API-only reset incl. drivers",
+          "lastStepAt": "2026-09-21T05:20:37.079Z"
         }
       },
       "status": "planned"

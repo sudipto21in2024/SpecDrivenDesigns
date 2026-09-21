@@ -109,3 +109,4 @@
 {"ts":"2026-09-21T05:14:31.968Z","type":"PLAN_LOCKED","ticket":"LOGI-0013","arm":"qa","plan_ptr":"state\\plans\\LOGI-0013-qa.plan.md"}
 {"ts":"2026-09-21T05:14:32.109Z","type":"TASK_STARTED","ticket":"LOGI-0013","arm":"qa"}
 {"ts":"2026-09-21T05:20:36.745Z","type":"STEP_DONE","ticket":"LOGI-0013","arm":"qa","note":"step 1/5: start-api.mjs wrapper + absolute DB path config; playwright --list 30 tests"}
+{"ts":"2026-09-21T05:20:37.079Z","type":"STEP_DONE","ticket":"LOGI-0013","arm":"qa","note":"step 2/5: global-setup no longer deletes live DB files; API-only reset incl. drivers"}
