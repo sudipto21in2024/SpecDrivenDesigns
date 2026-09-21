@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-21T04:06:01.326Z",
+  "generated": "2026-09-21T04:09:01.845Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -98,9 +98,9 @@
           "lastStepAt": "2026-09-20T16:46:28.477Z"
         },
         "backend": {
-          "status": "planned",
-          "plan": "state\\plans\\LOGI-0005-backend.plan.md",
-          "planStatus": "locked"
+          "status": "in_progress",
+          "agent": "orchestrator-inline",
+          "started": "2026-09-21T04:09:01.841Z"
         }
       },
       "status": "planned",

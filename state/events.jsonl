@@ -95,3 +95,4 @@
 {"ts":"2026-09-20T17:14:20.206Z","type":"HANDOFF","ticket":"LOGI-0005","from":"architect","to":"backend","summary_ptr":"memory/journal/LOGI-0005.md#architect-arm","gates":["spectral 0 errors; contract diff 149+/0- additive"]}
 {"ts":"2026-09-21T03:49:12.501Z","type":"PLAN_CREATED","ticket":"LOGI-0005","arm":"backend","plan_ptr":"state\\plans\\LOGI-0005-backend.plan.md"}
 {"ts":"2026-09-21T03:52:58.706Z","type":"PLAN_LOCKED","ticket":"LOGI-0005","arm":"backend","plan_ptr":"state\\plans\\LOGI-0005-backend.plan.md"}
+{"ts":"2026-09-21T04:09:01.841Z","type":"TASK_STARTED","ticket":"LOGI-0005","arm":"backend","agent":"orchestrator-inline"}

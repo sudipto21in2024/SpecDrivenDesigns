@@ -23,6 +23,8 @@ public class LogiFlowDbContext(DbContextOptions<LogiFlowDbContext> options)
 
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
 
+    public DbSet<Driver> Drivers => Set<Driver>();
+
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -54,6 +56,32 @@ public class LogiFlowDbContext(DbContextOptions<LogiFlowDbContext> options)
             entity.Property(v => v.CreatedAt).HasColumnName("created_at");
             // Plate lookup is the uniqueness key (AC-3) and the list filter key (AC-7).
             entity.HasIndex(v => v.PlateNumber).IsUnique();
+        });
+
+        modelBuilder.Entity<Driver>(entity =>
+        {
+            entity.ToTable("drivers");
+            entity.HasKey(d => d.Id);
+            entity.Property(d => d.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            entity.Property(d => d.FullName).HasColumnName("full_name").IsRequired().HasMaxLength(200);
+            entity.Property(d => d.LicenseNumber).HasColumnName("license_number").IsRequired().HasMaxLength(40);
+            entity.Property(d => d.Phone).HasColumnName("phone").HasMaxLength(40);
+            entity.Property(d => d.Status).HasColumnName("status").IsRequired().HasMaxLength(20);
+            entity.Property(d => d.UserId).HasColumnName("user_id");
+
+            // License lookup is the uniqueness key (AC-3), mirroring vehicles.plate_number
+            // (04-database-schema.md indexing rules).
+            entity.HasIndex(d => d.LicenseNumber).IsUnique().HasDatabaseName("ix_drivers_license_number");
+
+            // Optional link to a login account (User 1---1 Driver, approved schema entity overview).
+            // The FK delete behaviour is the schema default NO ACTION. The at-most-one-driver-per-user
+            // rule is enforced by the Application handlers (dup-check + 409) — the approved schema has
+            // no unique index on user_id, and adding one would exceed it without a checkpoint.
+            entity.HasOne<AppUser>()
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("fk_drivers_users")
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         ConfigureIdentityTables(modelBuilder);
