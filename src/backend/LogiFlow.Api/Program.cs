@@ -125,6 +125,7 @@ app.MapGet("/api/v1/health", () => Results.Ok(new
 app.MapAuthEndpoints();
 app.MapWarehouseEndpoints();
 app.MapVehicleEndpoints();
+app.MapDriverEndpoints();
 
 app.Run();
 
