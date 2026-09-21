@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0005
 arm: frontend
-status: locked
+status: done
 created: 2026-09-21T07:31:59.705Z
 depends_on_plans: LOGI-0005-architect, LOGI-0005-backend
 ---
@@ -49,7 +49,7 @@ RECOVERY CONTEXT (respected by this plan): an earlier inline execution of this a
 - [x] 3. Feature UI audit: `features/drivers/{schema,hooks,DriversPage,DriverFormDialog}` match the spec — status enum + Active default (AC-4), duplicate licence to licenseNumber field error (AC-3), userId 400/409 field errors and PUT sends the current userId so the link is preserved/cleared (AC-5/AC-6), table has NO createdAt column and order is id asc (NFR), role-gated New/Edit/Delete (AC-9) → verify: `npx tsc --noEmit` clean; grep shows no createdAt in `features/drivers/`
 - [x] 4. Chrome: `App.tsx` renders the Drivers tab (and page) only when `can(role, 'viewDrivers')` — the Driver persona must not see master data (spec §2 / AC-9) while Admin/Dispatcher/Viewer keep today's behaviour; renderApp resetMocks clears the driver store → verify: `npm test` existing warehouse/auth/vehicle suites still green
 - [x] 5. Vitest suite `DriversPage.test.tsx` covering AC-1 (create + success snackbar), AC-2 (fullName required), AC-3 (409 duplicate licence as field error), AC-4 (status defaults Active + three enum options), AC-5/AC-6 (user link echoed, invalid userId 400, clear-on-edit), AC-7 (paged list + status filter/search), AC-8 (edit + delete via confirmation), AC-9 (Viewer read-only, Dispatcher no delete, Driver role sees no Drivers tab) → verify: `npm test` full suite green; `npx tsc --noEmit` clean; `npm run build` succeeds
-- [ ] 6. Seal: journal frontend-arm section; commit manifest-exact; plan status done; tracker handoff frontend to qa; update `memory/active.md` + `memory/progress.md` → verify: `git status --short` clean except state/memory artifacts; all §4 steps ticked
+- [x] 6. Seal: journal frontend-arm section; commit manifest-exact; plan status done; tracker handoff frontend to qa; update `memory/active.md` + `memory/progress.md` → verify: `git status --short` clean except state/memory artifacts; all §4 steps ticked
 
 ## 5. Risks / open questions
 - **Pre-existing uncommitted work:** steps 2-3 treat it as audited input, so every claim is re-verified by a gate (regen no-diff, tsc, full suite) rather than trusted. If a file contradicts the contract/spec it is corrected inside §2 scope only.

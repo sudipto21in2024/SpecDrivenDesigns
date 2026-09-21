@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-21T07:43:16.907Z",
+  "generated": "2026-09-21T07:45:23.431Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -103,15 +103,15 @@
           "started": "2026-09-21T04:09:01.841Z"
         },
         "frontend": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "orchestrator-inline",
           "started": "2026-09-21T07:33:09.249Z",
-          "lastStep": "step 5/6: DriversPage.test.tsx added (16 tests, AC-1..AC-9 incl. Active default, licence 409, link preserve/clear, page/status filtering, Viewer/Dispatcher/Driver affordances); full vitest suite 41/41 across 4 files; npx tsc --noEmit clean; npm run build OK",
-          "lastStepAt": "2026-09-21T07:43:16.736Z"
+          "lastStep": "step 6/6: sealed - journal frontend-arm (recovery context + MUI Tabs gotcha + deferred findings), plan done, handoff frontend->qa, active.md/progress.md updated",
+          "lastStepAt": "2026-09-21T07:45:23.115Z"
         }
       },
       "status": "planned",
-      "next": "frontend"
+      "next": "qa"
     },
     "LOGI-0013": {
       "ticket": "LOGI-0013",

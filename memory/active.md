@@ -4,6 +4,26 @@
 > Authoritative position: `node tools/tracker/index.mjs current` + this file.
 
 ## Current work
+- **Session 2026-09-21 (3): LOGI-0005 frontend arm SEALED — handoff frontend→qa recorded.**
+  - First task was **recovery**: an *interrupted* inline frontend run had left drivers code in the tree
+    with **no locked plan, no tracker events, no commits, no micro-log**, and `DriverFormDialog.tsx`
+    misfiled under a stray `C/Sudipto/...` path (a root `nul` artifact too). `tracker resume-check` →
+    `mid_step`. The plan `state/plans/LOGI-0005-frontend.plan.md` was therefore authored as an **audit**
+    plan: steps 2-3 re-verify that work **by gate**, never by trust. Validated, locked, arm claimed
+    (`orchestrator-inline`, inline per the user-approved override for this environment).
+  - Per-step commits: `765e07c` (plan + recovery) → `b20588c` (typed client + capabilities + MSW) →
+    `590fa74` (drivers UI) → `20d8fe2` (role-gated Drivers tab) → `f3c8e72` (vitest suite + fixes) →
+    seal commit.
+  - **Gates:** `npm run generate:api` → **zero diff** on `api/schema.d.ts` (238 insertions unchanged ⇒
+    the typed client is provably generated from the contract); `npx tsc --noEmit` clean; `npm test`
+    **41/41** (warehouses 8, auth 10, vehicles 7, drivers 16); `npm run build` OK.
+  - **Audit fixes** (all inside the §2 manifest): `handleFormSubmit` typed `DriverInput` (2 TS errors the
+    interrupted run never reached a gate for); `TablePagination` moved out of `<Table>` (invalid DOM
+    nesting); search field `InputProps` → `inputProps` (aria-label must reach the input).
+  - **MUI gotcha recorded:** `Tabs` (v5) injects `value`/`onChange`/`indicator` via `cloneElement` on
+    **direct** children and has no TabsContext — a `Tab` wrapped in another component renders but never
+    switches (first attempt: 15/16 specs failed). Tab state now lives in `MasterDataTabs`, below
+    `AuthProvider`, with the `Tab`s as direct children of `Tabs`.
 - **Session 2026-09-21 (2): root-caused and fixed the platform-wide red `e2e` CI job as ticket
   LOGI-0013 (qa arm, inline).** Verification of run #14's log + the green #10 baseline proved the
   failure was environmental, not the LOGI-0005 backend arm.
@@ -37,18 +57,22 @@
     omitted clears the link; status default Active; no createdAt; list id asc; RBAC = contract
     x-roles (Driver role 403 on all /drivers, incl. reads).
 - Scoreboard: LOGI-0000 ✅ · 0001 ✅ · 0002 ✅ · 0003 ✅ · 0004 ✅ ·
-  **LOGI-0005 🟡 — architect ✅ (`a3a369d`) · backend ✅ (`c615744`, 42/42) · frontend ⬜ · qa ⬜**.
+  **LOGI-0005 🟡 — architect ✅ (`a3a369d`) · backend ✅ (`c615744`, 42/42) · frontend ✅
+  (`f3c8e72`, vitest 41/41) · qa ⬜**.
 
 ## Next action
-1. **Plan the LOGI-0005 frontend arm** (planner phase may run inline — it writes only state/):
-   skill `plan-arm` → §3 reads (frontend-conventions doc, `src/frontend` vehicles-feature idiom,
-   typed-client regen path) → `state/plans/LOGI-0005-frontend.plan.md` (typed-client regen +
-   `features/drivers/*`, UI model has NO createdAt, PUT always sends the current userId) →
-   `validate-plan` clean → `tracker plan lock`.
-2. Then dispatch the frontend EXECUTOR (fresh window via `new_task`, or user-approved inline
-   again — ask first). After seal: verify HANDOFF, update memory, push, watch CI. Then the qa
-   arm (`tests/e2e/drivers.spec.ts` AC-1..AC-9), then close the ticket.
-3. Push each seal and watch CI (no gh CLI — verify via GitHub web or the public API).
+1. **Dispatch the LOGI-0005 qa arm** (fresh window via `new_task`, or user-approved inline): plan
+   `state/plans/LOGI-0005-qa.plan.md` → `tests/e2e/drivers.spec.ts` covering AC-1..AC-9 against the real
+   API — licence 409 on POST+PUT, userId 400 then 409, PUT null/omitted clears the link, paged
+   q/status list (id asc), 404s, and the full RBAC matrix incl. **Driver role 403 on reads**; reuse the
+   LOGI-0013 harness (`start-api.mjs`, API-only row reset — `drivers` is already reset there). Gates:
+   `npx playwright test` green locally, then CI run green.
+2. After the qa seal: handoff qa→done, flip `specs/features/LOGI-0005-drivers-crud.md` status, update
+   this file + `memory/progress.md`, then close the ticket.
+3. Push each seal and watch CI (no `gh` CLI — verify via GitHub web or the public API).
+4. Optional cleanups (not blocking): fix the pre-existing `validateDOMNesting` defect in
+   `WarehousesPage.tsx` (~line 187, LOGI-0001 shape) as a small platform ticket, and remove the stale
+   detached worktree `.kilo/worktrees/lime-spirit` (`git worktree remove`).
 
 ## Blockers / open questions
 - **CI `e2e` job red platform-wide → RESOLVED (LOGI-0013, run #17 green).** Root cause was the harness,
@@ -60,6 +84,10 @@
 - None blocking the backend arm itself: journal LOGI-0005 #backend-arm records the 1:1 race
   accepted for v1; non-unique `IX_drivers_user_id` convention artifact; deferred items (role=Driver
   check on the link, delete-referenced 409 in LOGI-0009, status lifecycle).
+- Frontend arm findings (deferred, not blocking): pre-existing `validateDOMNesting` warning in
+  `WarehousesPage.tsx` (~line 187 — `TablePagination` inside `<Table>`; the drivers page had the same
+  shape and was fixed inside this arm's manifest); stale detached worktree
+  `.kilo/worktrees/lime-spirit` (2433dc8) still on disk. Both are listed as optional cleanups above.
 - `graphify extract` unavailable (0.6.0 lacks the 0.9.33 `extract` command) — §3 scoping done by
   targeted reads; optional to update graphify later.
 - `gh` CLI not installed — CI checks done via the public API + the repo's own stored credential
