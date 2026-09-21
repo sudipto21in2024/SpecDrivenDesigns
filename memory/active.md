@@ -35,6 +35,9 @@
    `state/plans/LOGI-0005-backend.plan.md`. Read memory/active.md first. Follow the 5-step
    handover (claim → steps 1-5 with verify gates + micro-logs → seal journal →
    handoff backend→frontend)."
+   - Main-thread session 2026-09-21 (2nd): position re-verified before dispatch —
+     `tracker ready` → LOGI-0005 next=backend; `resume-check` verdict clean (only
+     outside-manifest change is tracker's own state/tasks.json); no TASK_STARTED yet.
 2. After the executor seals: verify HANDOFF event (`tracker history --ticket LOGI-0005`),
    update this file, push, watch CI. Then plan the frontend arm (typed-client regen +
    `features/drivers/*`, no createdAt in the UI model), then qa (`tests/e2e/drivers.spec.ts`
