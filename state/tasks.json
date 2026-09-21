@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-20T17:14:20.356Z",
+  "generated": "2026-09-21T03:52:58.710Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -96,6 +96,11 @@
           "started": "2026-09-20T16:34:52.252Z",
           "lastStep": "step 2/3 green: /drivers contract added (149+/0-, additive); spectral 0 errors; 5 new operationIds (20 total, unique)",
           "lastStepAt": "2026-09-20T16:46:28.477Z"
+        },
+        "backend": {
+          "status": "planned",
+          "plan": "state\\plans\\LOGI-0005-backend.plan.md",
+          "planStatus": "locked"
         }
       },
       "status": "planned",
