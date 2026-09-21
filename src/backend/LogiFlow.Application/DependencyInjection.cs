@@ -23,6 +23,11 @@ public static class DependencyInjection
         services.AddScoped<IValidator<Features.Vehicles.UpdateVehicleCommand>, Features.Vehicles.UpdateVehicleValidator>();
         services.AddScoped<IValidator<Features.Vehicles.ListVehiclesQuery>, Features.Vehicles.ListVehiclesValidator>();
 
+        // LOGI-0005 driver use cases (same per-type convention).
+        services.AddScoped<IValidator<Features.Drivers.CreateDriverCommand>, Features.Drivers.CreateDriverValidator>();
+        services.AddScoped<IValidator<Features.Drivers.UpdateDriverCommand>, Features.Drivers.UpdateDriverValidator>();
+        services.AddScoped<IValidator<Features.Drivers.ListDriversQuery>, Features.Drivers.ListDriversValidator>();
+
         // LOGI-0003 auth use cases. Registered per-type (not assembly-scanned) to match the existing
         // convention and keep the pipeline's validator set explicit.
         services.AddScoped<IValidator<Features.Auth.LoginCommand>, Features.Auth.LoginCommandValidator>();
