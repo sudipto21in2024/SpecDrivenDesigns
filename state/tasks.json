@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-21T04:31:07.597Z",
+  "generated": "2026-09-21T05:20:36.748Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -98,13 +98,26 @@
           "lastStepAt": "2026-09-20T16:46:28.477Z"
         },
         "backend": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "orchestrator-inline",
           "started": "2026-09-21T04:09:01.841Z"
         }
       },
       "status": "planned",
-      "next": "backend"
+      "next": "frontend"
+    },
+    "LOGI-0013": {
+      "ticket": "LOGI-0013",
+      "arms": {
+        "qa": {
+          "status": "in_progress",
+          "agent": null,
+          "started": "2026-09-21T05:14:32.109Z",
+          "lastStep": "step 1/5: start-api.mjs wrapper + absolute DB path config; playwright --list 30 tests",
+          "lastStepAt": "2026-09-21T05:20:36.745Z"
+        }
+      },
+      "status": "planned"
     }
   }
 }
