@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-22T07:48:37.707Z",
+  "generated": "2026-09-22T09:36:31.738Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -154,14 +154,15 @@
       "ticket": "LOGI-0006",
       "arms": {
         "architect": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "orchestrator-inline",
           "started": "2026-09-22T07:37:48.602Z",
-          "lastStep": "step 2/3: contract extended additively - /shipments/{id}/status-transitions + /shipments/{id}/status-history + StatusTransitionRequest/ShipmentStatusEvent; spectral 0 errors; diff 96+/0-; operationIds unique",
-          "lastStepAt": "2026-09-22T07:47:58.285Z"
+          "lastStep": "sealed: spectral lint: 0 errors; diff additive 96+/0-; operationIds unique (1 each); spec 8/8 AC headings + sec1-8 present; front matter status: spec_approved",
+          "lastStepAt": "2026-09-22T09:36:21.927Z"
         }
       },
-      "status": "planned"
+      "status": "planned",
+      "next": "backend"
     }
   }
 }

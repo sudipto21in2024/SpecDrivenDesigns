@@ -156,3 +156,6 @@
 {"ts":"2026-09-22T07:37:48.602Z","type":"TASK_STARTED","ticket":"LOGI-0006","arm":"architect","agent":"orchestrator-inline"}
 {"ts":"2026-09-22T07:43:46.945Z","type":"STEP_DONE","ticket":"LOGI-0006","arm":"architect","note":"step 1/3: spec authored - AC-1..AC-8 (8 headings verified) + sections 1-8 verified; BR-7 transitions, 409+legal-next, audit trail, RBAC; open questions answered (checkpoint defaults)"}
 {"ts":"2026-09-22T07:47:58.285Z","type":"STEP_DONE","ticket":"LOGI-0006","arm":"architect","note":"step 2/3: contract extended additively - /shipments/{id}/status-transitions + /shipments/{id}/status-history + StatusTransitionRequest/ShipmentStatusEvent; spectral 0 errors; diff 96+/0-; operationIds unique"}
+{"ts":"2026-09-22T09:36:21.927Z","type":"STEP_DONE","ticket":"LOGI-0006","arm":"architect","note":"sealed: spectral lint: 0 errors; diff additive 96+/0-; operationIds unique (1 each); spec 8/8 AC headings + sec1-8 present; front matter status: spec_approved"}
+{"ts":"2026-09-22T09:36:31.471Z","type":"PLAN_DONE","ticket":"LOGI-0006","arm":"architect","plan_ptr":"state\\plans\\LOGI-0006-architect.plan.md"}
+{"ts":"2026-09-22T09:36:31.581Z","type":"HANDOFF","ticket":"LOGI-0006","from":"architect","to":"backend","summary_ptr":"memory/journal/LOGI-0006.md#architect","gates":["spectral:0 errors","spec_approved","checkpoint:approved"]}

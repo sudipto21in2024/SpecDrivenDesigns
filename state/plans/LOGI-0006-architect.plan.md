@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0006
 arm: architect
-status: locked
+status: done
 created: 2026-09-22T05:59:55.828Z
 depends_on_plans:
 ---
