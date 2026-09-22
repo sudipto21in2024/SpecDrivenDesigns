@@ -151,3 +151,4 @@
 {"ts":"2026-09-22T05:34:36.816Z","type":"PLAN_DONE","ticket":"LOGI-0014","arm":"orchestrator","plan_ptr":"state\\plans\\LOGI-0014-orchestrator.plan.md"}
 {"ts":"2026-09-22T05:46:08.601Z","type":"PLAN_DONE","ticket":"LOGI-0014","arm":"orchestrator","plan_ptr":"state\\plans\\LOGI-0014-orchestrator.plan.md"}
 {"ts":"2026-09-22T05:46:08.666Z","type":"HANDOFF","ticket":"LOGI-0014","from":"orchestrator","to":"done","summary_ptr":"memory/journal/LOGI-0014.md#orchestrator-arm","gates":["validate-plan-ok","contract-slicer-verified","plan-5of5-ticked"]}
+{"ts":"2026-09-22T05:59:55.830Z","type":"PLAN_CREATED","ticket":"LOGI-0006","arm":"architect","plan_ptr":"state\\plans\\LOGI-0006-architect.plan.md"}
