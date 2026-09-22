@@ -1,7 +1,7 @@
 ---
 id: LOGI-0006
 title: Shipment status lifecycle (TransitionTo)
-status: draft
+status: spec_approved
 owner_agent: spec-agent
 created: 2026-09-22
 depends_on:
