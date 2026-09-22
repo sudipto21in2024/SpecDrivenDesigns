@@ -162,3 +162,5 @@
 {"ts":"2026-09-22T09:41:35.320Z","type":"PLAN_CREATED","ticket":"LOGI-0006","arm":"backend","plan_ptr":"state\\plans\\LOGI-0006-backend.plan.md"}
 {"ts":"2026-09-22T09:48:07.543Z","type":"PLAN_LOCKED","ticket":"LOGI-0006","arm":"backend","plan_ptr":"state\\plans\\LOGI-0006-backend.plan.md"}
 {"ts":"2026-09-22T09:48:50.627Z","type":"TASK_STARTED","ticket":"LOGI-0006","arm":"backend","agent":"orchestrator-inline"}
+{"ts":"2026-09-22T09:58:21.398Z","type":"PLAN_DEVIATION","ticket":"LOGI-0006","note":"Domain/ShipmentStatusHistory.cs created (audit entity home; plan listed only Shipment.cs+ShipmentStatus.cs in Domain) — added to §2 per deviation protocol"}
+{"ts":"2026-09-22T09:58:21.438Z","type":"STEP_DONE","ticket":"LOGI-0006","arm":"backend","note":"step 1/5: domain done - ShipmentStatus enum + BR-7 legal map (Delayed>Cancelled illegal, Delayed>InTransit only, Delivered/Cancelled terminal) + Shipment.TransitionTo + ShipmentStatusHistory audit entity + Shipment.Create for LOGI-0007 reuse; dotnet build 0 err 0 warn"}

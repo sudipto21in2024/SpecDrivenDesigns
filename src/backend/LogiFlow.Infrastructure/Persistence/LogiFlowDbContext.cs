@@ -25,6 +25,10 @@ public class LogiFlowDbContext(DbContextOptions<LogiFlowDbContext> options)
 
     public DbSet<Driver> Drivers => Set<Driver>();
 
+    public DbSet<Shipment> Shipments => Set<Shipment>();
+
+    public DbSet<ShipmentStatusHistory> ShipmentStatusHistory => Set<ShipmentStatusHistory>();
+
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -81,6 +85,69 @@ public class LogiFlowDbContext(DbContextOptions<LogiFlowDbContext> options)
                 .WithMany()
                 .HasForeignKey(d => d.UserId)
                 .HasConstraintName("fk_drivers_users")
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<Shipment>(entity =>
+        {
+            entity.ToTable("shipments");
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            entity.Property(s => s.ReferenceCode).HasColumnName("reference_code").IsRequired().HasMaxLength(40);
+            entity.Property(s => s.OriginWarehouseId).HasColumnName("origin_warehouse_id").IsRequired();
+            entity.Property(s => s.DestinationAddress).HasColumnName("destination_address").IsRequired().HasMaxLength(500);
+            entity.Property(s => s.DestinationLat).HasColumnName("destination_lat");
+            entity.Property(s => s.DestinationLng).HasColumnName("destination_lng");
+            entity.Property(s => s.WeightKg).HasColumnName("weight_kg").IsRequired();
+            entity.Property(s => s.Status).HasColumnName("status").IsRequired().HasMaxLength(20);
+            entity.Property(s => s.Priority).HasColumnName("priority").IsRequired().HasMaxLength(20);
+            entity.Property(s => s.SlaDueAt).HasColumnName("sla_due_at");
+            entity.Property(s => s.RouteId).HasColumnName("route_id");
+            entity.Property(s => s.CreatedAt).HasColumnName("created_at");
+            entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
+
+            // Reference code is the customer-facing uniqueness key; status/sla_due_at indexes
+            // serve the dashboard filters (04-database-schema.md, indexing rules).
+            entity.HasIndex(s => s.ReferenceCode).IsUnique().HasDatabaseName("ix_shipments_reference_code");
+            entity.HasIndex(s => s.Status).HasDatabaseName("ix_shipments_status");
+            entity.HasIndex(s => s.SlaDueAt).HasDatabaseName("ix_shipments_sla_due_at");
+
+            // FK to warehouses per the approved schema. The routes FK (route_id) is deferred to
+            // LOGI-0009 together with the routes table (same deferral pattern as vehicles); the
+            // column itself already ships here so LOGI-0009 needs no shipments migration.
+            entity.HasOne<Warehouse>()
+                .WithMany()
+                .HasForeignKey(s => s.OriginWarehouseId)
+                .HasConstraintName("fk_shipments_warehouses")
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<ShipmentStatusHistory>(entity =>
+        {
+            entity.ToTable("shipment_status_history");
+            entity.HasKey(h => h.Id);
+            entity.Property(h => h.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            entity.Property(h => h.ShipmentId).HasColumnName("shipment_id").IsRequired();
+            entity.Property(h => h.FromStatus).HasColumnName("from_status").HasMaxLength(20);
+            entity.Property(h => h.ToStatus).HasColumnName("to_status").IsRequired().HasMaxLength(20);
+            entity.Property(h => h.ChangedByUserId).HasColumnName("changed_by_user_id").IsRequired();
+            entity.Property(h => h.ChangedAt).HasColumnName("changed_at").IsRequired();
+            entity.Property(h => h.Note).HasColumnName("note").HasMaxLength(500);
+
+            // The history list is read per shipment (AC-7) and ordered changed_at asc, id asc;
+            // the index keeps that paged read cheap (NFR: <300ms at ~1000 rows).
+            entity.HasIndex(h => h.ShipmentId).HasDatabaseName("ix_shipment_status_history_shipment_id");
+
+            entity.HasOne<Shipment>()
+                .WithMany()
+                .HasForeignKey(h => h.ShipmentId)
+                .HasConstraintName("fk_shipment_status_history_shipments")
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne<AppUser>()
+                .WithMany()
+                .HasForeignKey(h => h.ChangedByUserId)
+                .HasConstraintName("fk_shipment_status_history_users")
                 .OnDelete(DeleteBehavior.NoAction);
         });
 

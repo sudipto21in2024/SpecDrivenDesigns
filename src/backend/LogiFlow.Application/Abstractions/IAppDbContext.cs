@@ -16,6 +16,12 @@ public interface IAppDbContext
     /// <summary>Driver master data (`drivers` table) — LOGI-0005.</summary>
     DbSet<Domain.Driver> Drivers { get; }
 
+    /// <summary>Shipments (`shipments` table) — LOGI-0006 (creation itself lands with LOGI-0007).</summary>
+    DbSet<Domain.Shipment> Shipments { get; }
+
+    /// <summary>Append-only shipment status audit trail (`shipment_status_history`) — LOGI-0006.</summary>
+    DbSet<Domain.ShipmentStatusHistory> ShipmentStatusHistory { get; }
+
     /// <summary>User accounts (ASP.NET Core Identity, `users` table) — LOGI-0003.</summary>
     DbSet<Domain.AppUser> Users { get; }
 
