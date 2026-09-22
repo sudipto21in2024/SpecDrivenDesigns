@@ -3,6 +3,7 @@
 Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS.md`.
 
 | Ticket | Description | Status |
+| LOGI-0006 | Platform | planned — architect plan drafted+validated, pending lock+checkpoint |
 | LOGI-0014 | Platform | done |
 |---|---|---|
 | LOGI-0000 | Scaffold | 🟢 DONE |
