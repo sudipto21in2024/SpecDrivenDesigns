@@ -186,6 +186,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/shipments/{id}/status-transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transition shipment status (BR-7 state machine)
+         * @description Moves a shipment to toStatus and appends an immutable entry to the audit trail
+         *     (shipment_status_history) in one transaction. BR-7 legal transitions only:
+         *       Pending → Assigned → InTransit → Delivered
+         *       Pending → Cancelled, Assigned → Cancelled
+         *       InTransit → Delayed, Delayed → InTransit
+         *     Any other transition is rejected with 409; the ProblemDetails detail names the
+         *     legal next state(s). No history row is written for rejected attempts.
+         *     Note: the Driver role is declared here per BR-6 (own-route shipments only);
+         *     ownership scoping is enforced from LOGI-0009/0010.
+         */
+        post: operations["createShipmentStatusTransition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/shipments/{id}/status-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * Shipment status audit trail (paged, oldest first)
+         * @description Returns the append-only status history of a shipment ordered oldest → newest. Responds 404 when the shipment id does not exist.
+         */
+        get: operations["listShipmentStatusHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -480,6 +532,50 @@ export interface components {
              * @enum {string}
              */
             status: "Active" | "OffDuty" | "Suspended";
+        };
+        /** @description Body of POST /shipments/{id}/status-transitions. Legal transitions only (BR-7) — illegal transitions are rejected server-side with 409. */
+        StatusTransitionRequest: {
+            /**
+             * @example Assigned
+             * @enum {string}
+             */
+            toStatus: "Pending" | "Assigned" | "InTransit" | "Delivered" | "Delayed" | "Cancelled";
+            /**
+             * @description Optional free-text reason recorded in the audit trail.
+             * @example Loaded onto vehicle RT-8421-X
+             */
+            note?: string | null;
+        };
+        /** @description One entry of the shipment audit trail (shipment_status_history). Immutable, append-only. */
+        ShipmentStatusEvent: {
+            /**
+             * Format: int64
+             * @example 42
+             */
+            id: number;
+            /**
+             * @description null on the initial entry.
+             * @example Pending
+             * @enum {string|null}
+             */
+            fromStatus?: "Pending" | "Assigned" | "InTransit" | "Delivered" | "Delayed" | "Cancelled" | null;
+            /**
+             * @example Assigned
+             * @enum {string}
+             */
+            toStatus: "Pending" | "Assigned" | "InTransit" | "Delivered" | "Delayed" | "Cancelled";
+            /**
+             * Format: int64
+             * @example 7
+             */
+            changedByUserId: number;
+            /**
+             * Format: date-time
+             * @example 2026-09-22T08:00:00Z
+             */
+            changedAt: string;
+            /** @example Loaded onto vehicle RT-8421-X */
+            note?: string | null;
         };
         /** @description Envelope for all list endpoints (max pageSize 100, default 25). */
         PagedResponse: {
@@ -981,6 +1077,68 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    createShipmentStatusTransition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusTransitionRequest"];
+            };
+        };
+        responses: {
+            /** @description Transitioned — the recorded audit event is returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShipmentStatusEvent"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listShipmentStatusHistory: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged history (oldest first) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PagedResponse"] & {
+                        items?: components["schemas"]["ShipmentStatusEvent"][];
+                    };
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     login: {
