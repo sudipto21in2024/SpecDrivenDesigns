@@ -38,6 +38,17 @@ export const capabilities = {
 
   /** DELETE /drivers/{id} — x-roles: [Admin] only. */
   deleteDrivers: (role: Role): boolean => role === 'Admin',
+
+  /**
+   * POST /shipments/{id}/status-transitions — x-roles: [Admin, Dispatcher, Driver] (LOGI-0006).
+   * Driver ownership scoping (own-route shipments only, BR-6) is enforced from LOGI-0009/0010;
+   * until then the Driver role is allowed as declared in the contract (spec §2/§7 deferral).
+   */
+  transitionShipments: (role: Role): boolean =>
+    role === 'Admin' || role === 'Dispatcher' || role === 'Driver',
+
+  /** GET /shipments/{id}/status-history — x-roles: [Admin, Dispatcher, Driver, Viewer] (LOGI-0006). */
+  viewShipmentHistory: (role: Role): boolean => allRoles.includes(role),
 } as const;
 
 const allRoles: readonly Role[] = ['Admin', 'Dispatcher', 'Driver', 'Viewer'];
