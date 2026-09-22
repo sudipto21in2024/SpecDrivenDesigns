@@ -131,3 +131,8 @@
 {"ts":"2026-09-21T07:45:23.115Z","type":"STEP_DONE","ticket":"LOGI-0005","arm":"frontend","note":"step 6/6: sealed - journal frontend-arm (recovery context + MUI Tabs gotcha + deferred findings), plan done, handoff frontend->qa, active.md/progress.md updated"}
 {"ts":"2026-09-21T07:45:23.275Z","type":"PLAN_DONE","ticket":"LOGI-0005","arm":"frontend","plan_ptr":"state\\plans\\LOGI-0005-frontend.plan.md"}
 {"ts":"2026-09-21T07:45:23.429Z","type":"HANDOFF","ticket":"LOGI-0005","from":"frontend","to":"qa","summary_ptr":"memory/journal/LOGI-0005.md#frontend-arm","gates":["regen-zero-diff","tsc-clean","vitest-41-41","build-ok"]}
+{"ts":"2026-09-21T08:01:47.094Z","type":"PLAN_CREATED","ticket":"LOGI-0005","arm":"qa","plan_ptr":"state\\plans\\LOGI-0005-qa.plan.md"}
+{"ts":"2026-09-21T08:08:45.701Z","type":"PLAN_LOCKED","ticket":"LOGI-0005","arm":"qa","plan_ptr":"state\\plans\\LOGI-0005-qa.plan.md"}
+{"ts":"2026-09-21T08:18:12.290Z","type":"PLAN_LOCKED","ticket":"LOGI-0005","arm":"qa","plan_ptr":"state\\plans\\LOGI-0005-qa.plan.md"}
+{"ts":"2026-09-22T03:17:49.157Z","type":"TASK_STARTED","ticket":"LOGI-0005","arm":"qa","agent":"orchestrator-inline"}
+{"ts":"2026-09-22T03:28:36.559Z","type":"MICRO","ticket":"LOGI-0005","arm":"qa","action":"steps 1-2: api.ts helpers + drivers page object + drivers.spec AC-1..AC-9 drafted","files":["tests/e2e/support/api.ts","tests/e2e/pages/drivers.page.ts","tests/e2e/drivers.spec.ts"],"gate_result":"skip","next_step":"run drivers.spec e2e (step 2-4 gates: 4/7/9 passed)","detail":"signIn returns full TokenResponse; seedDriver added; page object selectors verified vs DriversPage/DriverFormDialog; tsc clean on drivers.spec"}
