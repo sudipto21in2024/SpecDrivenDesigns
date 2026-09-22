@@ -3,7 +3,7 @@
 Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS.md`.
 
 | Ticket | Description | Status |
-| LOGI-0014 | Platform | 🟢 DONE — tracker seal/tick/show/journal-tail/active/progress + tools/contract slicer; slice-first + CLI-only bookkeeping mandated in skills/protocol |
+| LOGI-0014 | Platform | done |
 |---|---|---|
 | LOGI-0000 | Scaffold | 🟢 DONE |
 | LOGI-0001 | Warehouse CRUD | 🟢 DONE (E2E green, CI green) |

@@ -149,3 +149,5 @@
 {"ts":"2026-09-22T05:34:13.870Z","type":"HANDOFF","ticket":"LOGI-0014","from":"orchestrator","to":"done","summary_ptr":"memory/journal/LOGI-0014.md#orchestrator-arm","gates":["contract slice verified"," tracker slice commands verified"," skills updated"]}
 {"ts":"2026-09-22T05:34:14.158Z","type":"STEP_DONE","ticket":"LOGI-0014","arm":"orchestrator","note":"sealed: contract show drivers 149/650 lines; x-roles summary 8 lines; params/responses/schemas summaries clean; show/history-tail/journal-tail verified on LOGI-0005; validate-plan ok"}
 {"ts":"2026-09-22T05:34:36.816Z","type":"PLAN_DONE","ticket":"LOGI-0014","arm":"orchestrator","plan_ptr":"state\\plans\\LOGI-0014-orchestrator.plan.md"}
+{"ts":"2026-09-22T05:46:08.601Z","type":"PLAN_DONE","ticket":"LOGI-0014","arm":"orchestrator","plan_ptr":"state\\plans\\LOGI-0014-orchestrator.plan.md"}
+{"ts":"2026-09-22T05:46:08.666Z","type":"HANDOFF","ticket":"LOGI-0014","from":"orchestrator","to":"done","summary_ptr":"memory/journal/LOGI-0014.md#orchestrator-arm","gates":["validate-plan-ok","contract-slicer-verified","plan-5of5-ticked"]}
