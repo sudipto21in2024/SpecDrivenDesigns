@@ -1,5 +1,5 @@
 import { expect, type APIRequestContext } from '@playwright/test';
-import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput } from '../../../src/frontend/src/api/client';
+import type { AuthUser, DriverInput, ProblemDetails, Role, TokenResponse, Vehicle, VehicleInput, Warehouse, WarehouseInput } from '../../../src/frontend/src/api/client';
 
 /**
  * Shared E2E helpers for authentication (LOGI-0003).
@@ -22,16 +22,16 @@ export const SEED_USERS = {
 
 export type SeedRole = keyof typeof SEED_USERS;
 
-/** Signs in through the API and returns the token pair. Throws if the account is unusable. */
+/** Signs in through the API and returns the token pair plus the user identity. Throws if the account is unusable. */
 export async function signIn(
   request: APIRequestContext,
   role: SeedRole = 'Admin',
-): Promise<{ accessToken: string; refreshToken: string }> {
+): Promise<TokenResponse> {
   const response = await request.post(`${API}/api/v1/auth/login`, {
     data: { email: SEED_USERS[role], password: SEED_PASSWORD },
   });
   expect(response.status(), `sign-in as ${role} must succeed`).toBe(200);
-  return (await response.json()) as { accessToken: string; refreshToken: string };
+  return (await response.json()) as TokenResponse;
 }
 
 /** Authorization header for an authenticated API call. */
@@ -55,7 +55,22 @@ export async function seedWarehouse(
   return body.id;
 }
 
-/** Seeds a vehicle directly through the API (fast path, not UI). Returns its id. */
+/** Seeds a driver directly through the API (fast path, not UI). Returns its id. */
+export async function seedDriver(
+  request: APIRequestContext,
+  accessToken: string,
+  fullName: string,
+  licenseNumber: string,
+  overrides: Partial<DriverInput> = {},
+): Promise<number> {
+  const response = await request.post(`${API}/api/v1/drivers`, {
+    headers: authHeaders(accessToken),
+    data: { fullName, licenseNumber, phone: '+31 6 1234 5678', ...overrides },
+  });
+  expect(response.status(), `seeding '${fullName}' must succeed`).toBe(201);
+  const body = (await response.json()) as { id: number };
+  return body.id;
+}
 export async function seedVehicle(
   request: APIRequestContext,
   accessToken: string,
