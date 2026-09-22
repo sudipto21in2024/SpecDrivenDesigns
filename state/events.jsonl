@@ -172,3 +172,6 @@
 {"ts":"2026-09-22T10:12:33.146Z","type":"STEP_DONE","ticket":"LOGI-0006","arm":"backend","note":"sealed: dotnet build 0 err; dotnet test 50/50 green (first run); has-pending-model-changes: none; contracts/ + src/frontend/ untouched (git status verified)"}
 {"ts":"2026-09-22T10:12:50.949Z","type":"PLAN_DONE","ticket":"LOGI-0006","arm":"backend","plan_ptr":"state\\plans\\LOGI-0006-backend.plan.md"}
 {"ts":"2026-09-22T10:12:51.082Z","type":"HANDOFF","ticket":"LOGI-0006","from":"backend","to":"frontend","summary_ptr":"memory/journal/LOGI-0006.md#backend-arm","gates":["build-pass","tests-50-green","br7-409-legal-next","history-transactional"]}
+{"ts":"2026-09-22T11:14:24.565Z","type":"PLAN_CREATED","ticket":"LOGI-0006","arm":"frontend","plan_ptr":"state\\plans\\LOGI-0006-frontend.plan.md"}
+{"ts":"2026-09-22T11:42:02.266Z","type":"PLAN_VALIDATED","ticket":"LOGI-0006","arm":"frontend","plan_ptr":"state\\plans\\LOGI-0006-frontend.plan.md"}
+{"ts":"2026-09-22T11:42:03.613Z","type":"PLAN_LOCKED","ticket":"LOGI-0006","arm":"frontend","plan_ptr":"state\\plans\\LOGI-0006-frontend.plan.md"}

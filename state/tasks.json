@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-22T10:23:01.448Z",
+  "generated": "2026-09-22T11:42:03.617Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -166,6 +166,11 @@
           "started": "2026-09-22T09:48:50.627Z",
           "lastStep": "sealed: dotnet build 0 err; dotnet test 50/50 green (first run); has-pending-model-changes: none; contracts/ + src/frontend/ untouched (git status verified)",
           "lastStepAt": "2026-09-22T10:12:33.146Z"
+        },
+        "frontend": {
+          "status": "planned",
+          "plan": "state\\plans\\LOGI-0006-frontend.plan.md",
+          "planStatus": "locked"
         }
       },
       "status": "planned",
