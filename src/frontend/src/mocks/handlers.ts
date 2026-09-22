@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput } from '../api/client';
+import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput, ShipmentStatusEvent, ShipmentStatus, StatusTransitionRequest } from '../api/client';
 
 /**
  * MSW handlers derived from contracts/v1-openapi.yaml (ADR-004). The in-memory store mirrors the API
@@ -64,6 +64,73 @@ export function resetDriversDb(seed: Driver[] = []): void {
   driversDb.splice(0, driversDb.length, ...seed);
 }
 
+/** A shipment in the mock store: the aggregate row plus its append-only status history. */
+export interface MockShipment {
+  id: number;
+  referenceCode: string;
+  status: ShipmentStatus;
+  statusHistory: ShipmentStatusEvent[];
+}
+
+export const shipmentsDb: MockShipment[] = [];
+
+/** Separate counter for history event ids so they stay distinct from resource ids. */
+let historyCounter = 0;
+
+/** Clears the shipment store. */
+export function resetShipmentsDb(seed: MockShipment[] = []): void {
+  shipmentsDb.splice(0, shipmentsDb.length, ...seed);
+  historyCounter = 0;
+}
+
+/** BR-7 legal transitions (mirrors Domain/ShipmentStatus.cs); everything else is 409. */
+const shipmentStatuses: ShipmentStatus[] = ['Pending', 'Assigned', 'InTransit', 'Delivered', 'Delayed', 'Cancelled'];
+
+const legalTransitions: Record<ShipmentStatus, ShipmentStatus[]> = {
+  Pending: ['Assigned', 'Cancelled'],
+  Assigned: ['InTransit', 'Cancelled'],
+  InTransit: ['Delivered', 'Delayed'],
+  Delayed: ['InTransit'],
+  Delivered: [],
+  Cancelled: [],
+};
+
+/**
+ * Shipment transition role rules — the Driver role MAY transition (contract x-roles:
+ * [Admin, Dispatcher, Driver]; own-route scoping deferred to LOGI-0009/0010), so this
+ * deliberately does NOT reuse roleRules/driverRoleRules.
+ */
+const shipmentTransitionRules: Record<Role, { read: boolean; write: boolean; delete: boolean }> = {
+  Admin: { read: true, write: true, delete: false },
+  Dispatcher: { read: true, write: true, delete: false },
+  Driver: { read: true, write: true, delete: false },
+  Viewer: { read: true, write: false, delete: false },
+};
+
+/** Inserts a shipment into the mock store, seeding the initial history entry (fromStatus null). */
+export function seedShipment(overrides: Partial<MockShipment> = {}): MockShipment {
+  const id = nextId++;
+  const status: ShipmentStatus = overrides.status ?? 'Pending';
+  const createdAt = new Date('2026-09-22T08:00:00Z');
+  const shipment: MockShipment = {
+    id,
+    referenceCode: `SHP-${String(id).padStart(5, '0')}`,
+    status,
+    statusHistory: [
+      {
+        id: ++historyCounter,
+        fromStatus: null,
+        toStatus: status,
+        changedByUserId: 1,
+        changedAt: createdAt.toISOString(),
+        note: null,
+      },
+    ],
+    ...overrides,
+  };
+  shipmentsDb.push(shipment);
+  return shipment;
+}
 /** Inserts a driver into the mock store, mirroring the API defaults (status → Active, no createdAt). */
 export function seedDriver(overrides: Partial<Driver> = {}): Driver {
   const id = nextId++;
@@ -587,5 +654,73 @@ export const handlers = [
     if (index === -1) return problem(404, 'Resource not found', `Driver with id '${String(params.id)}' was not found.`);
     driversDb.splice(index, 1);
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  // ------------------------------------- Shipments: BR-7 status lifecycle (LOGI-0006)
+
+  /**
+   * POST /shipments/{id}/status-transitions — transitions the shipment and appends the audit
+   * event in one step (single-transaction semantics). Illegal BR-7 jumps → 409 whose detail
+   * names the legal next state(s); rejected attempts record nothing (AC-2/3/4).
+   */
+  http.post('/api/v1/shipments/:id/status-transitions', async ({ request, params }) => {
+    const auth = authorize(request, 'write', 'shipments', shipmentTransitionRules);
+    if (!('user' in auth)) return auth;
+
+    const shipment = shipmentsDb.find((s) => s.id === Number(params.id));
+    if (!shipment) return problem(404, 'Resource not found', `Shipment with id '${String(params.id)}' was not found.`);
+
+    const body = (await request.json()) as StatusTransitionRequest;
+    if (!body.toStatus || !shipmentStatuses.includes(body.toStatus)) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', {
+        toStatus: ['Status must be one of: Pending, Assigned, InTransit, Delivered, Delayed, Cancelled.'],
+      });
+    }
+    if (body.note != null && body.note.length > 500) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', {
+        note: ['Note must be at most 500 characters'],
+      });
+    }
+
+    const legal = legalTransitions[shipment.status];
+    if (!legal.includes(body.toStatus)) {
+      const next = legal.length > 0 ? legal.join(', ') : 'none';
+      return problem409(
+        `Cannot transition shipment from '${shipment.status}' to '${body.toStatus}'. Legal next state(s): ${next}.`,
+      );
+    }
+
+    const event: ShipmentStatusEvent = {
+      id: ++historyCounter,
+      fromStatus: shipment.status,
+      toStatus: body.toStatus,
+      changedByUserId: auth.user.id,
+      changedAt: new Date().toISOString(),
+      note: body.note ?? null,
+    };
+    shipment.status = body.toStatus;
+    shipment.statusHistory.push(event);
+    return HttpResponse.json(event);
+  }),
+
+  /** GET /shipments/{id}/status-history — paged, oldest first (AC-7); every role may read (AC-8). */
+  http.get('/api/v1/shipments/:id/status-history', ({ request, params }) => {
+    const auth = authorize(request, 'read', 'shipments', shipmentTransitionRules);
+    if (!('user' in auth)) return auth;
+
+    const shipment = shipmentsDb.find((s) => s.id === Number(params.id));
+    if (!shipment) return problem(404, 'Resource not found', `Shipment with id '${String(params.id)}' was not found.`);
+
+    const url = new URL(request.url);
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? '1'));
+    const pageSize = Math.min(100, Math.max(1, Number(url.searchParams.get('pageSize') ?? '25')));
+    const items = shipment.statusHistory.slice((page - 1) * pageSize, page * pageSize);
+    return HttpResponse.json({
+      items,
+      page,
+      pageSize,
+      totalCount: shipment.statusHistory.length,
+      totalPages: Math.max(1, Math.ceil(shipment.statusHistory.length / pageSize)),
+    });
   }),
 ];

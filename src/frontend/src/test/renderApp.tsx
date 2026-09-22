@@ -3,7 +3,7 @@ import { beforeEach } from 'vitest';
 import App from '../App';
 import type { Role } from '../api/client';
 import { tokenStore } from '../api/tokenStore';
-import { resetAuthDb, resetVehiclesDb, resetWarehousesDb, resetDriversDb, seedSession } from '../mocks/handlers';
+import { resetAuthDb, resetVehiclesDb, resetWarehousesDb, resetDriversDb, resetShipmentsDb, seedSession } from '../mocks/handlers';
 
 /**
  * Shared test harness (LOGI-0003).
@@ -14,11 +14,12 @@ import { resetAuthDb, resetVehiclesDb, resetWarehousesDb, resetDriversDb, seedSe
  * and means every suite gets a clean, deterministic session.
  */
 
-/** Resets both mock stores. Call from a top-level `beforeEach` in the spec. */
+/** Resets all mock stores (warehouses, vehicles, drivers, shipments, auth). Call from a top-level `beforeEach` in the spec. */
 export function resetMocks(): void {
   resetWarehousesDb();
   resetVehiclesDb();
   resetDriversDb();
+  resetShipmentsDb();
   resetAuthDb();
   tokenStore.clear();
 }
