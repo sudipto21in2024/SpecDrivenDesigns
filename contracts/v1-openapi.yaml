@@ -191,6 +191,37 @@ components:
         licenseNumber: { type: string, example: DL-112-4589 }
         phone: { type: string, nullable: true, example: "+31 6 1234 5678" }
         status: { type: string, enum: [Active, OffDuty, Suspended], example: Active }
+    StatusTransitionRequest:
+      type: object
+      description: Body of POST /shipments/{id}/status-transitions. Legal transitions only (BR-7) — illegal transitions are rejected server-side with 409.
+      required: [toStatus]
+      properties:
+        toStatus:
+          type: string
+          enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled]
+          example: Assigned
+        note:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Optional free-text reason recorded in the audit trail.
+          example: Loaded onto vehicle RT-8421-X
+    ShipmentStatusEvent:
+      type: object
+      description: One entry of the shipment audit trail (shipment_status_history). Immutable, append-only.
+      required: [id, toStatus, changedByUserId, changedAt]
+      properties:
+        id: { type: integer, format: int64, example: 42 }
+        fromStatus:
+          type: string
+          enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled]
+          nullable: true
+          description: null on the initial entry.
+          example: Pending
+        toStatus: { type: string, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled], example: Assigned }
+        changedByUserId: { type: integer, format: int64, example: 7 }
+        changedAt: { type: string, format: date-time, example: 2026-09-22T08:00:00Z }
+        note: { type: string, nullable: true, maxLength: 500, example: Loaded onto vehicle RT-8421-X }
     PagedResponse:
       type: object
       description: Envelope for all list endpoints (max pageSize 100, default 25).
@@ -566,6 +597,71 @@ paths:
         "403": { $ref: '#/components/responses/Forbidden' }
         "404": { $ref: '#/components/responses/NotFound' }
         "409": { $ref: '#/components/responses/Conflict' }
+  /shipments/{id}/status-transitions:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      tags: [Shipments]
+      summary: Transition shipment status (BR-7 state machine)
+      description: |
+        Moves a shipment to toStatus and appends an immutable entry to the audit trail
+        (shipment_status_history) in one transaction. BR-7 legal transitions only:
+          Pending → Assigned → InTransit → Delivered
+          Pending → Cancelled, Assigned → Cancelled
+          InTransit → Delayed, Delayed → InTransit
+        Any other transition is rejected with 409; the ProblemDetails detail names the
+        legal next state(s). No history row is written for rejected attempts.
+        Note: the Driver role is declared here per BR-6 (own-route shipments only);
+        ownership scoping is enforced from LOGI-0009/0010.
+      x-roles: [Admin, Dispatcher, Driver]
+      operationId: createShipmentStatusTransition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StatusTransitionRequest' }
+      responses:
+        "200":
+          description: Transitioned — the recorded audit event is returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShipmentStatusEvent' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /shipments/{id}/status-history:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [Shipments]
+      summary: Shipment status audit trail (paged, oldest first)
+      description: >
+        Returns the append-only status history of a shipment ordered oldest → newest.
+        Responds 404 when the shipment id does not exist.
+      x-roles: [Admin, Dispatcher, Driver, Viewer]
+      operationId: listShipmentStatusHistory
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1, minimum: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 25, minimum: 1, maximum: 100 } }
+      responses:
+        "200":
+          description: Paged history (oldest first)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PagedResponse' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/ShipmentStatusEvent' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
   /auth/login:
     post:
       tags: [Auth]
