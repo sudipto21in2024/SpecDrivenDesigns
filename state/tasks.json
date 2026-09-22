@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-22T10:04:12.368Z",
+  "generated": "2026-09-22T10:05:07.926Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -164,8 +164,8 @@
           "status": "in_progress",
           "agent": "orchestrator-inline",
           "started": "2026-09-22T09:48:50.627Z",
-          "lastStep": "step 2/5: persistence done - IAppDbContext Shipments+ShipmentStatusHistory, DbContext mappings (shipments + audit table, ix on shipment_id/reference_code/status/sla_due_at; routes FK deferred to LOGI-0009), dotnet-ef 9.0.8 migration 20260922095953_LOGI-0006_AddShipmentStatusHistory (+Designer+snapshot); has-pending-model-changes: no changes; build 0 err",
-          "lastStepAt": "2026-09-22T10:00:28.511Z"
+          "lastStep": "step 3/5: app+api done - TransitionShipmentStatus (validator AC-5, handler: NotFound AC-6 / ConflictException w/ legal-next-states detail AC-4, single SaveChanges transaction) + ListShipmentStatusHistory (changed_at asc,id asc AC-7) + DI registrations + ShipmentEndpoints (x-roles transitions A/D/Dr, history +Viewer) + Program wiring; ConflictException additive ctor (deviation); build 0 err after CS8862/CS0029 fix",
+          "lastStepAt": "2026-09-22T10:05:07.922Z"
         }
       },
       "status": "planned",
