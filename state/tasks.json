@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-22T05:33:15.859Z",
+  "generated": "2026-09-22T05:34:36.827Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -138,16 +138,17 @@
       "ticket": "LOGI-0014",
       "arms": {
         "orchestrator": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "orchestrator-inline",
           "started": "2026-09-22T04:56:49.390Z",
           "plan": "state\\plans\\LOGI-0014-orchestrator.plan.md",
           "planStatus": "locked",
-          "lastStep": "step 4/5: skills+protocol updated (slice-first reads, CLI-only bookkeeping)",
-          "lastStepAt": "2026-09-22T05:33:15.854Z"
+          "lastStep": "sealed: contract show drivers 149/650 lines; x-roles summary 8 lines; params/responses/schemas summaries clean; show/history-tail/journal-tail verified on LOGI-0005; validate-plan ok",
+          "lastStepAt": "2026-09-22T05:34:14.158Z"
         }
       },
-      "status": "planned"
+      "status": "planned",
+      "next": "done"
     }
   }
 }

@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0014
 arm: orchestrator
-status: locked
+status: done
 created: 2026-09-22T04:55:43.038Z
 depends_on_plans:
 ---
@@ -36,7 +36,7 @@ Cut token + wall-clock cost of the agent loop: mechanical tracker appends (seal/
 - [x] 2. Wire `tools/tracker/index.mjs`: seal/tick/show/history-tail/journal-tail/active/progress subcommands → verify: `node tools/tracker/index.mjs` help lists them; `show --ticket LOGI-0005`, `history --ticket LOGI-0005 --last 3`, `journal-tail --ticket LOGI-0005 --lines 5` return slices.
 - [x] 3. Create `tools/contract/index.mjs`: show --resource <name> [--fields x-roles,params,responses,schemas] → verify: `node tools/contract/index.mjs show --resource drivers` ≈ DriverRequest/DriverResponse + /drivers paths (~150 lines); `--fields x-roles` ≈ 30 lines; no full-file read path.
 - [x] 4. Update skills + protocol rule (execute-plan/plan-arm/resume-or-recover + 10-agent-context-protocol.md): CLI-only bookkeeping, slice-first reads, schema.d.ts never-read, contract slice pointers → verify: `node tools/tracker/index.mjs validate-plan state/plans/LOGI-0014-orchestrator.plan.md` ok.
-- [ ] 5. Self-host seal: use the new commands to seal LOGI-0014 (journal + tick + active + progress), lock/close plan → verify: journal section exists, plan status done, `history --ticket LOGI-0014` shows seal trail.
+- [x] 5. Self-host seal: use the new commands to seal LOGI-0014 (journal + tick + active + progress), lock/close plan → verify: journal section exists, plan status done, `history --ticket LOGI-0014` shows seal trail.
 
 ## 5. Risks / open questions
 - Char-budget truncation could cut a gate string — budgets sized 500/300/300 with explicit overflow marker; verify shows full gates in smoke test.
