@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-22T03:35:12.988Z",
+  "generated": "2026-09-22T03:35:29.406Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -110,7 +110,7 @@
           "lastStepAt": "2026-09-21T07:45:23.115Z"
         },
         "qa": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "orchestrator-inline",
           "started": "2026-09-22T03:17:49.157Z",
           "lastStep": "step 6/6: sealed - journal qa-arm, plan done pending, drivers 9/9 + full 39/39",
@@ -118,7 +118,7 @@
         }
       },
       "status": "planned",
-      "next": "qa"
+      "next": "done"
     },
     "LOGI-0013": {
       "ticket": "LOGI-0013",

@@ -11,3 +11,4 @@
 {"ts":"2026-09-21T04:31:07.958Z","type":"HANDOFF","ticket":"LOGI-0005","from":"backend","to":"frontend","summary_ptr":"memory/journal/LOGI-0005.md#backend-arm","gates":["build-pass","tests-green","license-409","userlink-400-409"]}
 {"ts":"2026-09-21T05:29:50.892Z","type":"HANDOFF","ticket":"LOGI-0013","from":"qa","to":"orchestrator","summary_ptr":"memory/journal/LOGI-0013.md#qa-arm","gates":["local-e2e-30-30","ci-run-17-green"]}
 {"ts":"2026-09-21T07:45:23.427Z","type":"HANDOFF","ticket":"LOGI-0005","from":"frontend","to":"qa","summary_ptr":"memory/journal/LOGI-0005.md#frontend-arm","gates":["regen-zero-diff","tsc-clean","vitest-41-41","build-ok"]}
+{"ts":"2026-09-22T03:35:29.401Z","type":"HANDOFF","ticket":"LOGI-0005","from":"qa","to":"done","summary_ptr":"memory/journal/LOGI-0005.md#qa-arm","gates":["drivers-9-9","full-39-39"]}
