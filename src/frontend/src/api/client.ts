@@ -18,6 +18,9 @@ export type Driver = components['schemas']['DriverResponse'];
 export type DriverInput = components['schemas']['DriverRequest'];
 export type DriverStatus = NonNullable<Driver['status']>;
 export type UserId = NonNullable<Driver['userId']>;
+export type ShipmentStatusEvent = components['schemas']['ShipmentStatusEvent'];
+export type ShipmentStatus = NonNullable<ShipmentStatusEvent['toStatus']>;
+export type StatusTransitionRequest = components['schemas']['StatusTransitionRequest'];
 export type ProblemDetails = components['schemas']['ProblemDetails'];
 export type AuthUser = components['schemas']['AuthUser'];
 export type LoginInput = components['schemas']['LoginRequest'];
@@ -221,6 +224,20 @@ export const api = {
   /** AC-8: delete driver. */
   deleteDriver(id: number): Promise<void> {
     return request<void>(`/api/v1/drivers/${id}`, { method: 'DELETE' });
+  },
+
+  /** LOGI-0006 AC-1: transition a shipment's status (BR-7 legal transitions only — 409 with the legal next states otherwise). */
+  transitionShipmentStatus(id: number, body: StatusTransitionRequest): Promise<ShipmentStatusEvent> {
+    return request<ShipmentStatusEvent>(`/api/v1/shipments/${id}/status-transitions`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+
+  /** LOGI-0006 AC-7: paged status audit trail, oldest first. */
+  listShipmentStatusHistory(id: number, page = 1, pageSize = 25): Promise<Paged<ShipmentStatusEvent>> {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    return request<Paged<ShipmentStatusEvent>>(`/api/v1/shipments/${id}/status-history?${params.toString()}`);
   },
 
   /** AC-1/AC-2: exchange credentials for a token pair. */
