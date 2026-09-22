@@ -3,15 +3,15 @@
 > Read this file first at every session start. Position: `tracker current` + this file.
 
 ## Current work
-- **2026-09-22: LOGI-0014 closed+pushed, CI #23/#25 green; LOGI-0006 architect plan drafted+validated (unlocked)**
-  - Active arms: none
+- **2026-09-22: LOGI-0006 architect steps 1-2/3 done: spec AC-1..AC-8 + contract (spectral 0 errors, 96+/0-), committed 441a355/d08cb85, pushed**
+  - Active arms: LOGI-0006 (architect)
   - Recent commits:
-    - df44b0b plan(LOGI-0006): architect arm - shipment status lifecycle (BR-7) spec+contract draft, validated (unlocked, pending checkpoint)
-    - c020adb chore: tracker state regen timestamp
-    - 56baf0f chore(LOGI-0014): memory refresh - CI green on close commit
-    - ed3ad2b chore(LOGI-0014): close ticket - orchestrator sealed, plan done, handoff to done, memory updated
-    - 163528c chore(LOGI-0014): seal via tracker CLI - journal, tick 5/5, handoff, active+progress regenerated
+    - d5934cf chore(memory): LOGI-0006 steps 1-2 done, awaiting checkpoint
+    - d08cb85 docs(LOGI-0006): architect - status-transitions + status-history contract, spectral 0 errors (step 2/3)
+    - 441a355 docs(LOGI-0006): architect - shipment status lifecycle spec AC-1..AC-8 (step 1/3)
+    - 1f70878 chore: tasks.json regen timestamp
+    - 12ee52a chore: tracker state regen
 
 ## Next action
-1. review+lock LOGI-0006-architect.plan.md, then human checkpoint (spec+contract) before executor fan-out
+1. HUMAN CHECKPOINT: review spec+contract, then seal journal + handoff architect-to-backend
 1. 
