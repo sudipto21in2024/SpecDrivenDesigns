@@ -9,9 +9,15 @@ Reference: `Docs/ProjectTechGuidence/11-agent-context-and-execution.md` · State
 3. **Main thread never edits source.** It dispatches (`orchestrate-dispatch`), verifies gates,
    and updates memory. Implementation happens in fresh-window child tasks (`new_task`).
 4. **Scope = manifest:** read only the plan's §3 files (targeted ranges); edit only §2 files.
-   Resolve files via the code graph (`code-graph`), not by reading whole modules.
-5. **Checkpoint every verified step:** tick the plan checkbox + `tracker log --type STEP_DONE`
-   + git commit. Context > ~50% → skill `context-recycle` (seal + hand off, never push through).
-6. **Handover before ending any task:** seal journal → verify gates → `tracker handoff` →
-   compose successor block (skill `execute-plan` §Completion). If it isn't on disk, it doesn't exist.
-7. **Session end:** update `memory/active.md` (+ journal, + `memory/progress.md` on milestones).
+   **Slice-first reads:** contract → `node tools/contract/index.mjs show --resource <r> [--fields x-roles|params|responses|schemas]`;
+   events/journal → `tracker show/history --last/journal-tail`. Never read `contracts/v1-openapi.yaml`,
+   `src/frontend/src/api/schema.d.ts`, `state/events.jsonl`, or a whole journal/plan file.
+5. **Mechanical bookkeeping (CLI-only):** tick = `tracker tick`; seal = `tracker seal`;
+   memory = `tracker active` / `tracker progress`. Never hand-edit `memory/journal/*`,
+   `memory/active.md`, `memory/progress.md`, or plan checkboxes with the editor.
+   One STEP_DONE per verified step; `micro` only for gate failures.
+6. **Checkpoint every verified step:** tick + `tracker log --type STEP_DONE` + git commit.
+   Context > ~50% → skill `context-recycle` (seal + hand off, never push through).
+7. **Handover before ending any task:** seal journal → verify gates → `tracker handoff` →
+   memory updated via tracker commands (skill `execute-plan` §Completion). If it isn't on disk, it doesn't exist.
+8. **Session end:** `tracker active --done "..." --next "..."` + `tracker progress` on milestones.

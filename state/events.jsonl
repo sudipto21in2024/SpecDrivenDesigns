@@ -141,3 +141,8 @@
 {"ts":"2026-09-22T03:35:12.974Z","type":"PLAN_DONE","ticket":"LOGI-0005","arm":"qa","plan_ptr":"state\\plans\\LOGI-0005-qa.plan.md"}
 {"ts":"2026-09-22T03:35:12.985Z","type":"STEP_DONE","ticket":"LOGI-0005","arm":"qa","note":"step 6/6: sealed - journal qa-arm, plan done pending, drivers 9/9 + full 39/39"}
 {"ts":"2026-09-22T03:35:29.404Z","type":"HANDOFF","ticket":"LOGI-0005","from":"qa","to":"done","summary_ptr":"memory/journal/LOGI-0005.md#qa-arm","gates":["drivers-9-9","full-39-39"]}
+{"ts":"2026-09-22T04:55:43.040Z","type":"PLAN_CREATED","ticket":"LOGI-0014","arm":"orchestrator","plan_ptr":"state\\plans\\LOGI-0014-orchestrator.plan.md"}
+{"ts":"2026-09-22T04:56:49.390Z","type":"TASK_STARTED","ticket":"LOGI-0014","arm":"orchestrator","agent":"orchestrator-inline"}
+{"ts":"2026-09-22T04:57:02.169Z","type":"PLAN_LOCKED","ticket":"LOGI-0014","arm":"orchestrator","plan_ptr":"state\\plans\\LOGI-0014-orchestrator.plan.md"}
+{"ts":"2026-09-22T05:27:34.654Z","type":"STEP_DONE","ticket":"LOGI-0014","arm":"orchestrator","note":"steps 1-3/5: seal/tick/show/history-tail/journal-tail/active/progress + contract slicer verified"}
+{"ts":"2026-09-22T05:33:15.854Z","type":"STEP_DONE","ticket":"LOGI-0014","arm":"orchestrator","note":"step 4/5: skills+protocol updated (slice-first reads, CLI-only bookkeeping)"}

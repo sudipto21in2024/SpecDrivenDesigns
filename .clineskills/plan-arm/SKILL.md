@@ -17,6 +17,10 @@ You are the planner. Produce a Plan File — no source code changes.
    `state/plans/<T>-<A>.plan.md`). Every section is mandatory:
    - **§2 Touched files (WRITE manifest):** exact repo-relative paths. This is the scope boundary.
    - **§3 Required files (READ scope):** only files the plan depends on, with line ranges.
+     For the API contract use slice pointers, not the whole file: `contract:drivers (x-roles)`
+     or `contract:vehicles (schemas, params)` — resolved at execute time via
+     `node tools/contract/index.mjs show`. Never list `contracts/v1-openapi.yaml` as a whole-file
+     read, and never list generated `schema.d.ts` (the `generate:api` zero-diff gate covers it).
    - **§4 Steps:** small (≈ one file or edit batch each), each with its own verify gate.
    - **§6 Exit gates:** the commands that prove the arm done (tests, lint, build).
 3. Run `node tools/tracker/index.mjs validate-plan <file>`. Fix all errors. Do not lock —

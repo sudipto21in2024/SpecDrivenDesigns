@@ -8,11 +8,14 @@ description: Deterministic recovery after any interruption — token exhaustion,
 Trust only artifacts (plan, tracker, git, journal) — never a resumed conversation's memory.
 
 ## Procedure
-1. **Position (cheap):**
+1. **Position (cheap — slices only, never whole files):**
    - `node tools/tracker/index.mjs current`
    - `git status --short` and `git log --oneline -5`
-   - read the in-progress plan's §4 checkboxes + `## In-progress notes`
-   - tail of `memory/journal/<TICKET>.md`
+   - `node tools/tracker/index.mjs show --ticket T` (compact snapshot)
+   - in-progress plan's §4 checkboxes: `tracker plan get --ticket T --arm A` then read only §4
+   - journal: `node tools/tracker/index.mjs journal-tail --ticket T --lines 30`
+   - recent events: `node tools/tracker/index.mjs history --ticket T --last 10`
+   Never read `state/events.jsonl`, a whole journal, or the whole plan file.
 2. **Validate code state BEFORE resuming (mandatory):**
    `node tools/tracker/index.mjs resume-check --ticket T --arm A [--run-gates]`
    It cross-checks git vs the plan §2 manifest, reconciles event-log timestamps vs file
