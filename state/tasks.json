@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-22T11:42:35.383Z",
+  "generated": "2026-09-22T11:58:20.960Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -168,13 +168,15 @@
           "lastStepAt": "2026-09-22T10:12:33.146Z"
         },
         "frontend": {
-          "status": "planned",
-          "plan": "state\\plans\\LOGI-0006-frontend.plan.md",
-          "planStatus": "locked"
+          "status": "done",
+          "agent": "orchestrator-inline",
+          "started": "2026-09-22T11:43:29.922Z",
+          "lastStep": "sealed: tsc --noEmit clean; npm test 41/41; npm run build ok; generate:api shipments-only diff",
+          "lastStepAt": "2026-09-22T11:55:00.241Z"
         }
       },
       "status": "planned",
-      "next": "frontend"
+      "next": "qa"
     }
   }
 }

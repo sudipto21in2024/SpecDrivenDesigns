@@ -16,3 +16,4 @@
 {"ts":"2026-09-22T05:46:08.664Z","type":"HANDOFF","ticket":"LOGI-0014","from":"orchestrator","to":"done","summary_ptr":"memory/journal/LOGI-0014.md#orchestrator-arm","gates":["validate-plan-ok","contract-slicer-verified","plan-5of5-ticked"]}
 {"ts":"2026-09-22T09:36:31.578Z","type":"HANDOFF","ticket":"LOGI-0006","from":"architect","to":"backend","summary_ptr":"memory/journal/LOGI-0006.md#architect","gates":["spectral:0 errors","spec_approved","checkpoint:approved"]}
 {"ts":"2026-09-22T10:12:51.080Z","type":"HANDOFF","ticket":"LOGI-0006","from":"backend","to":"frontend","summary_ptr":"memory/journal/LOGI-0006.md#backend-arm","gates":["build-pass","tests-50-green","br7-409-legal-next","history-transactional"]}
+{"ts":"2026-09-22T11:55:21.881Z","type":"HANDOFF","ticket":"LOGI-0006","from":"frontend","to":"qa","summary_ptr":"memory/journal/LOGI-0006.md#frontend-arm","gates":["tsc-clean","vitest-41-41","build-ok","generate-api-zero-drift"]}
