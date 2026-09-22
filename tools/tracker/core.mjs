@@ -53,6 +53,54 @@ export function readHandoffs() {
   return fs.readFileSync(HANDOFFS_FILE, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
 
+// --- Mechanical bookkeeping (LOGI-0014): AI passes small args, Node renders. ---
+// Char budgets keep journals/memory bounded; LF-only writes (no CRLF fixups).
+
+export const SEAL_BUDGETS = { what: 600, gates: 400, findings: 400, next: 300 };
+
+export function cap(s, n) {
+  s = String(s ?? '');
+  return s.length > n ? s.slice(0, n) + '…[truncated]' : s;
+}
+
+export function journalFile(ticket) {
+  return path.join(JOURNAL_DIR, `${ticket}.md`);
+}
+
+export function sealSection({ ticket, arm, what, gates, findings, next, agent }) {
+  ensureDirs();
+  const file = journalFile(ticket);
+  const date = new Date().toISOString().slice(0, 10);
+  const section = `\n## ${arm}-arm (${date} by ${agent ?? 'agent'})\n- **What:** ${cap(what, SEAL_BUDGETS.what)}\n- **Gates:** ${cap(gates, SEAL_BUDGETS.gates)}\n- **Findings:** ${cap(findings, SEAL_BUDGETS.findings)}\n- **Next:** ${cap(next, SEAL_BUDGETS.next)}\n`;
+  if (!fs.existsSync(file)) {
+    fs.writeFileSync(file, `# Journal — ${ticket}\n\nAppend-only. Newest entries at the bottom. Sections per arm.\n${section}`);
+  } else {
+    fs.appendFileSync(file, section);
+  }
+  return file;
+}
+
+export function journalTail(ticket, lines = 30) {
+  const file = journalFile(ticket);
+  if (!fs.existsSync(file)) return [];
+  return fs.readFileSync(file, 'utf8').split('\n').slice(-lines);
+}
+
+export function tailEvents(ticket, last = 10) {
+  return readEvents().filter((e) => !ticket || e.ticket === ticket).slice(-last);
+}
+
+export function showTicket(ticket) {
+  const tasks = rebuildSnapshot();
+  const t = tasks[ticket];
+  if (!t) return null;
+  const arms = {};
+  for (const [name, a] of Object.entries(t.arms)) {
+    arms[name] = { status: a.status, lastStep: a.lastStep ?? null, plan: a.plan ?? null };
+  }
+  return { ticket: t.ticket, status: t.status, next: t.next ?? null, arms };
+}
+
 export function appendHandoff(h) {
   ensureDirs();
   const record = { ts: new Date().toISOString(), ...h };

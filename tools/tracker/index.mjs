@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
-import { ROOT, STATE_DIR, PLANS_DIR, JOURNAL_DIR, appendEvent, readEvents, appendHandoff, currentTask, readyQueue } from './core.mjs';
+import { ROOT, STATE_DIR, PLANS_DIR, JOURNAL_DIR, MEMORY_DIR, appendEvent, readEvents, appendHandoff, currentTask, readyQueue, sealSection, journalTail, journalFile, tailEvents, showTicket } from './core.mjs';
 import { planPath, validatePlan, loadPlan, inManifest } from './plans.mjs';
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -202,9 +202,69 @@ const cmds = {
     console.log(hits.length ? hits.join('\n') : `No matches for "${q}".`);
   },
   history() {
+    const { values } = parseArgs({ args: rest, options: { ticket: { type: 'string' }, last: { type: 'string' } } });
+    const n = values.last ? Number(values.last) : 0;
+    const events = n > 0 ? tailEvents(values.ticket, n) : readEvents().filter((e) => !values.ticket || e.ticket === values.ticket);
+    console.log(events.map((e) => `${e.ts} ${e.type} ${e.ticket ?? ''} ${e.arm ?? ''} ${e.note ?? e.action ?? ''} ${e.plan_ptr ?? ''}`).join('\n') || 'No events.');
+  },
+  // --- LOGI-0014 slice + mechanical commands (slice-first reads, CLI-only writes) ---
+  show() {
     const { values } = parseArgs({ args: rest, options: { ticket: { type: 'string' } } });
-    const events = readEvents().filter((e) => !values.ticket || e.ticket === values.ticket);
-    console.log(events.map((e) => `${e.ts} ${e.type} ${e.ticket ?? ''} ${e.arm ?? ''} ${e.note ?? ''} ${e.plan_ptr ?? ''}`).join('\n') || 'No events.');
+    if (!values.ticket) throw new Error('--ticket required');
+    const t = showTicket(values.ticket);
+    console.log(t ? JSON.stringify(t, null, 2) : `No record for ${values.ticket}.`);
+  },
+  'journal-tail'() {
+    const { values } = parseArgs({ args: rest, options: { ticket: { type: 'string' }, lines: { type: 'string' } } });
+    if (!values.ticket) throw new Error('--ticket required');
+    console.log(journalTail(values.ticket, values.lines ? Number(values.lines) : 30).join('\n') || `No journal for ${values.ticket}.`);
+  },
+  seal() {
+    // One call replaces: editor journal append + STEP_DONE + plan tick + tasks snapshot.
+    const { values } = parseArgs({ args: rest, options: {
+      ticket: { type: 'string' }, arm: { type: 'string' }, what: { type: 'string' },
+      gates: { type: 'string' }, findings: { type: 'string' }, next: { type: 'string' }, agent: { type: 'string' },
+    } });
+    if (!values.ticket || !values.arm || !values.what) throw new Error('--ticket, --arm, --what required');
+    const file = sealSection(values);
+    const ev = appendEvent({ type: 'STEP_DONE', ticket: values.ticket, arm: values.arm, note: `sealed: ${values.gates ?? 'gates recorded in journal'}` });
+    console.log(JSON.stringify({ journal: path.relative(ROOT, file), event: ev.ts }));
+  },
+  tick() {
+    // Flip `- [ ] N.` → `- [x] N.` in place — no full plan rewrite.
+    const { values } = parseArgs({ args: rest, options: { ticket: { type: 'string' }, arm: { type: 'string' }, step: { type: 'string' } } });
+    if (!values.ticket || !values.arm || !values.step) throw new Error('--ticket, --arm, --step required');
+    const file = planPath(values.ticket, values.arm);
+    let text = fs.readFileSync(file, 'utf8');
+    const re = new RegExp(`^(- \\[ \\] ${values.step}\\.? .*)`, 'm');
+    if (!re.test(text)) throw new Error(`step ${values.step} not found as unchecked box in ${file}`);
+    text = text.replace(re, (m) => m.replace('- [ ]', '- [x]'));
+    fs.writeFileSync(file, text);
+    console.log(`ticked step ${values.step} in ${path.relative(ROOT, file)}`);
+  },
+  active() {
+    // Regenerate memory/active.md from template (capped) — no AI prose rewrite.
+    const { values } = parseArgs({ args: rest, options: { done: { type: 'string' }, next: { type: 'string' } } });
+    const active = currentTask();
+    const git = spawnSync('git', ['-C', ROOT, 'log', '--oneline', '-5'], { encoding: 'utf8' });
+    const out = `# Active Context — LogiFlow\n\n> Read this file first at every session start. Position: \`tracker current\` + this file.\n\n## Current work\n- **${new Date().toISOString().slice(0, 10)}: ${values.done ?? 'in progress'}**\n  - Active arms: ${active.length ? active.map((t) => `${t.ticket} (${Object.keys(t.arms).join(',')})`).join('; ') : 'none'}\n  - Recent commits:\n${(git.stdout || '').split('\n').filter(Boolean).slice(0, 5).map((l) => `    - ${l}`).join('\n')}\n\n## Next action\n${(values.next ?? 'Run `tracker ready` for the dispatch queue.').split(';').map((s) => `1. ${s.trim()}`).join('\n')}\n`;
+    fs.writeFileSync(path.join(MEMORY_DIR, 'active.md'), out);
+    console.log('active.md regenerated (' + out.length + 'B)');
+  },
+  progress() {
+    // Replace one ticket row in memory/progress.md — no whole-file rewrite.
+    const { values } = parseArgs({ args: rest, options: { ticket: { type: 'string' }, status: { type: 'string' } } });
+    if (!values.ticket || !values.status) throw new Error('--ticket and --status required');
+    const file = path.join(MEMORY_DIR, 'progress.md');
+    let text = fs.readFileSync(file, 'utf8');
+    const re = new RegExp(`^(\\| ${values.ticket} \\|[^|]*\\| ).*( \\|)$`, 'm');
+    if (!re.test(text)) {
+      text = text.replace('| Ticket | Description | Status |', `| Ticket | Description | Status |\n| ${values.ticket} | Platform | ${values.status} |`);
+    } else {
+      text = text.replace(re, `$1${values.status}$2`);
+    }
+    fs.writeFileSync(file, text);
+    console.log(`progress.md row ${values.ticket} updated`);
   },
 };
 
@@ -217,7 +277,7 @@ Commands:
   claim --ticket T --arm A [--agent N] mark arm in-progress
   log --ticket T --type TYPE [--arm A] [--note N]
   micro --ticket T --arm A --action "..." [--files f1,f2] [--gate pass|fail|skip] [--next "..."] [--detail "..."]
-                                       log a micro-action with full resume context
+                                       log a micro-action (gate failures only — one STEP_DONE per verified step otherwise)
   handoff --ticket T --from A --to B --summary PTR [--gates g1,g2]
   plan new --ticket T --arm A [--objective O]
   plan get --ticket T --arm A
@@ -228,7 +288,14 @@ Commands:
                                        validate code state BEFORE resuming (git vs plan
                                        manifest, mtime reconciliation, optional gate re-run)
   search "query"                       full-text over events/handoffs/plans/journals
-  history [--ticket T]                 event timeline`);
+  history [--ticket T] [--last N]      event timeline (tail with --last)
+  show --ticket T                      compact ticket snapshot (status + arms, no full file)
+  journal-tail --ticket T [--lines N]  last N journal lines (default 30)
+  seal --ticket T --arm A --what W [--gates G] [--findings F] [--next N] [--agent A]
+                                       mechanical journal seal + STEP_DONE (budgets enforced)
+  tick --ticket T --arm A --step N     flip step checkbox in place
+  active --done D --next N             regenerate active.md from template
+  progress --ticket T --status S       update one progress row`);
   process.exit(cmd ? 1 : 0);
 }
 cmds[cmd]();
