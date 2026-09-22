@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0005
 arm: qa
-status: locked
+status: done
 created: 2026-09-21T08:01:47.092Z
 depends_on_plans: LOGI-0005-frontend
 ---
