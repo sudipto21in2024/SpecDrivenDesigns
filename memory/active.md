@@ -3,14 +3,15 @@
 > Read this file first at every session start. Position: `tracker current` + this file.
 
 ## Current work
-- **2026-09-22: LOGI-0006 architect arm 3/3 sealed: spec spec_approved (AC-1..8) + contract additive (spectral 0 errors), checkpoint approved, handoff to backend recorded**
+- **2026-09-22: LOGI-0006 backend arm 5/5 sealed: BR-7 TransitionTo + shipment_status_history migration (50/50 tests green), handoff to frontend recorded**
   - Active arms: none
   - Recent commits:
-    - cc37e00 chore(memory): tracker regen - checkpoint position recorded
-    - d5934cf chore(memory): LOGI-0006 steps 1-2 done, awaiting checkpoint
-    - d08cb85 docs(LOGI-0006): architect - status-transitions + status-history contract, spectral 0 errors (step 2/3)
-    - 441a355 docs(LOGI-0006): architect - shipment status lifecycle spec AC-1..AC-8 (step 1/3)
-    - 1f70878 chore: tasks.json regen timestamp
+    - ecce789 LOGI-0006 backend: step 4/5 green - integration tests AC-1..AC-8 (50/50)
+    - 2eb993e LOGI-0006 backend: step 3/5 green - transition command + history query + endpoints
+    - b50a4f9 LOGI-0006 backend: step 2/5 green - shipments + status-history persistence, migration
+    - 33fc0fb LOGI-0006 backend: step 1/5 green - domain state machine (BR-7) + audit entity
+    - e3a992d plan(LOGI-0006): backend arm — BR-7 TransitionTo + shipment_status_history (validated)
 
 ## Next action
-1. LOGI-0006 backend arm: dispatch planner child (plan-arm) for migration AddShipmentStatusHistory + TransitionShipmentStatus handler per journal contract
+1. LOGI-0006 frontend arm: planner child (plan-arm) for typed-client regen + transition/history UI seam per journal
+1. then qa arm covers AC-1..AC-8 e2e

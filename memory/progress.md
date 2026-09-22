@@ -3,7 +3,7 @@
 Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS.md`.
 
 | Ticket | Description | Status |
-| LOGI-0006 | Platform | architect done (spec_approved + contract approved); backend next |
+| LOGI-0006 | Platform | architect + backend done; frontend next |
 | LOGI-0014 | Platform | done |
 |---|---|---|
 | LOGI-0000 | Scaffold | 🟢 DONE |
