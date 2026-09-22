@@ -247,9 +247,12 @@ test.describe('LOGI-0005 Driver CRUD', () => {
   // a bad status is 400; the UI search + status filter narrow the visible rows.
   test('AC-7 — list is paged and filterable by name and status', async ({ request }) => {
     const prefix = unique('AC7');
+    // Licence values cap at 20 chars, so the seed keeps the full unique prefix in
+    // the *name* (q filters names) and uses a short fixed tag + index for the licence.
+    const licTag = `A7${Date.now().toString(36)}`.slice(0, 8).toUpperCase();
     const statuses = ['Active', 'OffDuty', 'Suspended'] as const;
     for (let i = 0; i < 30; i++) {
-      await seed(request, `${prefix} Driver ${i}`, `${prefix}L${i}`.slice(0, 20).toUpperCase(), {
+      await seed(request, `${prefix} Driver ${i}`, `${licTag}${String(i).padStart(2, '0')}`, {
         status: statuses[i % 3],
       });
     }
