@@ -1,7 +1,7 @@
 ---
 id: LOGI-0005
 title: Driver CRUD
-status: spec_approved
+status: done
 owner_agent: spec-agent
 created: 2026-09-20
 depends_on:

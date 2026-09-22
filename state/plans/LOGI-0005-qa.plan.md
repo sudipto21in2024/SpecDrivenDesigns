@@ -48,14 +48,14 @@ Seal artifacts written by the tracker + memory protocol (no other file may chang
 | `Docs/ProjectTechGuidence/06-testing-strategy-playwright.md` | 19-32 | Playwright conventions (page objects, API sign-in, AC-level assertions) |
 
 ## 4. Steps (each with verify gate)
-- [ ] 1. `tests/e2e/support/api.ts` (additive only): `signIn` returns the full `TokenResponse`
+- [x] 1. `tests/e2e/support/api.ts` (additive only): `signIn` returns the full `TokenResponse`
   (`accessToken`, `refreshToken`, `user` — the seeded id the link tests need, mirroring
   `DriverEndpointsTests.SeededUserIdAsync`); add `seedDriver(request, accessToken, fullName,
   licenseNumber, overrides = {})` → POST `/api/v1/drivers`, expect 201, return the id. Untouched:
   `authHeaders`, `seedWarehouse`, `seedVehicle`, `SEED_USERS`. → verify:
   `cd tests/e2e && npx playwright test` → **30 passed, 0 failed** (the shared helper change must not
   regress auth/warehouses/vehicles).
-- [ ] 2. `tests/e2e/pages/drivers.page.ts` + `tests/e2e/drivers.spec.ts` AC-1..AC-4:
+- [x] 2. `tests/e2e/pages/drivers.page.ts` + `tests/e2e/drivers.spec.ts` AC-1..AC-4:
   page object (`goto(role)` → sign in + click `tab-drivers` + heading `Drivers`; fullName/license/phone/
   status/userId inputs; `#driver-status-label` filter; openCreate/openEdit; submit/save via `driver-submit`;
   `driver-cancel`; deleteRow via `Delete driver <name>` + `confirm-delete`; search via `Search drivers`;
@@ -67,7 +67,7 @@ Seal artifacts written by the tracker + memory protocol (no other file may chang
   → verify: `cd tests/e2e && npx playwright test drivers.spec.ts` → **4 passed**. All seeds use the
   shared prefix (`e2e${Date.now().toString(36)}`) plus a **per-test** `Date.now()` suffix so a CI retry
   (`retries: 1`) can never re-collide on the UNIQUE `license_number` index.
-- [ ] 3. `tests/e2e/drivers.spec.ts` AC-5..AC-7: AC-5 link to a real seeded user id (resolved off the
+- [x] 3. `tests/e2e/drivers.spec.ts` AC-5..AC-7: AC-5 link to a real seeded user id (resolved off the
   login response; first id not yet linked, so a retry cannot inherit the previous attempt's link) → 201
   echoes `userId`, GET `/{id}` carries it, UI row shows the User ID cell; AC-6 nonexistent userId
   (999999) → 400 `errors.userId` with no row, a taken userId → 409 on POST *and* PUT (self excluded),
@@ -76,7 +76,7 @@ Seal artifacts written by the tracker + memory protocol (no other file may chang
   `page=2`, `pageSize=10`, `totalCount=30`, `totalPages=3`, ids ascending and disjoint from page 1;
   `status=Suspended` narrows to 10; `status=Nope` → 400; UI: search by prefix + `filterByStatus`
   narrows the visible rows. → verify: `npx playwright test drivers.spec.ts` → **7 passed**.
-- [ ] 4. `tests/e2e/drivers.spec.ts` AC-8..AC-9: AC-8 UI round-trip (search → openEdit → status/phone
+- [x] 4. `tests/e2e/drivers.spec.ts` AC-8..AC-9: AC-8 UI round-trip (search → openEdit → status/phone
   change → toast `Driver updated` → row cell updated → deleteRow → toast `Driver deleted` → row gone)
   plus API 404s on GET/PUT/DELETE `/drivers/999999` (`title: Resource not found`); AC-9 full role
   matrix — anonymous 401 (`www-authenticate: Bearer`) on all five operations; Viewer GET list + GET
@@ -85,9 +85,9 @@ Seal artifacts written by the tracker + memory protocol (no other file may chang
   POST 201 + PUT 200 + DELETE 403; Admin DELETE 204 → GET 404; UI affordances per role (Driver has **no**
   `tab-drivers`, Viewer has no `new-driver`/Edit/Delete, Dispatcher has `new-driver` but no Delete).
   → verify: `npx playwright test drivers.spec.ts` → **9 passed**.
-- [ ] 5. Full-suite regression on the target build → verify: `cd tests/e2e && npx playwright test` →
+- [x] 5. Full-suite regression on the target build → verify: `cd tests/e2e && npx playwright test` →
   **39 passed, 0 failed, 0 flaky**; the run's Serilog log shows no `no such table` lines.
-- [ ] 6. Seal: append the qa-arm section to `memory/journal/LOGI-0005.md` (gates + evidence, the
+- [x] 6. Seal: append the qa-arm section to `memory/journal/LOGI-0005.md` (gates + evidence, the
   409-without-`errors` UI finding, retry-safety decision), tick the steps, `tracker log STEP_DONE` per
   step, commit §2-exact with a per-step commit trail, `tracker handoff --ticket LOGI-0005 --from qa
   --to done --summary "memory/journal/LOGI-0005.md#qa-arm" --gates "..."`, update `memory/active.md` +

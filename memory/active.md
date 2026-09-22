@@ -4,6 +4,16 @@
 > Authoritative position: `node tools/tracker/index.mjs current` + this file.
 
 ## Current work
+- **Session 2026-09-22: LOGI-0005 qa arm SEALED — handoff qa→done recorded (ticket DONE locally, CI pending).**
+  - Executed INLINE by the main thread (user-approved override; agent `orchestrator-inline`).
+    `resume-check` on the pre-existing locked plan → `mid_step` (interrupted prior run had left
+    `support/api.ts` + `pages/drivers.page.ts` uncommitted) — steps below re-verify by gate.
+  - Commits: `8f9722c` (spec + page object + helpers) → `9f8b41a` (AC-7 fix, 9/9) → `ab9ded6`
+    (seal: journal + plan done) → `2e4eda6` (handoff qa→done).
+  - **Gates:** `drivers.spec.ts` **9/9**; full `npx playwright test` **39/39, 0 failed, 0 flaky**.
+  - **Fix during run:** AC-7 first ran 8/9 — truncating the long unique prefix into the 20-char
+    licence cap collided → short `licTag` + zero-padded index.
+  - Ticket now: architect ✅ · backend ✅ · frontend ✅ · **qa ✅** → close + push + CI watch next.
 - **Session 2026-09-21 (3): LOGI-0005 frontend arm SEALED — handoff frontend→qa recorded.**
   - First task was **recovery**: an *interrupted* inline frontend run had left drivers code in the tree
     with **no locked plan, no tracker events, no commits, no micro-log**, and `DriverFormDialog.tsx`
@@ -59,18 +69,14 @@
     omitted clears the link; status default Active; no createdAt; list id asc; RBAC = contract
     x-roles (Driver role 403 on all /drivers, incl. reads).
 - Scoreboard: LOGI-0000 ✅ · 0001 ✅ · 0002 ✅ · 0003 ✅ · 0004 ✅ ·
-  **LOGI-0005 🟡 — architect ✅ (`a3a369d`) · backend ✅ (`c615744`, 42/42) · frontend ✅
-  (`f3c8e72`, vitest 41/41) · qa ⬜**.
+  **LOGI-0005 🟢 — architect ✅ · backend ✅ (42/42) · frontend ✅ (vitest 41/41) · qa ✅
+  (drivers 9/9, full e2e 39/39)** — close + push + CI watch next.
 
 ## Next action
-1. **Dispatch the LOGI-0005 qa arm** (fresh window via `new_task`, or user-approved inline): plan
-   `state/plans/LOGI-0005-qa.plan.md` → `tests/e2e/drivers.spec.ts` covering AC-1..AC-9 against the real
-   API — licence 409 on POST+PUT, userId 400 then 409, PUT null/omitted clears the link, paged
-   q/status list (id asc), 404s, and the full RBAC matrix incl. **Driver role 403 on reads**; reuse the
-   LOGI-0013 harness (`start-api.mjs`, API-only row reset — `drivers` is already reset there). Gates:
-   `npx playwright test` green locally, then CI run green.
-2. After the qa seal: handoff qa→done, flip `specs/features/LOGI-0005-drivers-crud.md` status, update
-   this file + `memory/progress.md`, then close the ticket.
+1. **Close LOGI-0005**: flip `specs/features/LOGI-0005-drivers-crud.md` status → done, update
+   `memory/progress.md` (qa ✅), push (`2e4eda6` + close) and watch CI (no `gh` CLI — web/API).
+   Remote gate for the qa arm = pushed SHA green (`build-and-test` + `e2e`, expect 39 passed).
+2. After the close + push: verify CI green, then pick up LOGI-0006..0012 (Shipments/Routes/Board/Dashboard).
 3. Push each seal and watch CI (no `gh` CLI — verify via GitHub web or the public API).
 4. Optional cleanups (not blocking): fix the pre-existing `validateDOMNesting` defect in
    `WarehousesPage.tsx` (~line 187, LOGI-0001 shape) as a small platform ticket, and remove the stale
