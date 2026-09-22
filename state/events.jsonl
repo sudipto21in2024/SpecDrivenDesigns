@@ -159,3 +159,6 @@
 {"ts":"2026-09-22T09:36:21.927Z","type":"STEP_DONE","ticket":"LOGI-0006","arm":"architect","note":"sealed: spectral lint: 0 errors; diff additive 96+/0-; operationIds unique (1 each); spec 8/8 AC headings + sec1-8 present; front matter status: spec_approved"}
 {"ts":"2026-09-22T09:36:31.471Z","type":"PLAN_DONE","ticket":"LOGI-0006","arm":"architect","plan_ptr":"state\\plans\\LOGI-0006-architect.plan.md"}
 {"ts":"2026-09-22T09:36:31.581Z","type":"HANDOFF","ticket":"LOGI-0006","from":"architect","to":"backend","summary_ptr":"memory/journal/LOGI-0006.md#architect","gates":["spectral:0 errors","spec_approved","checkpoint:approved"]}
+{"ts":"2026-09-22T09:41:35.320Z","type":"PLAN_CREATED","ticket":"LOGI-0006","arm":"backend","plan_ptr":"state\\plans\\LOGI-0006-backend.plan.md"}
+{"ts":"2026-09-22T09:48:07.543Z","type":"PLAN_LOCKED","ticket":"LOGI-0006","arm":"backend","plan_ptr":"state\\plans\\LOGI-0006-backend.plan.md"}
+{"ts":"2026-09-22T09:48:50.627Z","type":"TASK_STARTED","ticket":"LOGI-0006","arm":"backend","agent":"orchestrator-inline"}
