@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-23T04:30:43.467Z",
+  "generated": "2026-09-23T04:34:30.228Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -175,15 +175,15 @@
           "lastStepAt": "2026-09-22T11:55:00.241Z"
         },
         "qa": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "orchestrator-inline",
           "started": "2026-09-23T04:21:00.371Z",
-          "lastStep": "Step 5 verified: AC-6..AC-8 added, spec passes 8/8. AC-8 proves the full x-roles matrix against real JWTs (anonymous 401 both endpoints, Viewer 403 POST / 200 GET, Driver 2xx, Dispatcher 2xx, Admin 2xx) and that each accepted transition records its own acting user.",
-          "lastStepAt": "2026-09-23T04:30:43.462Z"
+          "lastStep": "sealed: playwright 47 passed 0 failed 0 flaky (39+8); each AC green; AC-8 matrix vs real JWTs; 0 SQLITE_BUSY/locked/no-such-table in the API run log; boundary clean (no src or contracts change)",
+          "lastStepAt": "2026-09-23T04:33:22.939Z"
         }
       },
       "status": "planned",
-      "next": "qa"
+      "next": "done"
     }
   }
 }

@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0006
 arm: qa
-status: locked
+status: done
 created: 2026-09-23T04:19:58.084Z
 depends_on_plans: LOGI-0006-frontend, LOGI-0006-backend
 ---
@@ -20,6 +20,7 @@ Suite grows 39 → 47 tests; the pushed SHA's CI run is the remote gate.
 | `tests/e2e/support/shipments.ts` | create | Shipment fixtures + endpoint helpers: seedShipment(originWarehouseId, status) — direct SQLite INSERT through node's built-in sqlite module (creation is LOGI-0007; spec §3 sanctions direct seeding), unique reference code per call, busy_timeout; postTransition/getHistory/driveShipment typed with the client's ShipmentStatus/ShipmentStatusEvent/StatusTransitionRequest — AC-1..AC-8 | ~90 |
 | `tests/e2e/shipment-status-lifecycle.spec.ts` | create | AC-1..AC-8 against the real API + real SQLite: forward chain one step at a time + event echo + newest history entry; Cancelled legal from Pending/Assigned and 409 after; Delayed only from InTransit and reversible; illegal jump 409 naming the legal next state and status unchanged; 400 validation (missing/empty/unknown toStatus, 501-char note) with nothing recorded; 404 on both endpoints; append-only paged history oldest→newest with the note echoed verbatim; RBAC matrix (anonymous 401, Viewer 403 POST / 200 GET, Driver 2xx deferral, Admin + Dispatcher 2xx) — AC-1..AC-8 | ~290 |
 | `memory/journal/LOGI-0006.md` | modify | qa-arm seal section (what/gates/findings/next) | ~30 |
+| `specs/features/LOGI-0006-shipment-status-lifecycle.md` | modify | Ticket-close chore (not AC work): front matter starts at spec_approved and has to read done once the last arm is sealed — mirrors the LOGI-0005 close commit `3eee8b0`; qa boundary allows specs (deny is src + contracts) | 1 |
 
 Seal artifacts written by the tracker + memory protocol (no other file may change):
 | `state/plans/LOGI-0006-qa.plan.md` | modify | status draft → validated → locked → done + per-step checkboxes |
@@ -53,7 +54,7 @@ Seal artifacts written by the tracker + memory protocol (no other file may chang
   built-in sqlite module, then POST a transition and GET the history through curl
   → verify: baseline 39 passed / 0 failed; spike POST → 200 with fromStatus Pending, toStatus Assigned and
   changedByUserId > 0; GET status-history → 200 totalCount 1; not a single row written for the rejected probe
-- [ ] 2. Extract `tests/e2e/support/paths.ts` (API_PROJECT + E2E_DB_PATH) and have `tests/e2e/playwright.config.ts`
+- [x] 2. Extract `tests/e2e/support/paths.ts` (API_PROJECT + E2E_DB_PATH) and have `tests/e2e/playwright.config.ts`
   import it instead of re-declaring the constants → verify: `npx playwright test --list` still lists 39 tests;
   `node -e` importing the module prints the identical absolute DB path the config injected before
 - [x] 3. Create `tests/e2e/support/shipments.ts` + the spec's AC-1 case (seed Pending, drive
@@ -69,9 +70,9 @@ Seal artifacts written by the tracker + memory protocol (no other file may chang
   with the note echoed verbatim, page/pageSize/totalPages/totalCount, and a rejected attempt appearing nowhere;
   RBAC: anonymous 401 on both, Viewer 403 on POST + 200 on history, Driver 2xx, Admin + Dispatcher 2xx)
   → verify: the spec file passes 8/8
-- [ ] 6. Full-suite regression on the same build → verify: `cd tests/e2e && npx playwright test` → 47 passed,
+- [x] 6. Full-suite regression on the same build → verify: `cd tests/e2e && npx playwright test` → 47 passed,
   0 failed, 0 flaky; the run's Serilog log shows no SQLITE_BUSY and no "no such table" lines
-- [ ] 7. Seal: journal qa-arm section (gates + evidence + findings), tick steps, `tracker log STEP_DONE` per step,
+- [x] 7. Seal: journal qa-arm section (gates + evidence + findings), tick steps, `tracker log STEP_DONE` per step,
   manifest-exact commits, `tracker seal --ticket LOGI-0006 --arm qa`, `tracker handoff --ticket LOGI-0006 --from qa
   --to done --summary "memory/journal/LOGI-0006.md#qa-arm" --gates "..."`, memory active/progress via tracker,
   push and watch CI → verify: `git status --short` shows only §2 files; HANDOFF + PLAN_DONE events recorded;
