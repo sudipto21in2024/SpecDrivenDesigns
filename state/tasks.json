@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-23T04:29:50.882Z",
+  "generated": "2026-09-23T04:30:43.467Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -178,8 +178,8 @@
           "status": "in_progress",
           "agent": "orchestrator-inline",
           "started": "2026-09-23T04:21:00.371Z",
-          "lastStep": "Step 4 verified: AC-2..AC-5 added, spec passes 5/5. Live confirmations: 500-char note accepted, 501 rejected with errors.note, empty body gives 400 errors.toStatus, 409 detail names the current status legal next states, refused attempts never recorded.",
-          "lastStepAt": "2026-09-23T04:29:50.879Z"
+          "lastStep": "Step 5 verified: AC-6..AC-8 added, spec passes 8/8. AC-8 proves the full x-roles matrix against real JWTs (anonymous 401 both endpoints, Viewer 403 POST / 200 GET, Driver 2xx, Dispatcher 2xx, Admin 2xx) and that each accepted transition records its own acting user.",
+          "lastStepAt": "2026-09-23T04:30:43.462Z"
         }
       },
       "status": "planned",
