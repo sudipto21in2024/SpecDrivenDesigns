@@ -49,6 +49,15 @@ export const capabilities = {
 
   /** GET /shipments/{id}/status-history — x-roles: [Admin, Dispatcher, Driver, Viewer] (LOGI-0006). */
   viewShipmentHistory: (role: Role): boolean => allRoles.includes(role),
+
+  /**
+   * GET /shipments — x-roles: [Admin, Dispatcher, Viewer]; Driver excluded until own-route
+   * scoping lands (LOGI-0007 spec §7 deferral → LOGI-0009/0010).
+   */
+  viewShipments: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher' || role === 'Viewer',
+
+  /** POST /shipments — x-roles: [Admin, Dispatcher] (LOGI-0007 AC-10). */
+  createShipments: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
 } as const;
 
 const allRoles: readonly Role[] = ['Admin', 'Dispatcher', 'Driver', 'Viewer'];
