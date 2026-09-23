@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput, ShipmentStatusEvent, ShipmentStatus, StatusTransitionRequest } from '../api/client';
+import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput, ShipmentStatusEvent, ShipmentStatus, StatusTransitionRequest, Shipment, ShipmentInput, ShipmentPriority } from '../api/client';
 
 /**
  * MSW handlers derived from contracts/v1-openapi.yaml (ADR-004). The in-memory store mirrors the API
@@ -68,7 +68,21 @@ export function resetDriversDb(seed: Driver[] = []): void {
 export interface MockShipment {
   id: number;
   referenceCode: string;
+  originWarehouseId: number;
+  destinationAddress: string;
+  destinationLat: number | null;
+  destinationLng: number | null;
+  weightKg: number;
   status: ShipmentStatus;
+  priority: ShipmentPriority;
+  /** BR-1: created_at + 48h (Standard) / +12h (Express); null only for pre-LOGI-0007 seeded data. */
+  slaDueAt: string | null;
+  /** Set by route assignment (LOGI-0010); null until then. */
+  routeId: number | null;
+  /** Server-owned creation instant (whole-second ISO8601 UTC). */
+  createdAt: string;
+  updatedAt: string | null;
+  /** Read-time BR-2 `atRisk` is never stored — projected in the GET handler. */
   statusHistory: ShipmentStatusEvent[];
 }
 
@@ -77,10 +91,17 @@ export const shipmentsDb: MockShipment[] = [];
 /** Separate counter for history event ids so they stay distinct from resource ids. */
 let historyCounter = 0;
 
+/**
+ * Separate counter for `SHP-######` reference-code digits, seeded from the max shipment id in the
+ * store so codes stay unique across resets (AC-5).
+ */
+let referenceCodeCounter = 0;
+
 /** Clears the shipment store. */
 export function resetShipmentsDb(seed: MockShipment[] = []): void {
   shipmentsDb.splice(0, shipmentsDb.length, ...seed);
   historyCounter = 0;
+  referenceCodeCounter = shipmentsDb.reduce((max, shipment) => Math.max(max, shipment.id), 0);
 }
 
 /** BR-7 legal transitions (mirrors Domain/ShipmentStatus.cs); everything else is 409. */
@@ -107,28 +128,133 @@ const shipmentTransitionRules: Record<Role, { read: boolean; write: boolean; del
   Viewer: { read: true, write: false, delete: false },
 };
 
+/** Sort keys accepted by GET /shipments (contract enum; default `-createdAt`). */
+const shipmentSorts = ['createdAt', '-createdAt', 'slaDueAt', '-slaDueAt'] as const;
+type ShipmentSort = (typeof shipmentSorts)[number];
+const shipmentPriorities: ShipmentPriority[] = ['Standard', 'Express'];
+
+/** LOGI-0007 AC-10: read Admin/Dispatcher/Viewer (Driver excluded — spec §7 deferral). */
+const shipmentListRules: Record<Role, { read: boolean; write: boolean; delete: boolean }> = {
+  Admin: { read: true, write: true, delete: false },
+  Dispatcher: { read: true, write: true, delete: false },
+  // Driver excluded from shipments until own-route scoping (LOGI-0009/0010) — see spec §7.
+  Driver: { read: false, write: false, delete: false },
+  Viewer: { read: true, write: false, delete: false },
+};
+
+/** BR-1: slaDueAt = createdAt + offset(priority) (Standard +48h / Express +12h). */
+function slaDueAtFor(createdAtIso: string, priority: ShipmentPriority): string {
+  const offsetHours = priority === 'Express' ? 12 : 48;
+  return new Date(Date.parse(createdAtIso) + offsetHours * 3_600_000).toISOString();
+}
+
+/**
+ * BR-2 / AC-9: read-time at-risk projection — whole-second truncation, inclusive threshold
+ * `now >= slaDueAt - 2h`, terminal/absent statuses excluded. Never stored.
+ */
+function computeAtRisk(shipment: MockShipment, nowMs: number): boolean {
+  if (shipment.slaDueAt == null) return false;
+  if (shipment.status === 'Delivered' || shipment.status === 'Cancelled') return false;
+  const dueMs = Math.floor(Date.parse(shipment.slaDueAt) / 1000) * 1000;
+  const nowSec = Math.floor(nowMs / 1000) * 1000;
+  return nowSec >= dueMs - 2 * 3_600_000;
+}
+
+/** Contract read model: the store row minus `statusHistory`, plus the read-time `atRisk`. */
+function toShipmentResponse(shipment: MockShipment, atRisk = computeAtRisk(shipment, Date.now())): Shipment {
+  return {
+    id: shipment.id,
+    referenceCode: shipment.referenceCode,
+    originWarehouseId: shipment.originWarehouseId,
+    destinationAddress: shipment.destinationAddress,
+    destinationLat: shipment.destinationLat,
+    destinationLng: shipment.destinationLng,
+    weightKg: shipment.weightKg,
+    status: shipment.status,
+    priority: shipment.priority,
+    slaDueAt: shipment.slaDueAt,
+    routeId: shipment.routeId,
+    atRisk,
+    createdAt: shipment.createdAt,
+    updatedAt: shipment.updatedAt,
+  };
+}
+
+/** `SHP-` + six zero-padded digits derived from the next code counter, with a bounded retry. */
+function nextShipmentReferenceCode(): string | null {
+  // AC-5: the unique index stays the authority; budget exhaustion ⇒ 409 at the call site.
+  for (let attempt = 0; attempt < 10; attempt++) {
+    referenceCodeCounter += 1;
+    const code = `SHP-${String(referenceCodeCounter).padStart(6, '0')}`;
+    if (!shipmentsDb.some((shipment) => shipment.referenceCode === code)) return code;
+  }
+  return null;
+}
+
+/** Nullish slaDueAt sorts last in both directions (AC-8). */
+function compareNullable(a: string | null, b: string | null, ascending: boolean): number {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return ascending ? a.localeCompare(b) : b.localeCompare(a);
+}
+
+/** AC-8 ordering: createdAt/±slaDueAt with a deterministic id tiebreak (descending for `-createdAt`). */
+function compareShipments(a: MockShipment, b: MockShipment, sort: ShipmentSort): number {
+  const idTiebreak = sort === '-createdAt' ? b.id - a.id : a.id - b.id;
+  switch (sort) {
+    case 'createdAt':
+      return a.createdAt.localeCompare(b.createdAt) || idTiebreak;
+    case '-createdAt':
+      return b.createdAt.localeCompare(a.createdAt) || idTiebreak;
+    case 'slaDueAt':
+      return compareNullable(a.slaDueAt, b.slaDueAt, true) || idTiebreak;
+    case '-slaDueAt':
+      return compareNullable(a.slaDueAt, b.slaDueAt, false) || idTiebreak;
+  }
+}
+
+function toNullableNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 /** Inserts a shipment into the mock store, seeding the initial history entry (fromStatus null). */
 export function seedShipment(overrides: Partial<MockShipment> = {}): MockShipment {
   const id = nextId++;
   const status: ShipmentStatus = overrides.status ?? 'Pending';
-  const createdAt = new Date('2026-09-22T08:00:00Z');
+  const priority: ShipmentPriority = overrides.priority ?? 'Standard';
+  // Whole-second ISO8601 UTC anchor (NFR §8) so read-time atRisk tests compare identical instants.
+  const createdAt =
+    overrides.createdAt ?? new Date(Math.floor(new Date('2026-09-22T08:00:00Z').getTime() / 1000) * 1000).toISOString();
   const shipment: MockShipment = {
     id,
-    referenceCode: `SHP-${String(id).padStart(5, '0')}`,
+    // AC-5: ^SHP-[0-9]{6}$ — six zero-padded digits (the old padStart(5) was non-compliant).
+    referenceCode: `SHP-${String(id).padStart(6, '0')}`,
+    originWarehouseId: 1,
+    destinationAddress: '12 Dock Road, Rotterdam',
+    destinationLat: null,
+    destinationLng: null,
+    weightKg: 100,
     status,
+    priority,
+    slaDueAt: overrides.slaDueAt ?? slaDueAtFor(createdAt, priority),
+    routeId: null,
+    createdAt,
+    updatedAt: null,
     statusHistory: [
       {
         id: ++historyCounter,
         fromStatus: null,
         toStatus: status,
         changedByUserId: 1,
-        changedAt: createdAt.toISOString(),
+        changedAt: createdAt,
         note: null,
       },
     ],
     ...overrides,
   };
   shipmentsDb.push(shipment);
+  referenceCodeCounter = Math.max(referenceCodeCounter, shipment.id);
   return shipment;
 }
 /** Inserts a driver into the mock store, mirroring the API defaults (status → Active, no createdAt). */
@@ -654,6 +780,164 @@ export const handlers = [
     if (index === -1) return problem(404, 'Resource not found', `Driver with id '${String(params.id)}' was not found.`);
     driversDb.splice(index, 1);
     return new HttpResponse(null, { status: 204 });
+  }),
+
+    // ------------------------------------- Shipments: create + list (LOGI-0007)
+
+  /** GET /shipments — AC-6..AC-10: paged envelope, AND filters, 4 sorts, read-time atRisk. */
+  http.get('/api/v1/shipments', ({ request }) => {
+    const auth = authorize(request, 'read', 'shipments', shipmentListRules);
+    if (!('user' in auth)) return auth;
+
+    const url = new URL(request.url);
+    const errors: Record<string, string[]> = {};
+
+    const pageRaw = url.searchParams.get('page');
+    const page = pageRaw == null ? 1 : Number(pageRaw);
+    if (pageRaw != null && (!Number.isInteger(page) || page < 1)) {
+      errors.page = ['Page must be an integer greater than or equal to 1.'];
+    }
+    const pageSizeRaw = url.searchParams.get('pageSize');
+    const pageSize = pageSizeRaw == null ? 25 : Number(pageSizeRaw);
+    if (pageSizeRaw != null && (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100)) {
+      errors.pageSize = ['Page size must be an integer between 1 and 100.'];
+    }
+
+    const statusRaw = url.searchParams.get('status');
+    if (statusRaw != null && !shipmentStatuses.includes(statusRaw as ShipmentStatus)) {
+      errors.status = ['Status must be one of: Pending, Assigned, InTransit, Delivered, Delayed, Cancelled.'];
+    }
+    const priorityRaw = url.searchParams.get('priority');
+    if (priorityRaw != null && !shipmentPriorities.includes(priorityRaw as ShipmentPriority)) {
+      errors.priority = ['Priority must be one of: Standard, Express.'];
+    }
+    const slaRiskRaw = url.searchParams.get('slaRisk');
+    if (slaRiskRaw != null && slaRiskRaw !== 'true' && slaRiskRaw !== 'false') {
+      errors.slaRisk = ['slaRisk must be true or false.'];
+    }
+    const sortRaw = url.searchParams.get('sort');
+    const sort = (sortRaw ?? '-createdAt') as ShipmentSort;
+    if (sortRaw != null && !shipmentSorts.includes(sort)) {
+      errors.sort = ['Sort must be one of: createdAt, -createdAt, slaDueAt, -slaDueAt.'];
+    }
+    const originRaw = url.searchParams.get('originWarehouseId');
+    const originWarehouseId = originRaw == null ? null : Number(originRaw);
+    if (originRaw != null && (originWarehouseId == null || !Number.isInteger(originWarehouseId) || originWarehouseId < 1)) {
+      errors.originWarehouseId = ['originWarehouseId must be an integer greater than or equal to 1.'];
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+    }
+
+    // Read-time BR-2 projection (never stored) — computed once per request.
+    const now = Date.now();
+    const qRaw = url.searchParams.get('q');
+    const qNeedle = qRaw == null ? null : qRaw.toLowerCase();
+
+    let rows = shipmentsDb
+      .map((shipment) => ({ shipment, atRisk: computeAtRisk(shipment, now) }))
+      .filter(
+        ({ shipment, atRisk }) =>
+          (statusRaw == null || shipment.status === statusRaw) &&
+          (priorityRaw == null || shipment.priority === priorityRaw) &&
+          (originWarehouseId == null || shipment.originWarehouseId === originWarehouseId) &&
+          (slaRiskRaw == null || atRisk === (slaRiskRaw === 'true')) &&
+          (qNeedle == null ||
+            shipment.referenceCode.toLowerCase().includes(qNeedle) ||
+            shipment.destinationAddress.toLowerCase().includes(qNeedle)),
+      );
+
+    rows.sort((a, b) => compareShipments(a.shipment, b.shipment, sort));
+
+    const totalCount = rows.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const start = (page - 1) * pageSize;
+    const items = rows
+      .slice(start, start + pageSize)
+      .map(({ shipment, atRisk }) => toShipmentResponse(shipment, atRisk));
+
+    return HttpResponse.json({ items, page, pageSize, totalCount, totalPages });
+  }),
+
+
+  /** POST /shipments — AC-1..AC-5/AC-10: server-owned code/status/slaDueAt, field-keyed 400s. */
+  http.post('/api/v1/shipments', async ({ request }) => {
+    const auth = authorize(request, 'write', 'shipments', shipmentListRules);
+    if (!('user' in auth)) return auth;
+
+    const body = (await request.json()) as Partial<ShipmentInput>;
+    const errors: Record<string, string[]> = {};
+
+    const weightRaw = body.weightKg;
+    const weightKg = typeof weightRaw === 'number' ? weightRaw : Number(weightRaw);
+    if (weightRaw == null || !Number.isFinite(weightKg) || weightKg <= 0) {
+      errors.weightKg = ['Weight must be greater than 0'];
+    }
+
+    const destinationAddress =
+      typeof body.destinationAddress === 'string' ? body.destinationAddress.trim() : '';
+    if (destinationAddress === '') errors.destinationAddress = ['Destination address is required'];
+    else if (destinationAddress.length > 500)
+      errors.destinationAddress = ['Destination address must be at most 500 characters'];
+
+    const originWarehouseId = Number(body.originWarehouseId);
+    if (body.originWarehouseId == null || !Number.isInteger(originWarehouseId) || originWarehouseId < 1) {
+      errors.originWarehouseId = ['Origin warehouse id is required'];
+    } else if (!warehousesDb.some((warehouse) => warehouse.id === originWarehouseId)) {
+      errors.originWarehouseId = [`Warehouse with id '${originWarehouseId}' does not exist.`];
+    }
+
+    // BR-1 rule 1.3/1.7: omitted/null → Standard; anything else fails loudly with allowed values.
+    let priority: ShipmentPriority = 'Standard';
+    if (body.priority != null) {
+      const raw = typeof body.priority === 'string' ? body.priority.trim() : '';
+      if (raw === 'Standard' || raw === 'Express') priority = raw;
+      else errors.priority = ['Priority must be one of: Standard, Express.'];
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+    }
+
+    const referenceCode = nextShipmentReferenceCode();
+    if (referenceCode == null) {
+      return problem409('Reference code generation exhausted its retry budget; please retry.');
+    }
+
+    // Server-owned instants, whole-second UTC per NFR §8; BR-1 slaDueAt = createdAt + offset.
+    const createdAt = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString();
+    const slaDueAt = slaDueAtFor(createdAt, priority);
+
+    const id = nextId++;
+    const shipment: MockShipment = {
+      id,
+      referenceCode,
+      originWarehouseId,
+      destinationAddress,
+      destinationLat: toNullableNumber(body.destinationLat),
+      destinationLng: toNullableNumber(body.destinationLng),
+      weightKg,
+      status: 'Pending',
+      priority,
+      slaDueAt,
+      routeId: null,
+      createdAt,
+      updatedAt: null,
+      statusHistory: [
+        {
+          id: ++historyCounter,
+          fromStatus: null,
+          toStatus: 'Pending',
+          changedByUserId: auth.user.id,
+          changedAt: createdAt,
+          note: null,
+        },
+      ],
+    };
+    shipmentsDb.push(shipment);
+    referenceCodeCounter = Math.max(referenceCodeCounter, id);
+    return HttpResponse.json(toShipmentResponse(shipment), { status: 201 });
   }),
 
   // ------------------------------------- Shipments: BR-7 status lifecycle (LOGI-0006)
