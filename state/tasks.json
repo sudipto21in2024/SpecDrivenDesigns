@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-23T12:26:45.418Z",
+  "generated": "2026-09-23T13:06:59.571Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -201,6 +201,11 @@
           "started": "2026-09-23T10:11:31.402Z",
           "lastStep": "step 5 verified: journal backend section present, HANDOFF backend->frontend recorded with 7 gates, plan set done, commits 7c266b6 + final seal commit",
           "lastStepAt": "2026-09-23T12:26:17.055Z"
+        },
+        "frontend": {
+          "status": "planned",
+          "plan": "state\\plans\\LOGI-0007-frontend.plan.md",
+          "planStatus": "locked"
         }
       },
       "status": "planned",

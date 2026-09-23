@@ -219,3 +219,5 @@
 {"ts":"2026-09-23T12:25:11.680Z","type":"HANDOFF","ticket":"LOGI-0007","from":"backend","to":"frontend","summary_ptr":"memory/journal/LOGI-0007.md","gates":["build 0/0","SlaPolicyTests 19/19","ShipmentCreateTests 8/8","ShipmentListTests 5/5","full suite 82/82","ef no pending model changes","manifest clean"]}
 {"ts":"2026-09-23T12:26:16.906Z","type":"PLAN_DONE","ticket":"LOGI-0007","arm":"backend","plan_ptr":"state\\plans\\LOGI-0007-backend.plan.md"}
 {"ts":"2026-09-23T12:26:17.055Z","type":"STEP_DONE","ticket":"LOGI-0007","arm":"backend","note":"step 5 verified: journal backend section present, HANDOFF backend->frontend recorded with 7 gates, plan set done, commits 7c266b6 + final seal commit"}
+{"ts":"2026-09-23T12:57:40.766Z","type":"PLAN_CREATED","ticket":"LOGI-0007","arm":"frontend","plan_ptr":"state\\plans\\LOGI-0007-frontend.plan.md"}
+{"ts":"2026-09-23T13:05:57.268Z","type":"PLAN_LOCKED","ticket":"LOGI-0007","arm":"frontend","plan_ptr":"state\\plans\\LOGI-0007-frontend.plan.md"}
