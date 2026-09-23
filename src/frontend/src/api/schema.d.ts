@@ -186,6 +186,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/shipments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List shipments (paged, filterable)
+         * @description Returns a paged shipment list (F8). Filters combine with AND: status, priority, originWarehouseId, slaRisk (BR-2 at-risk projection) and q (referenceCode or destinationAddress contains, case-insensitive). Ordering defaults to createdAt descending; sort accepts createdAt, -createdAt, slaDueAt, -slaDueAt with a deterministic id tiebreak. Each item carries the read-time atRisk flag, which is never stored (Docs/business-rules/BR-sla-rules.md §2.5).
+         */
+        get: operations["listShipments"];
+        put?: never;
+        /**
+         * Create shipment (BR-1 SLA due date)
+         * @description Creates a shipment in status Pending (F5). The reference code (SHP-######) and sla_due_at are generated server-side: created_at + 48h for Standard, +12h for Express (BR-1). The initial Pending audit row is appended to shipment_status_history in the same transaction. An unknown originWarehouseId, a non-positive weightKg, a blank destinationAddress or an unknown priority respond 400.
+         */
+        post: operations["createShipment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/shipments/{id}/status-transitions": {
         parameters: {
             query?: never;
@@ -576,6 +600,92 @@ export interface components {
             changedAt: string;
             /** @example Loaded onto vehicle RT-8421-X */
             note?: string | null;
+        };
+        /**
+         * @description Body of POST /shipments (F5). Server-owned fields — referenceCode, status, slaDueAt,
+         *     createdAt/updatedAt — are never accepted from the client: the handler generates the
+         *     reference code and derives sla_due_at from the server clock per BR-1
+         *     (Docs/business-rules/BR-sla-rules.md).
+         */
+        ShipmentRequest: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            originWarehouseId: number;
+            /** @example 12 Dock Road, Rotterdam */
+            destinationAddress: string;
+            /** @example 51.9225 */
+            destinationLat?: number | null;
+            /** @example 4.47917 */
+            destinationLng?: number | null;
+            /** @example 1250.5 */
+            weightKg: number;
+            /**
+             * @description Defaults to Standard when omitted (BR-1 rule 1.3); any other value is rejected with 400 (rule 1.7).
+             * @default Standard
+             * @example Standard
+             * @enum {string}
+             */
+            priority: "Standard" | "Express";
+        };
+        ShipmentResponse: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id: number;
+            /** @example SHP-000123 */
+            referenceCode: string;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            originWarehouseId: number;
+            /** @example 12 Dock Road, Rotterdam */
+            destinationAddress: string;
+            /** @example 51.9225 */
+            destinationLat?: number | null;
+            /** @example 4.47917 */
+            destinationLng?: number | null;
+            /** @example 1250.5 */
+            weightKg: number;
+            /**
+             * @example Pending
+             * @enum {string}
+             */
+            status: "Pending" | "Assigned" | "InTransit" | "Delivered" | "Delayed" | "Cancelled";
+            /**
+             * @example Standard
+             * @enum {string}
+             */
+            priority: "Standard" | "Express";
+            /**
+             * Format: date-time
+             * @description ISO8601 UTC — created_at + 48h (Standard) / +12h (Express) per BR-1.
+             * @example 2026-09-20T08:00:00Z
+             */
+            slaDueAt: string | null;
+            /**
+             * Format: int64
+             * @description Set by route assignment (LOGI-0010); null until then.
+             */
+            routeId?: number | null;
+            /**
+             * @description Read-time BR-2 projection (never stored): true when now >= slaDueAt - 2h (whole-second, inclusive) and status is not Delivered/Cancelled; false when slaDueAt is null.
+             * @example false
+             */
+            atRisk: boolean;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T08:00:00Z
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @example 2026-09-18T08:00:00Z
+             */
+            updatedAt?: string | null;
         };
         /** @description Envelope for all list endpoints (max pageSize 100, default 25). */
         PagedResponse: {
@@ -1077,6 +1187,73 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listShipments: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                /** @description Filter by exact status (BR-7 enum) */
+                status?: "Pending" | "Assigned" | "InTransit" | "Delivered" | "Delayed" | "Cancelled";
+                /** @description Filter by exact priority */
+                priority?: "Standard" | "Express";
+                /** @description Filter by origin warehouse */
+                originWarehouseId?: number;
+                /** @description true = only at-risk shipments (BR-2); false = only the complement */
+                slaRisk?: boolean;
+                /** @description Filter by referenceCode or destinationAddress (contains, case-insensitive) */
+                q?: string;
+                /** @description Sort key; prefix with - for descending (default -createdAt) */
+                sort?: "createdAt" | "-createdAt" | "slaDueAt" | "-slaDueAt";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged shipment list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PagedResponse"] & {
+                        items?: components["schemas"]["ShipmentResponse"][];
+                    };
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createShipment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShipmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShipmentResponse"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     createShipmentStatusTransition: {
