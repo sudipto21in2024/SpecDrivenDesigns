@@ -32,6 +32,10 @@ public static class DependencyInjection
         services.AddScoped<IValidator<Features.Shipments.TransitionShipmentStatusCommand>, Features.Shipments.TransitionShipmentStatusValidator>();
         services.AddScoped<IValidator<Features.Shipments.ListShipmentStatusHistoryQuery>, Features.Shipments.ListShipmentStatusHistoryValidator>();
 
+        // LOGI-0007 create shipment + list/search use cases (same per-type convention).
+        services.AddScoped<IValidator<Features.Shipments.CreateShipmentCommand>, Features.Shipments.CreateShipmentValidator>();
+        services.AddScoped<IValidator<Features.Shipments.ListShipmentsQuery>, Features.Shipments.ListShipmentsValidator>();
+
         // LOGI-0003 auth use cases. Registered per-type (not assembly-scanned) to match the existing
         // convention and keep the pipeline's validator set explicit.
         services.AddScoped<IValidator<Features.Auth.LoginCommand>, Features.Auth.LoginCommandValidator>();

@@ -33,9 +33,36 @@ public static class ShipmentEndpoints
             Results.Ok(await sender.Send(new ListShipmentStatusHistoryQuery(id, page ?? 1, pageSize ?? 25), ct)))
             .RequireRoles(Roles.Admin, Roles.Dispatcher, Roles.Driver, Roles.Viewer);
 
+        // Contract: GET /shipments — 200 paged envelope (AC-6..AC-9); invalid page/pageSize or an
+        // unknown filter/sort enum → 400 (spec §7). Driver is excluded until own-route scoping
+        // lands (LOGI-0009/0010, spec §7 / AC-10).
+        group.MapGet("/", async ([AsParameters] ListShipmentsQuery query, ISender sender, CancellationToken ct) =>
+            Results.Ok(await sender.Send(query, ct)))
+            .RequireRoles(Roles.Admin, Roles.Dispatcher, Roles.Viewer);
+
+        // Contract: POST /shipments — 201 with ShipmentResponse (AC-1); 400 field-keyed validation
+        // (AC-3/AC-4), 409 when the reference-code retry budget is exhausted (AC-5).
+        group.MapPost("/", async (CreateShipmentRequest request, ISender sender, CancellationToken ct) =>
+        {
+            var dto = await sender.Send(new CreateShipmentCommand(
+                request.OriginWarehouseId, request.DestinationAddress, request.WeightKg,
+                request.Priority, request.DestinationLat, request.DestinationLng), ct);
+            return Results.Created($"/api/v1/shipments/{dto.Id}", dto);
+        })
+            .RequireRoles(Roles.Admin, Roles.Dispatcher);
+
         return app;
     }
 }
 
 /// <summary>Request body for a status transition (contract schema: StatusTransitionRequest).</summary>
 public record TransitionShipmentStatusRequest(string? ToStatus, string? Note);
+
+/// <summary>
+/// Request body for create (contract schema: ShipmentRequest). Server-owned fields —
+/// referenceCode, status, slaDueAt, createdAt/updatedAt, id — are never accepted from the client
+/// and are ignored when supplied (BR-1 rule 1.2 / AC-2).
+/// </summary>
+public record CreateShipmentRequest(
+    long OriginWarehouseId, string? DestinationAddress, double WeightKg, string? Priority,
+    double? DestinationLat, double? DestinationLng);
