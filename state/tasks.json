@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-23T04:29:20.282Z",
+  "generated": "2026-09-23T04:29:50.882Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -178,8 +178,8 @@
           "status": "in_progress",
           "agent": "orchestrator-inline",
           "started": "2026-09-23T04:21:00.371Z",
-          "lastStep": "Steps 2-3 verified: shared tests/e2e/support/paths.ts consumed by playwright.config.ts (--list still 39 tests), shipment fixture + AC-1 spec -> 1 passed (13.4s); fixture rows visible to the API proves the path is identical",
-          "lastStepAt": "2026-09-23T04:28:21.413Z"
+          "lastStep": "Step 4 verified: AC-2..AC-5 added, spec passes 5/5. Live confirmations: 500-char note accepted, 501 rejected with errors.note, empty body gives 400 errors.toStatus, 409 detail names the current status legal next states, refused attempts never recorded.",
+          "lastStepAt": "2026-09-23T04:29:50.879Z"
         }
       },
       "status": "planned",

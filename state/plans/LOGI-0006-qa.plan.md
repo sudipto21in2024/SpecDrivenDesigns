@@ -65,7 +65,7 @@ Seal artifacts written by the tracker + memory protocol (no other file may chang
   Pending/Assigned/Delivered; illegal jump 409 whose detail names the legal next state with the status unchanged
   and totalCount 0; 400 errors map for missing/empty/unknown toStatus and a 501-char note, nothing recorded)
   → verify: the spec file passes 5/5
-- [ ] 5. Add AC-6..AC-8 (404 on both endpoints for an unknown id; append-only paged history ordered oldest→newest
+- [x] 5. Add AC-6..AC-8 (404 on both endpoints for an unknown id; append-only paged history ordered oldest→newest
   with the note echoed verbatim, page/pageSize/totalPages/totalCount, and a rejected attempt appearing nowhere;
   RBAC: anonymous 401 on both, Viewer 403 on POST + 200 on history, Driver 2xx, Admin + Dispatcher 2xx)
   → verify: the spec file passes 8/8

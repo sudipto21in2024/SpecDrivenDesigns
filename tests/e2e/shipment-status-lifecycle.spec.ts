@@ -169,4 +169,91 @@ test.describe('LOGI-0006 Shipment status lifecycle', () => {
     expect(history.body.totalCount).toBe(1);
     expect(history.body.items?.[0].note).toBe('x'.repeat(500));
   });
+
+  // AC-6 — an unknown shipment is 404 on both endpoints (spec §4 AC-6).
+  test('AC-6 — an unknown shipment id returns 404 on both endpoints', async ({ request }) => {
+    const unknown = 999_999_999; // no fixture ever seeds this id
+
+    const transition = await postTransition(request, adminToken, unknown, 'Assigned');
+    expect(transition.status).toBe(404);
+    expect(transition.body.status).toBe(404);
+    expect(transition.body.title).toBeTruthy();
+
+    const history = await getHistory(request, adminToken, unknown);
+    expect(history.status).toBe(404);
+    expect(history.body.status).toBe(404);
+    expect(history.body.title).toBeTruthy();
+  });
+
+  // AC-7 — the audit trail is append-only, ordered oldest → newest and paged (spec §4 AC-7).
+  test('AC-7 — history is append-only, ordered oldest to newest, paged, and never records refusals', async ({ request }) => {
+    const id = await seedShipment(request, adminToken, 'Pending');
+    await driveShipment(request, adminToken, id, 'Assigned');
+    const inTransit = await postTransition(request, adminToken, id, 'InTransit', 'Loaded onto vehicle QA-0001');
+    expect(inTransit.status).toBe(200);
+    expect(inTransit.body.note).toBe('Loaded onto vehicle QA-0001');
+    await driveShipment(request, adminToken, id, 'Delayed');
+
+    // A refused attempt never enters the audit trail.
+    const refused = await postTransition(request, adminToken, id, 'Cancelled');
+    expect(refused.status).toBe(409);
+
+    const all = await getHistory(request, adminToken, id);
+    expect(all.body).toMatchObject({ page: 1, pageSize: 25, totalCount: 3, totalPages: 1 });
+    expect(all.body.items?.map((event) => event.toStatus)).toEqual(['Assigned', 'InTransit', 'Delayed']);
+    expect(all.body.items?.map((event) => event.fromStatus)).toEqual(['Pending', 'Assigned', 'InTransit']);
+
+    // Append-only: ids ascend and the note is echoed verbatim with its acting user recorded.
+    const ids = all.body.items?.map((event) => event.id) ?? [];
+    expect(ids).toEqual([...ids].sort((a, b) => a - b));
+    expect(all.body.items?.every((event) => (event.changedByUserId ?? 0) > 0)).toBe(true);
+    expect(all.body.items?.[1].note).toBe('Loaded onto vehicle QA-0001');
+    expect(all.body.items?.[0].note ?? null).toBeNull();
+
+    const page1 = await getHistory(request, adminToken, id, '?page=1&pageSize=2');
+    expect(page1.body).toMatchObject({ page: 1, pageSize: 2, totalCount: 3, totalPages: 2 });
+    expect(page1.body.items?.map((event) => event.toStatus)).toEqual(['Assigned', 'InTransit']);
+
+    const page2 = await getHistory(request, adminToken, id, '?page=2&pageSize=2');
+    expect(page2.body).toMatchObject({ page: 2, pageSize: 2, totalCount: 3, totalPages: 2 });
+    expect(page2.body.items?.map((event) => event.toStatus)).toEqual(['Delayed']);
+  });
+
+  // AC-8 — the role matrix per contract x-roles (spec §4 AC-8, §2).
+  test('AC-8 — anonymous 401, Viewer reads but cannot transition, Driver/Dispatcher/Admin may', async ({ request }) => {
+    const id = await seedShipment(request, adminToken, 'Pending');
+
+    // Anonymous: no token at all → 401 on both endpoints.
+    expect((await postTransition(request, null, id, 'Assigned')).status).toBe(401);
+    expect((await getHistory(request, null, id)).status).toBe(401);
+
+    // Viewer: read-only — 403 ProblemDetails on transition, 200 on the history read.
+    const viewer = (await signIn(request, 'Viewer')).accessToken;
+    const viewerAttempt = await postTransition(request, viewer, id, 'Assigned');
+    expect(viewerAttempt.status).toBe(403);
+    expect(viewerAttempt.body.title).toBe('Forbidden');
+    expect(viewerAttempt.body.status).toBe(403);
+    expect((await getHistory(request, viewer, id)).status).toBe(200);
+    expect(
+      (await getHistory(request, adminToken, id)).body.totalCount,
+      'the refused Viewer attempt must not move the shipment or write a row',
+    ).toBe(0);
+
+    // Driver: declared in the contract x-roles; own-route scoping lands with LOGI-0009/0010.
+    const driver = (await signIn(request, 'Driver')).accessToken;
+    expect((await postTransition(request, driver, id, 'Assigned')).status).toBe(200);
+    expect((await getHistory(request, driver, id)).status).toBe(200);
+
+    // Dispatcher: 2xx on both; Admin (beforeEach token) closes the chain.
+    const dispatcher = (await signIn(request, 'Dispatcher')).accessToken;
+    expect((await postTransition(request, dispatcher, id, 'InTransit')).status).toBe(200);
+    expect((await getHistory(request, dispatcher, id)).status).toBe(200);
+    expect((await postTransition(request, adminToken, id, 'Delivered')).status).toBe(200);
+
+    // Every accepted transition was attributed to the caller that made it.
+    const history = await getHistory(request, adminToken, id);
+    expect(history.body.totalCount).toBe(3);
+    const actors = new Set(history.body.items?.map((event) => event.changedByUserId) ?? []);
+    expect(actors.size, 'each accepted transition records its own acting user').toBe(3);
+  });
 });
