@@ -3,6 +3,7 @@
 Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS.md`.
 
 | Ticket | Description | Status |
+| LOGI-0007 | Platform | 🟡 IN PROGRESS - create shipment + list/search: architect 2/3 (spec AC-1..AC-11 + /shipments contract, spectral 0 errors); awaiting SPEC_REVIEW |
 |---|---|---|
 | LOGI-0014 | Agent platform tooling (tracker seal/tick/show, contract slicer) | 🟢 DONE |
 | LOGI-0000 | Scaffold | 🟢 DONE |
