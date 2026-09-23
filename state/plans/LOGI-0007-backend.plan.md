@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0007
 arm: backend
-status: locked
+status: done
 created: 2026-09-23T10:09:07.535Z
 depends_on_plans: LOGI-0007-architect
 ---
@@ -46,7 +46,7 @@ Create shipment (F5) + shipment list/search (F8) backend per the approved spec: 
 - [x] 2. Create path: `ShipmentDto` + `CreateShipmentCommand`/validator/handler in `ShipmentCommands.cs` (reference code `SHP-` + max(id)+1 zero-padded to 6 with a bounded retry → 409 on exhaustion; `SlaPolicy.DueAt` from one server `now` truncated to whole seconds; `Shipment.Create` + the initial `ShipmentStatusHistory` row in ONE `SaveChanges`; unknown warehouse → `ValidationFailure(nameof(OriginWarehouseId), "Warehouse {id} does not exist.")` mirroring the driver user-link precedent); DI registration; `POST /` in `ShipmentEndpoints.cs` with `CreateShipmentRequest` and `RequireRoles(Admin, Dispatcher)`; `ShipmentCreateTests.cs` covering AC-1..AC-5 (AC-1 also asserts the single initial audit row and list visibility, AC-11 the transition seam) → verify: build 0 errors + `dotnet test src/backend/LogiFlow.Api.Tests --filter FullyQualifiedName~ShipmentCreateTests` green
 - [x] 3. List path: `ListShipmentsQuery`/validator/handler in `ShipmentQueries.cs` (page/pageSize validation, status/priority enum filters, originWarehouseId, q over referenceCode/destinationAddress, `slaRisk` via `SlaPolicy.AtRiskCutoff`, sort `createdAt|-createdAt|slaDueAt|-slaDueAt` with nulls-last for slaDueAt and an id tiebreak, `atRisk` projected per row, `PagedResult.Create`); `GET /` in `ShipmentEndpoints.cs` with `[AsParameters]` and `RequireRoles(Admin, Dispatcher, Viewer)`; `ShipmentListTests.cs` covering AC-6..AC-9 and the AC-10 GET role matrix → verify: build 0 errors + `dotnet test src/backend/LogiFlow.Api.Tests --filter FullyQualifiedName~ShipmentListTests` green
 - [x] 4. Whole-suite gate + boundary/drift proof: `dotnet test src/backend/LogiFlow.sln` (existing 50 + the new suites), `dotnet ef migrations has-pending-model-changes --project src/backend/LogiFlow.Infrastructure` (no schema/model change expected), `git status --short` (only §2 files) → verify: all tests green, no pending model changes, nothing outside the manifest touched
-- [ ] 5. Seal + handoff: `tracker seal` (backend-arm section with gates + findings), `tracker handoff backend→frontend`, `tracker active`/`progress`, plan status done → verify: journal section present, HANDOFF event recorded, plan done, one commit per verified step
+- [x] 5. Seal + handoff: `tracker seal` (backend-arm section with gates + findings), `tracker handoff backend→frontend`, `tracker active`/`progress`, plan status done → verify: journal section present, HANDOFF event recorded, plan done, one commit per verified step
 
 ## 5. Risks / open questions
 - **Nulls-last for the `slaDueAt` sort (AC-8):** SQLite orders NULLs first, so the query uses `.OrderBy(s => s.SlaDueAt == null).ThenBy(s => s.SlaDueAt)`; the AC-8 test seeds a null-due row to prove the ordering.
