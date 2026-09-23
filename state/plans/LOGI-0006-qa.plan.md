@@ -56,7 +56,7 @@ Seal artifacts written by the tracker + memory protocol (no other file may chang
 - [ ] 2. Extract `tests/e2e/support/paths.ts` (API_PROJECT + E2E_DB_PATH) and have `tests/e2e/playwright.config.ts`
   import it instead of re-declaring the constants → verify: `npx playwright test --list` still lists 39 tests;
   `node -e` importing the module prints the identical absolute DB path the config injected before
-- [ ] 3. Create `tests/e2e/support/shipments.ts` + the spec's AC-1 case (seed Pending, drive
+- [x] 3. Create `tests/e2e/support/shipments.ts` + the spec's AC-1 case (seed Pending, drive
   Pending→Assigned→InTransit→Delivered one step at a time, assert the event echo, the newest history entry and
   that a further illegal step is not needed here) → verify: `npx playwright test shipment-status-lifecycle.spec.ts`
   → 1 passed

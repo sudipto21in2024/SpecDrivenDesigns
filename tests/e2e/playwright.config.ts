@@ -1,5 +1,5 @@
 import { defineConfig } from '@playwright/test';
-import { resolve } from 'node:path';
+import { E2E_DB_PATH } from './support/paths';
 
 /**
  * LOGI-0001 E2E config (06-testing-strategy-playwright.md).
@@ -8,13 +8,8 @@ import { resolve } from 'node:path';
  * *before* the API starts (LOGI-0013 — never while it runs).
  */
 
-/**
- * Absolute path of the throwaway database. An absolute path keeps the API's working directory out
- * of the picture: a relative `Data Source` is resolved against the app process's CWD, which differs
- * between a local run and CI.
- */
-const API_PROJECT = resolve(__dirname, '..', '..', 'src', 'backend', 'LogiFlow.Api');
-const E2E_DB_PATH = resolve(API_PROJECT, 'e2e-logiflow.db');
+// The throwaway database path lives in `support/paths.ts` so the config (API webServer) and the
+// shipment fixtures seeding rows into it can never drift apart (LOGI-0013).
 
 export default defineConfig({
   testDir: '.',
