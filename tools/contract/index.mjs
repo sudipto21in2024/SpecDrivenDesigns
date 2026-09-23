@@ -17,6 +17,7 @@ const RESOURCES = {
   vehicles: { schemas: ['VehicleRequest', 'VehicleResponse'], paths: ['/vehicles', '/vehicles/{id}'] },
   warehouses: { schemas: ['WarehouseRequest', 'WarehouseResponse'], paths: ['/warehouses', '/warehouses/{id}'] },
   auth: { schemas: ['LoginRequest', 'RefreshRequest', 'AuthUser', 'TokenResponse'], paths: ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/me'] },
+  shipments: { schemas: ['ShipmentRequest', 'ShipmentResponse', 'StatusTransitionRequest', 'ShipmentStatusEvent', 'PagedResponse'], paths: ['/shipments', '/shipments/{id}/status-transitions', '/shipments/{id}/status-history'] },
 };
 
 // Slice contiguous blocks: a 2-space header (`  /x:` or `  components:`-level key)

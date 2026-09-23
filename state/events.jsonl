@@ -202,3 +202,4 @@
 {"ts":"2026-09-23T09:55:58.687Z","type":"PLAN_LOCKED","ticket":"LOGI-0007","arm":"architect","plan_ptr":"state\\plans\\LOGI-0007-architect.plan.md"}
 {"ts":"2026-09-23T09:55:58.721Z","type":"TASK_STARTED","ticket":"LOGI-0007","arm":"architect","agent":"orchestrator-inline"}
 {"ts":"2026-09-23T09:58:46.735Z","type":"STEP_DONE","ticket":"LOGI-0007","arm":"architect","note":"step 1/3: spec specs/features/LOGI-0007-create-shipment.md authored - 11 AC headings, sections 1-8 + downstream artifacts, LF-only, front matter draft"}
+{"ts":"2026-09-23T10:00:25.719Z","type":"STEP_DONE","ticket":"LOGI-0007","arm":"architect","note":"step 2/3: contract +108/-0 (ShipmentRequest/ShipmentResponse, GET+POST /shipments), spectral 0 errors, operationIds unique, shipments slicer resource resolves"}
