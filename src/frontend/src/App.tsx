@@ -24,6 +24,7 @@ import { can } from './features/auth/permissions';
 import WarehousesPage from './features/warehouses/WarehousesPage';
 import VehiclesPage from './features/vehicles/VehiclesPage';
 import DriversPage from './features/drivers/DriversPage';
+import ShipmentsPage from './features/shipments/ShipmentsPage';
 import { Tab, Tabs } from '@mui/material';
 
 const queryClient = new QueryClient({
@@ -108,8 +109,9 @@ function AppHeader() {
  */
 function MasterDataTabs() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'warehouses' | 'vehicles' | 'drivers'>('warehouses');
+  const [tab, setTab] = useState<'warehouses' | 'vehicles' | 'drivers' | 'shipments'>('warehouses');
   const canViewDrivers = user != null && can(user.role, 'viewDrivers');
+  const canViewShipments = user != null && can(user.role, 'viewShipments');
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 6 }}>
@@ -122,8 +124,17 @@ function MasterDataTabs() {
         <Tab value="warehouses" label="Warehouses" data-testid="tab-warehouses" />
         <Tab value="vehicles" label="Vehicles" data-testid="tab-vehicles" />
         {canViewDrivers && <Tab value="drivers" label="Drivers" data-testid="tab-drivers" />}
+        {canViewShipments && <Tab value="shipments" label="Shipments" data-testid="tab-shipments" />}
       </Tabs>
-      {tab === 'warehouses' ? <WarehousesPage /> : tab === 'vehicles' ? <VehiclesPage /> : <DriversPage />}
+      {tab === 'warehouses' ? (
+        <WarehousesPage />
+      ) : tab === 'vehicles' ? (
+        <VehiclesPage />
+      ) : tab === 'shipments' && canViewShipments ? (
+        <ShipmentsPage />
+      ) : (
+        <DriversPage />
+      )}
     </Container>
   );
 }
