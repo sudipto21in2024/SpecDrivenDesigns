@@ -1,4 +1,4 @@
-import type { components } from './schema';
+import type { components, operations } from './schema';
 import { tokenStore } from './tokenStore';
 
 /**
@@ -21,6 +21,16 @@ export type UserId = NonNullable<Driver['userId']>;
 export type ShipmentStatusEvent = components['schemas']['ShipmentStatusEvent'];
 export type ShipmentStatus = NonNullable<ShipmentStatusEvent['toStatus']>;
 export type StatusTransitionRequest = components['schemas']['StatusTransitionRequest'];
+/** LOGI-0007 F5/F8: shipment read model + create body (contract-derived aliases). */
+export type Shipment = components['schemas']['ShipmentResponse'];
+export type ShipmentInput = components['schemas']['ShipmentRequest'];
+export type ShipmentPriority = NonNullable<Shipment['priority']>;
+/** Sort keys accepted by GET /shipments — createdAt|-createdAt|slaDueAt|-slaDueAt (default -createdAt). */
+export type ShipmentSort = NonNullable<
+  NonNullable<operations['listShipments']['parameters']['query']>['sort']
+>;
+/** Optional query params for GET /shipments (every field optional, contract-derived). */
+export type ListShipmentsParams = NonNullable<operations['listShipments']['parameters']['query']>;
 export type ProblemDetails = components['schemas']['ProblemDetails'];
 export type AuthUser = components['schemas']['AuthUser'];
 export type LoginInput = components['schemas']['LoginRequest'];
@@ -238,6 +248,28 @@ export const api = {
   listShipmentStatusHistory(id: number, page = 1, pageSize = 25): Promise<Paged<ShipmentStatusEvent>> {
     const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     return request<Paged<ShipmentStatusEvent>>(`/api/v1/shipments/${id}/status-history?${params.toString()}`);
+  },
+
+  /**
+   * LOGI-0007 F8 (AC-6..AC-9): paged, filterable shipment list.
+   * Only supplied filters are serialized so omitted params keep their contract defaults.
+   */
+  listShipments(params: ListShipmentsParams = {}): Promise<Paged<Shipment>> {
+    const query = new URLSearchParams();
+    if (params.page != null) query.set('page', String(params.page));
+    if (params.pageSize != null) query.set('pageSize', String(params.pageSize));
+    if (params.status) query.set('status', params.status);
+    if (params.priority) query.set('priority', params.priority);
+    if (params.originWarehouseId != null) query.set('originWarehouseId', String(params.originWarehouseId));
+    if (params.slaRisk != null) query.set('slaRisk', String(params.slaRisk));
+    if (params.q) query.set('q', params.q);
+    if (params.sort) query.set('sort', params.sort);
+    return request<Paged<Shipment>>(`/api/v1/shipments?${query.toString()}`);
+  },
+
+  /** LOGI-0007 F5 (AC-1): create shipment — the 201 body is the authoritative read-back. */
+  createShipment(body: ShipmentInput): Promise<Shipment> {
+    return request<Shipment>('/api/v1/shipments', { method: 'POST', body: JSON.stringify(body) });
   },
 
   /** AC-1/AC-2: exchange credentials for a token pair. */
