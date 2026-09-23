@@ -15,41 +15,44 @@ export const slaRiskOptions = ['true', 'false', ''] as const;
  * request is sent; the server still enforces them (400s mapped to fields as a backstop).
  */
 export const shipmentFormSchema = z.object({
-  originWarehouseId: z.preprocess(
-    (v) => (v === '' || v === undefined || v === null ? undefined : Number(v)),
-    z
-      .number({ message: 'Origin warehouse is required' })
-      .int({ message: 'Origin warehouse must be a whole number' })
-      .positive({ message: 'Origin warehouse must be a positive integer' }),
-  ),
+    originWarehouseId: z
+    .string()
+    .min(1, 'Origin warehouse is required'),
   destinationAddress: z
     .string()
     .trim()
     .min(1, 'Destination address is required')
     .max(500, 'Destination address must be at most 500 characters'),
-  weightKg: z.preprocess(
-    (v) => (v === '' || v === undefined || v === null ? undefined : Number(v)),
-    z
-      .number({ message: 'Weight must be a number' })
-      .gt(0, 'Weight must be greater than 0'),
-  ),
+  weightKg: z
+    .string()
+    .trim()
+    .min(1, 'Weight is required')
+    .refine((v) => Number.isFinite(Number(v)) && Number(v) > 0, 'Weight must be greater than 0'),
   priority: z.enum(['Standard', 'Express'], { message: 'Select a valid priority' }).default('Standard'),
   destinationLat: z
-    .preprocess((v) => (v === '' || v === undefined ? undefined : Number(v)), z.number().min(-90).max(90).optional()),
+    .string()
+    .optional()
+    .refine((v) => (v ? !Number.isNaN(Number(v)) : true), 'Destination latitude must be a number'),
   destinationLng: z
-    .preprocess((v) => (v === '' || v === undefined ? undefined : Number(v)), z.number().min(-180).max(180).optional()),
+    .string()
+    .optional()
+    .refine((v) => (v ? !Number.isNaN(Number(v)) : true), 'Destination longitude must be a number'),
 });
 
 export type ShipmentFormValues = z.infer<typeof shipmentFormSchema>;
 
 /** Maps validated form values to the contract request body (priority defaults to Standard via the schema). */
 export function toShipmentInput(values: ShipmentFormValues): ShipmentInput {
-  return {
-    originWarehouseId: values.originWarehouseId,
+    return {
+    originWarehouseId: Number(values.originWarehouseId),
     destinationAddress: values.destinationAddress,
-    destinationLat: values.destinationLat ?? null,
-    destinationLng: values.destinationLng ?? null,
-    weightKg: values.weightKg,
+    destinationLat: values.destinationLat && values.destinationLat.trim()
+      ? Number(values.destinationLat)
+      : null,
+    destinationLng: values.destinationLng && values.destinationLng.trim()
+      ? Number(values.destinationLng)
+      : null,
+    weightKg: Number(values.weightKg),
     priority: values.priority,
   };
 }
