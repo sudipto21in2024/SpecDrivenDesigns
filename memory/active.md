@@ -3,17 +3,15 @@
 > Read this file first at every session start. Position: `tracker current` + this file.
 
 ## Current work
-- **2026-09-23: LOGI-0006 shipment status lifecycle CLOSED - every arm sealed; qa e2e AC-1..AC-8 against the real API + SQLite, spec 8/8, full suite 47/47**
+- **2026-09-23: LOGI-0006 CLOSED: qa e2e AC-1..AC-8 sealed (full suite 47/47, 0 flaky); CI green for the ticket-close SHA 1b93671; all four arms done**
   - Active arms: none
   - Recent commits:
+    - b68b062 chore(LOGI-0006): tracker snapshot refresh (post-seal)
+    - e18c37d chore(LOGI-0006): tracker snapshot refresh (post-close)
+    - 1b93671 chore(LOGI-0006): close ticket - qa sealed, spec done, memory updated
     - 07a3d9e LOGI-0006 qa: step 6/7 green - full e2e suite 47 passed, 0 failed, 0 flaky
     - 525a3e2 LOGI-0006 qa: step 5/7 green - AC-6..AC-8 (404s, paged append-only history, RBAC matrix), spec 8/8
-    - 4ba547d LOGI-0006 qa: step 4/7 green - AC-2..AC-5 state-machine and validation cases (5/5)
-    - af3cb2d LOGI-0006 qa: steps 2-3/7 green - shared E2E_DB_PATH module + direct-SQLite shipment fixture, AC-1 passing
-    - b5f0ef2 LOGI-0006 qa: plan locked + step 1/7 green - baseline 39 passed, direct-SQLite seed proven against the live API
 
 ## Next action
-1. Push and confirm CI green for this SHA
-1. Start LOGI-0007 shipment create/list (reuses Shipment.Create + the initial audit row)
-1. Consider a shipments resource in the contract slicer (tools/contract RESOURCES has no entry)
-1. Shipments UI spec alongside LOGI-0008
+1. LOGI-0007 shipment create/list (reuses Shipment.Create + the initial audit row)
+1. add a shipments resource to the contract slicer
