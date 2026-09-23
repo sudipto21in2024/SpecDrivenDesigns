@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-23T10:04:50.688Z",
+  "generated": "2026-09-23T10:14:06.955Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -194,6 +194,13 @@
           "started": "2026-09-23T09:55:58.721Z",
           "lastStep": "sealed: validate-plan ok (0 errors, 0 warnings); spectral lint 0 errors; contracts/ diff additions-only +108/-0; createShipment/listShipments operationIds unique; slicer shipments resolves, warehouses unaffected; spec 11 AC headings + sections 1-8; commits 4441276, 27ff3fa",
           "lastStepAt": "2026-09-23T10:04:50.685Z"
+        },
+        "backend": {
+          "status": "in_progress",
+          "agent": "orchestrator-inline",
+          "started": "2026-09-23T10:11:31.402Z",
+          "lastStep": "step 1/5: SlaPolicy (BR-1 offsets/default/fail-loud + BR-2 cutoff and predicate) + 19 unit tests green; micro-logged CS2012 build/test file-lock retry",
+          "lastStepAt": "2026-09-23T10:14:06.952Z"
         }
       },
       "status": "planned",
