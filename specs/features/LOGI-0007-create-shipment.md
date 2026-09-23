@@ -1,7 +1,7 @@
 ---
 id: LOGI-0007
 title: Create shipment (+ shipment list & search)
-status: draft
+status: spec_approved
 owner_agent: spec-agent
 created: 2026-09-23
 depends_on:

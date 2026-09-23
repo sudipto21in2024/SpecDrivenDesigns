@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-23T10:00:55.026Z",
+  "generated": "2026-09-23T10:04:50.688Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -189,14 +189,15 @@
       "ticket": "LOGI-0007",
       "arms": {
         "architect": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "orchestrator-inline",
           "started": "2026-09-23T09:55:58.721Z",
-          "lastStep": "step 2/3: contract +108/-0 (ShipmentRequest/ShipmentResponse, GET+POST /shipments), spectral 0 errors, operationIds unique, shipments slicer resource resolves",
-          "lastStepAt": "2026-09-23T10:00:25.719Z"
+          "lastStep": "sealed: validate-plan ok (0 errors, 0 warnings); spectral lint 0 errors; contracts/ diff additions-only +108/-0; createShipment/listShipments operationIds unique; slicer shipments resolves, warehouses unaffected; spec 11 AC headings + sections 1-8; commits 4441276, 27ff3fa",
+          "lastStepAt": "2026-09-23T10:04:50.685Z"
         }
       },
-      "status": "planned"
+      "status": "planned",
+      "next": "backend"
     }
   }
 }
