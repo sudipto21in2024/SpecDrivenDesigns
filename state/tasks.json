@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-22T11:58:20.960Z",
+  "generated": "2026-09-23T04:25:40.240Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -173,6 +173,13 @@
           "started": "2026-09-22T11:43:29.922Z",
           "lastStep": "sealed: tsc --noEmit clean; npm test 41/41; npm run build ok; generate:api shipments-only diff",
           "lastStepAt": "2026-09-22T11:55:00.241Z"
+        },
+        "qa": {
+          "status": "in_progress",
+          "agent": "orchestrator-inline",
+          "started": "2026-09-23T04:21:00.371Z",
+          "lastStep": "Step 1 verified: Release build 0 warnings/0 errors; baseline e2e 39 passed (48.7s); direct-SQLite seed spike against the live API OK (INSERT changes=1 while the API held the WAL db open) -> POST Pending->Assigned 200 echo, GET status-history 200 totalCount 1, illegal jump 409 naming legal next states, totalCount still 1",
+          "lastStepAt": "2026-09-23T04:25:40.235Z"
         }
       },
       "status": "planned",
