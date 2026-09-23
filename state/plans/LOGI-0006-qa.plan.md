@@ -60,7 +60,7 @@ Seal artifacts written by the tracker + memory protocol (no other file may chang
   Pending→Assigned→InTransit→Delivered one step at a time, assert the event echo, the newest history entry and
   that a further illegal step is not needed here) → verify: `npx playwright test shipment-status-lifecycle.spec.ts`
   → 1 passed
-- [ ] 4. Add the state-machine cases AC-2..AC-5 (Cancelled from Pending + Assigned, 409 from
+- [x] 4. Add the state-machine cases AC-2..AC-5 (Cancelled from Pending + Assigned, 409 from
   InTransit/Delivered and Cancelled-terminal; Delayed only from InTransit + reversible with 409 from
   Pending/Assigned/Delivered; illegal jump 409 whose detail names the legal next state with the status unchanged
   and totalCount 0; 400 errors map for missing/empty/unknown toStatus and a 501-char note, nothing recorded)

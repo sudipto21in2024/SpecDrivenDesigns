@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-23T04:25:40.240Z",
+  "generated": "2026-09-23T04:29:20.282Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -178,8 +178,8 @@
           "status": "in_progress",
           "agent": "orchestrator-inline",
           "started": "2026-09-23T04:21:00.371Z",
-          "lastStep": "Step 1 verified: Release build 0 warnings/0 errors; baseline e2e 39 passed (48.7s); direct-SQLite seed spike against the live API OK (INSERT changes=1 while the API held the WAL db open) -> POST Pending->Assigned 200 echo, GET status-history 200 totalCount 1, illegal jump 409 naming legal next states, totalCount still 1",
-          "lastStepAt": "2026-09-23T04:25:40.235Z"
+          "lastStep": "Steps 2-3 verified: shared tests/e2e/support/paths.ts consumed by playwright.config.ts (--list still 39 tests), shipment fixture + AC-1 spec -> 1 passed (13.4s); fixture rows visible to the API proves the path is identical",
+          "lastStepAt": "2026-09-23T04:28:21.413Z"
         }
       },
       "status": "planned",
