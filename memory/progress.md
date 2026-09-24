@@ -3,7 +3,7 @@
 Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS.md`.
 
 | Ticket | Description | Status |
-| LOGI-0007 | Platform | 🟢 DONE — architect ✅ (spec AC-1..AC-11 + contract) + backend ✅ (dotnet 82/82) + frontend ✅ (vitest 53/53) + qa ✅ (16 new e2e tests: create-shipment 8 + shipments-list 8 vs real API/SQLite, full e2e 63/63 0 flaky; finding LOGI-0007-F1 query-binder 500 escalated to backend follow-up) |
+| LOGI-0007 | Platform | 🟢 DONE — all four arms sealed (architect/backend/frontend/qa, 16 new e2e, full 63/63 local); ⚠ tail CI red on LOGI-0007-F2 (concurrent-create 500 race, backend follow-up) + F1 (query-binder 500-vs-400); seal-SHA run #39 green |
 |---|---|---|
 | LOGI-0014 | Agent platform tooling (tracker seal/tick/show, contract slicer) | 🟢 DONE |
 | LOGI-0000 | Scaffold | 🟢 DONE |

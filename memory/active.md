@@ -3,15 +3,15 @@
 > Read this file first at every session start. Position: `tracker current` + this file.
 
 ## Current work
-- **2026-09-24: LOGI-0007 qa arm sealed and handed off qa to done - 16 new e2e tests green, full suite 63 passed**
+- **2026-09-24: LOGI-0007 qa sealed + handed off (seal SHA e970479 CI run #39 green, 63/63 e2e); tail CI red on LOGI-0007-F2 concurrent-create 500 race - diagnosed, escalated**
   - Active arms: none
   - Recent commits:
+    - 5a3fed0 chore(LOGI-0007): log CI run #40 runner flake + retrigger
+    - a4d32dd chore(LOGI-0007): qa plan status done + PLAN_DONE event
+    - e970479 LOGI-0007 qa: arm sealed + handoff qa-to-done - journal seal, spec status done, tracker bookkeeping
     - 4969dfe LOGI-0007 qa: step 9/11 green - AC-10 GET RBAC matrix + list UI seams (at-risk chip, filters, Driver gating)
     - 271e50d LOGI-0007 qa: step 8/11 green - list spec AC-8 sorting/tiebreak/nulls-last + AC-9 BR-2 at-risk projection
-    - a8d6fec LOGI-0007 qa: step 7/11 green - list spec AC-6/AC-7 + defect LOGI-0007-F1 (query-binder 500) captured as expected failure
-    - c0d1603 LOGI-0007 qa: step 6/11 green - AC-10 POST RBAC + AC-11 LOGI-0006 seam; create spec 8 passed
-    - de4ca95 LOGI-0007 qa: step 5/11 green - AC-4 validation matrix + AC-5 concurrency/unique codes; create spec 6 passed
 
 ## Next action
-1. Watch CI on the pushed SHA
-1. raise backend follow-up for LOGI-0007-F1 (unparsable query values answer 500, must be 400)
+1. Push F2 bookkeeping and rerun CI until green
+1. orchestrator: dispatch backend fix arm for LOGI-0007-F2 (concurrent creates 500) alongside F1 (query binder 500-vs-400)
