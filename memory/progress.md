@@ -3,7 +3,7 @@
 Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS.md`.
 
 | Ticket | Description | Status |
-| LOGI-0007 | Platform | 🟡 BACKEND DONE - SlaPolicy + atomic create + list/search + GET/POST shipped; gates 19/19, 8/8, 5/5, suite 82/82, ef no drift; next: frontend arm F5/F8 |
+| LOGI-0007 | Platform | FRONTEND DONE - create + list/search UI (ShipmentFormDialog, ShipmentsPage, MSW mirror, 12 vitest tests); tsc + build clean, 53/53; next: qa e2e AC-1..AC-11 |
 |---|---|---|
 | LOGI-0014 | Agent platform tooling (tracker seal/tick/show, contract slicer) | 🟢 DONE |
 | LOGI-0000 | Scaffold | 🟢 DONE |

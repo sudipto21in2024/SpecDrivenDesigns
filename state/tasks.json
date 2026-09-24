@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-24T11:49:20.089Z",
+  "generated": "2026-09-24T11:51:30.539Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -203,15 +203,15 @@
           "lastStepAt": "2026-09-23T12:26:17.055Z"
         },
         "frontend": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "cline-main",
           "started": "2026-09-23T13:19:59.383Z",
-          "lastStep": "step 8/9: ShipmentsPage.test.tsx 12 tests through the UI (AC-1/AC-2/AC-3 create+BR-1, AC-3/AC-4 server-400 field mapping, AC-6 paging, AC-7 AND filters+q, AC-8 slaDueAt nulls-last, AC-9 atRisk+slaRisk complement, AC-10 role matrix) + dialog form-submit/testid fix; tsc clean, npm test 53/53, npm run build ok",
-          "lastStepAt": "2026-09-24T11:49:20.085Z"
+          "lastStep": "sealed: tsc --noEmit clean; vitest 5 files 53/53 (new 12: AC-1..AC-4, AC-6..AC-10); npm run build (tsc+vite) ok; commits 08ebcdf, cb466ae",
+          "lastStepAt": "2026-09-24T11:51:08.903Z"
         }
       },
       "status": "planned",
-      "next": "frontend"
+      "next": "qa"
     }
   }
 }

@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0007
 arm: frontend
-status: locked
+status: done
 created: 2026-09-23T12:57:40.765Z
 depends_on_plans: LOGI-0007-architect, LOGI-0007-backend
 ---
@@ -52,7 +52,7 @@ F5 create + F8 list/search UI: typed-client regen, shipments feature (paged list
 - [x] 6. UI: `ShipmentFormDialog.tsx` (warehouse select via `useWarehouses`, priority select default Standard, optional lat/lng, fieldErrors→setError incl. originWarehouseId/priority, other→Alert, snackbar with returned SHP-######) + `ShipmentsPage.tsx` (table with at-risk chip and null-slaDueAt '—', AND filter controls incl. slaRisk, sort select, pagination over the paged envelope, role-gated New via `can(role,'createShipments')`, row click inert — LOGI-0008) → verify: `npx tsc --noEmit` clean
 - [x] 7. Chrome `App.tsx`: add `'shipments'` to the tab union, `<Tab value="shipments" data-testid="tab-shipments" />` gated by `viewShipments`, `<ShipmentsPage />` in the switch; existing testids + aria-label untouched → verify: `npx tsc --noEmit` clean; `npm test` green
 - [x] 8. Vitest suite `ShipmentsPage.test.tsx`: AC-1 create happy path (201 row appears + snackbar SHP-######), AC-3 priority defaults Standard + unknown-priority 400 field error, AC-4 weightKg/destinationAddress/originWarehouseId 400 field errors, AC-6 paged envelope + pagination, AC-7 AND filters + q contains/case-insensitive, AC-8 sort incl. slaDueAt nulls-last, AC-9 at-risk chip + slaRisk true/false filter, AC-10 role matrix (Viewer: no New button + POST 403 surfaced; Driver: no Shipments tab; Admin/Dispatcher: create) → verify: `npm test` full suite green; `npx tsc --noEmit` clean; `npm run build` succeeds
-- [ ] 9. Seal + handoff: `tracker seal` frontend section (what/gates/findings/next); manifest-exact commit (§2 files + journal/state/memory); `tracker handoff --ticket LOGI-0007 --from frontend --to qa`; `tracker active`/`tracker progress` → verify: all §4 steps ticked, HANDOFF recorded, `git status --short` clean except state/memory artifacts
+- [x] 9. Seal + handoff: `tracker seal` frontend section (what/gates/findings/next); manifest-exact commit (§2 files + journal/state/memory); `tracker handoff --ticket LOGI-0007 --from frontend --to qa`; `tracker active`/`tracker progress` → verify: all §4 steps ticked, HANDOFF recorded, `git status --short` clean except state/memory artifacts
 
 ## 5. Risks / open questions
 - **Mock back-compat:** `MockShipment` gains required fields — `seedShipment` supplies defaults so LOGI-0006 transition/history call sites and `resetShipmentsDb` callers keep compiling (gate: full suite green at step 4).
