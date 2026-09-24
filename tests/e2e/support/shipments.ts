@@ -234,6 +234,15 @@ function toQueryString(query: ShipmentListQuery): string {
 }
 
 /**
+ * Reads a response body as JSON, tolerating an empty body (an unmatched route answers 404 with no
+ * payload) so a status-code assertion reports the status instead of a JSON parse error.
+ */
+async function readBody<T>(response: { text: () => Promise<string> }): Promise<T> {
+  const text = await response.text();
+  return (text ? JSON.parse(text) : {}) as T;
+}
+
+/**
  * POSTs a shipment (AC-1..AC-5, AC-11). `body` is deliberately untyped so a test can also send
  * server-owned fields (referenceCode/status/slaDueAt/createdAt) and prove BR-1 rule 1.2 — they are
  * ignored, never trusted. Pass `null` as the token for the anonymous (401) case.
@@ -247,7 +256,7 @@ export async function createShipment(
     headers: accessToken ? authHeaders(accessToken) : {},
     data: body,
   });
-  return { status: response.status(), body: (await response.json()) as CreateShipmentResult['body'] };
+  return { status: response.status(), body: await readBody<CreateShipmentResult['body']>(response) };
 }
 
 /** GETs one page of the shipment list (AC-6..AC-10); `query` is a raw string or a filter object. */
@@ -259,6 +268,6 @@ export async function listShipments(
   const response = await request.get(`${API}/api/v1/shipments${toQueryString(query)}`, {
     headers: accessToken ? authHeaders(accessToken) : {},
   });
-  return { status: response.status(), body: (await response.json()) as ListShipmentsResult['body'] };
+  return { status: response.status(), body: await readBody<ListShipmentsResult['body']>(response) };
 }
 

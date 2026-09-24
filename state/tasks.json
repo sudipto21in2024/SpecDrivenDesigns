@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-24T12:05:51.216Z",
+  "generated": "2026-09-24T12:23:14.765Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -213,8 +213,8 @@
           "status": "in_progress",
           "agent": "cline-main",
           "started": "2026-09-24T12:02:16.994Z",
-          "lastStep": "step 2/11: tests/e2e/pages/shipments.page.ts created (login+tab, filters, create dialog, rows, pagination); tsc exit 0; playwright --list 47 tests/5 files",
-          "lastStepAt": "2026-09-24T12:05:51.209Z"
+          "lastStep": "step 3/11: create-shipment.spec.ts AC-1 (API 201 shape + single initial audit row + list visibility, UI create through dialog) 2 passed; Release API rebuilt before the run",
+          "lastStepAt": "2026-09-24T12:23:14.761Z"
         }
       },
       "status": "planned",
