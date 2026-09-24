@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { ShipmentsPage } from './pages/shipments.page';
 import { seedWarehouse, signIn } from './support/api';
-import { createShipment, getHistory, listShipments } from './support/shipments';
+import { createShipment, getHistory, listShipments, postTransition } from './support/shipments';
 
 /**
  * LOGI-0007 F5 — create shipment (AC-1..AC-5, AC-10 POST side, AC-11) against the real API + real
@@ -259,5 +259,62 @@ test.describe('LOGI-0007 create shipment', () => {
     expect(stored, 'the client-supplied code was never stored').not.toContain('SHP-999999');
     expect(new Set(stored).size).toBe(concurrency + 1);
     for (const code of stored) expect(code).toMatch(/^SHP-[0-9]{6}$/);
+  });
+
+  // AC-10 (POST side) — RBAC from day one (contract x-roles: create = Admin + Dispatcher).
+  test('AC-10 — anonymous 401, Viewer and Driver 403, Dispatcher 201 on create', async ({ request }) => {
+    const warehouseId = await freshWarehouse(request);
+    const body = { originWarehouseId: warehouseId, destinationAddress: '1 RBAC Rd', weightKg: 12 };
+
+    // Anonymous: no Authorization header at all.
+    const anonymous = await createShipment(request, null, body);
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.body.status).toBe(401);
+
+    // Viewer: read-only (BR-6) — 403 ProblemDetails, and the refusal writes nothing.
+    const viewerToken = (await signIn(request, 'Viewer')).accessToken;
+    const viewerAttempt = await createShipment(request, viewerToken, body);
+    expect(viewerAttempt.status).toBe(403);
+    expect(viewerAttempt.body.title).toBe('Forbidden');
+    expect(viewerAttempt.body.status).toBe(403);
+
+    // Driver: may not create either (BR-6 — only Admin and Dispatcher may).
+    const driverToken = (await signIn(request, 'Driver')).accessToken;
+    expect((await createShipment(request, driverToken, body)).status).toBe(403);
+
+    const refused = await listShipments(request, dispatcherToken, { originWarehouseId: warehouseId });
+    expect(refused.body.totalCount, 'a refused create leaves no row behind').toBe(0);
+
+    // Dispatcher — the primary daily user — creates successfully (Admin is the role in every other case).
+    expect((await createShipment(request, dispatcherToken, body)).status).toBe(201);
+  });
+
+  // AC-11 — the created row satisfies the LOGI-0006 state machine and its audit trail.
+  test('AC-11 — a created shipment transitions to Assigned and the list reflects it', async ({ request }) => {
+    const warehouseId = await freshWarehouse(request);
+    const created = await createShipment(request, dispatcherToken, {
+      originWarehouseId: warehouseId,
+      destinationAddress: '1 Seam Rd',
+      weightKg: 77,
+    });
+    expect(created.status).toBe(201);
+    const id = Number(created.body.id);
+
+    const transition = await postTransition(request, dispatcherToken, id, 'Assigned');
+    expect(transition.status, 'a freshly created Pending row accepts the BR-7 first step').toBe(200);
+    expect(transition.body).toMatchObject({ fromStatus: 'Pending', toStatus: 'Assigned' });
+
+    // The trail starts with the initial Pending row, attributed to the creator at created_at.
+    const history = await getHistory(request, adminToken, id);
+    expect(history.body.totalCount).toBe(2);
+    expect(history.body.items?.map((event) => event.toStatus)).toEqual(['Pending', 'Assigned']);
+    const initial = history.body.items?.[0];
+    expect(initial).toMatchObject({ fromStatus: null, changedByUserId: dispatcherUserId });
+    expect(Date.parse(String(initial?.changedAt)), 'changedAt equals createdAt').toBe(
+      Date.parse(String(created.body.createdAt)),
+    );
+
+    const list = await listShipments(request, adminToken, { originWarehouseId: warehouseId });
+    expect(list.body.items?.[0]).toMatchObject({ id, status: 'Assigned' });
   });
 });
