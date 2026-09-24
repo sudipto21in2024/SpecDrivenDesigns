@@ -183,4 +183,81 @@ test.describe('LOGI-0007 create shipment', () => {
     const after = await listShipments(request, dispatcherToken, { originWarehouseId: warehouseId });
     expect(after.body.totalCount, 'a rejected create writes no row').toBe(before.body.totalCount);
   });
+
+  // AC-4 — create validation: 400 with the offending field named, and nothing written.
+  test('AC-4 — weightKg/destinationAddress/originWarehouseId violations are 400 and write no row', async ({ request }) => {
+    const warehouseId = await freshWarehouse(request);
+    const valid = { originWarehouseId: warehouseId, destinationAddress: '1 Valid Rd', weightKg: 10 };
+
+    const scenarios: { label: string; body: Record<string, unknown>; field: string }[] = [
+      { label: 'weightKg missing', body: { originWarehouseId: warehouseId, destinationAddress: '1 Valid Rd' }, field: 'weightKg' },
+      { label: 'weightKg zero', body: { ...valid, weightKg: 0 }, field: 'weightKg' },
+      { label: 'weightKg negative', body: { ...valid, weightKg: -5 }, field: 'weightKg' },
+      { label: 'destinationAddress missing', body: { originWarehouseId: warehouseId, weightKg: 10 }, field: 'destinationAddress' },
+      { label: 'destinationAddress whitespace-only', body: { ...valid, destinationAddress: '   ' }, field: 'destinationAddress' },
+      { label: 'originWarehouseId unknown', body: { ...valid, originWarehouseId: 999999 }, field: 'originWarehouseId' },
+    ];
+
+    const before = await listShipments(request, dispatcherToken, { originWarehouseId: warehouseId });
+    expect(before.body.totalCount).toBe(0);
+
+    for (const scenario of scenarios) {
+      const rejected = await createShipment(request, dispatcherToken, scenario.body);
+      expect(rejected.status, scenario.label).toBe(400);
+      const problem = rejected.body as { errors?: Record<string, string[]> };
+      expect(Object.keys(problem.errors ?? {}), scenario.label).toContain(scenario.field);
+    }
+
+    // §7 / driver user-link precedent: a missing FK is an Application-layer 400, not a 404.
+    const unknownWarehouse = await createShipment(request, dispatcherToken, { ...valid, originWarehouseId: 999999 });
+    const problem = unknownWarehouse.body as { errors?: Record<string, string[]> };
+    expect(problem.errors?.originWarehouseId?.join(' ')).toContain('does not exist');
+
+    const after = await listShipments(request, dispatcherToken, { originWarehouseId: warehouseId });
+    expect(after.body.totalCount, 'no rejected create wrote a shipment row').toBe(before.body.totalCount);
+  });
+
+  // AC-5 — reference codes are server-generated, unique and concurrency-safe.
+  test('AC-5 — concurrent creates get distinct SHP-###### codes; a client code is never trusted', async ({ request }) => {
+    const warehouseId = await freshWarehouse(request);
+    const concurrency = 6;
+
+    const results = await Promise.all(
+      Array.from({ length: concurrency }, (_, index) =>
+        createShipment(request, dispatcherToken, {
+          originWarehouseId: warehouseId,
+          destinationAddress: `1 Concurrent Way ${index}`,
+          weightKg: 100 + index,
+          priority: 'Express',
+        }),
+      ),
+    );
+
+    // The unique index stays the authority, but a bounded retry means no duplicate-key 500/409 leaks out.
+    expect(results.map((result) => result.status), 'every concurrent create is a 201').toEqual(
+      Array.from({ length: concurrency }, () => 201),
+    );
+    const codes = results.map((result) => String(result.body.referenceCode));
+    expect(new Set(codes).size, 'every concurrent code is distinct').toBe(concurrency);
+    for (const code of codes) expect(code).toMatch(/^SHP-[0-9]{6}$/);
+
+    // A client-supplied code is ignored — the stored one is the server's own.
+    const forged = await createShipment(request, dispatcherToken, {
+      originWarehouseId: warehouseId,
+      destinationAddress: '1 Client Code Rd',
+      weightKg: 10,
+      referenceCode: 'SHP-999999',
+    });
+    expect(forged.status).toBe(201);
+    expect(forged.body.referenceCode).not.toBe('SHP-999999');
+    expect(forged.body.referenceCode).toMatch(/^SHP-[0-9]{6}$/);
+
+    const list = await listShipments(request, dispatcherToken, { originWarehouseId: warehouseId, pageSize: 100 });
+    expect(list.body.totalCount).toBe(concurrency + 1);
+    const stored = list.body.items?.map((item) => item.referenceCode) ?? [];
+    expect(stored, 'the server-generated code is the stored one').toContain(forged.body.referenceCode);
+    expect(stored, 'the client-supplied code was never stored').not.toContain('SHP-999999');
+    expect(new Set(stored).size).toBe(concurrency + 1);
+    for (const code of stored) expect(code).toMatch(/^SHP-[0-9]{6}$/);
+  });
 });

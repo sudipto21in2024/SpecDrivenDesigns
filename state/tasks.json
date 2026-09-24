@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-24T12:24:22.004Z",
+  "generated": "2026-09-24T12:25:11.122Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -213,8 +213,8 @@
           "status": "in_progress",
           "agent": "cline-main",
           "started": "2026-09-24T12:02:16.994Z",
-          "lastStep": "step 4/11: create-shipment.spec.ts AC-2 (BR-1 48h/12h + client instants ignored) + AC-3 (default Standard, Overnight/empty 400 naming allowed values, nothing written) 4 passed",
-          "lastStepAt": "2026-09-24T12:24:22.000Z"
+          "lastStep": "step 5/11: create-shipment.spec.ts AC-4 (6 validation cases field-keyed 400 + nothing written incl. unknown originWarehouseId does-not-exist) + AC-5 (6 concurrent creates all 201, distinct ^SHP-[0-9]{6}$, client referenceCode never trusted) 6 passed",
+          "lastStepAt": "2026-09-24T12:25:11.118Z"
         }
       },
       "status": "planned",
