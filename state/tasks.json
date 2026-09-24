@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-24T12:23:14.765Z",
+  "generated": "2026-09-24T12:24:22.004Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -213,8 +213,8 @@
           "status": "in_progress",
           "agent": "cline-main",
           "started": "2026-09-24T12:02:16.994Z",
-          "lastStep": "step 3/11: create-shipment.spec.ts AC-1 (API 201 shape + single initial audit row + list visibility, UI create through dialog) 2 passed; Release API rebuilt before the run",
-          "lastStepAt": "2026-09-24T12:23:14.761Z"
+          "lastStep": "step 4/11: create-shipment.spec.ts AC-2 (BR-1 48h/12h + client instants ignored) + AC-3 (default Standard, Overnight/empty 400 naming allowed values, nothing written) 4 passed",
+          "lastStepAt": "2026-09-24T12:24:22.000Z"
         }
       },
       "status": "planned",

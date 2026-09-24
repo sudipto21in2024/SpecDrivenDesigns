@@ -101,4 +101,86 @@ test.describe('LOGI-0007 create shipment', () => {
     await expect(shipments.row(code)).toBeVisible();
     await expect(shipments.row(code).getByText('Pending')).toBeVisible();
   });
+
+  // AC-2 — BR-1: the due date comes from the server's creation instant, never from the client.
+  test('AC-2 — slaDueAt is createdAt + 48h (Standard) / +12h (Express); client instants are ignored', async ({ request }) => {
+    const warehouseId = await freshWarehouse(request);
+
+    const standard = await createShipment(request, dispatcherToken, {
+      originWarehouseId: warehouseId,
+      destinationAddress: '1 Standard Way',
+      weightKg: 10,
+      priority: 'Standard',
+    });
+    expect(standard.status).toBe(201);
+    // Plain UTC duration arithmetic — no business-hours exclusion (BR-1 rule 1.4), whole seconds (§8).
+    expect(secondsBetween(String(standard.body.createdAt), String(standard.body.slaDueAt))).toBe(48 * 3600);
+    expect(standard.body.slaDueAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/);
+
+    const express = await createShipment(request, dispatcherToken, {
+      originWarehouseId: warehouseId,
+      destinationAddress: '1 Express Way',
+      weightKg: 10,
+      priority: 'Express',
+    });
+    expect(express.status).toBe(201);
+    expect(secondsBetween(String(express.body.createdAt), String(express.body.slaDueAt))).toBe(12 * 3600);
+
+    // BR-1 rule 1.2 — the promise is never client-controlled: server-owned fields are ignored, not trusted.
+    const forged = await createShipment(request, dispatcherToken, {
+      originWarehouseId: warehouseId,
+      destinationAddress: '1 Forged Way',
+      weightKg: 10,
+      priority: 'Express',
+      createdAt: '2000-01-01T00:00:00Z',
+      updatedAt: '2000-01-01T00:00:00Z',
+      slaDueAt: '2000-01-01T00:00:00Z',
+      status: 'Delivered',
+      referenceCode: 'SHP-000001',
+      atRisk: true,
+    });
+    expect(forged.status).toBe(201);
+    expect(Date.parse(String(forged.body.createdAt)), 'createdAt is the server instant').toBeGreaterThan(
+      Date.now() - 5 * 60_000,
+    );
+    expect(forged.body.status).toBe('Pending');
+    expect(forged.body.slaDueAt, 'the forged past due date must not be stored').not.toBe('2000-01-01T00:00:00Z');
+    expect(secondsBetween(String(forged.body.createdAt), String(forged.body.slaDueAt))).toBe(12 * 3600);
+    expect(forged.body.atRisk).toBe(false);
+  });
+
+  // AC-3 — BR-1 rules 1.3/1.7: priority defaults to Standard; anything else fails loudly.
+  test('AC-3 — omitted priority defaults to Standard; unknown or empty priority is 400 and writes nothing', async ({ request }) => {
+    const warehouseId = await freshWarehouse(request);
+
+    const omitted = await createShipment(request, dispatcherToken, {
+      originWarehouseId: warehouseId,
+      destinationAddress: '1 Default Priority Rd',
+      weightKg: 500,
+    });
+    expect(omitted.status).toBe(201);
+    expect(omitted.body.priority).toBe('Standard');
+    expect(secondsBetween(String(omitted.body.createdAt), String(omitted.body.slaDueAt))).toBe(48 * 3600);
+
+    const before = await listShipments(request, dispatcherToken, { originWarehouseId: warehouseId });
+    expect(before.body.totalCount).toBe(1);
+
+    for (const priority of ['Overnight', '']) {
+      const rejected = await createShipment(request, dispatcherToken, {
+        originWarehouseId: warehouseId,
+        destinationAddress: '1 Unknown Priority Rd',
+        weightKg: 500,
+        priority,
+      });
+      expect(rejected.status, `priority '${priority}' must be rejected`).toBe(400);
+      const problem = rejected.body as { errors?: Record<string, string[]> };
+      const message = (problem.errors?.priority ?? []).join(' ');
+      expect(message, 'the error names the allowed values').toContain('Standard');
+      expect(message).toContain('Express');
+    }
+
+    // No silent coercion and no half-written shipment.
+    const after = await listShipments(request, dispatcherToken, { originWarehouseId: warehouseId });
+    expect(after.body.totalCount, 'a rejected create writes no row').toBe(before.body.totalCount);
+  });
 });
