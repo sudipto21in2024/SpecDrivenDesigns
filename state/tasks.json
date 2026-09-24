@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-24T12:30:00.517Z",
+  "generated": "2026-09-24T12:42:18.489Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -213,8 +213,8 @@
           "status": "in_progress",
           "agent": "cline-main",
           "started": "2026-09-24T12:02:16.994Z",
-          "lastStep": "step 7/11: shipments-list.spec.ts AC-6 (envelope/defaults/totalCount/pageSize 100/400s + stable paging) + AC-7 (AND filters, q contains+case-insensitive, unknown status/priority 400) 3 passed; F1 (slaRisk=maybe -> 500 not 400) isolated as an expected-failure test, evidence in the API log",
-          "lastStepAt": "2026-09-24T12:30:00.514Z"
+          "lastStep": "step 8/11: AC-8 (default -createdAt, slaDueAt asc/desc with nulls last, id tiebreak stable across 3 pages, unknown sort 400) + AC-9 (BR-2 read-time projection: window in/out, eligible vs excluded statuses, null promise, slaRisk partitions) both green; shipments-list.spec.ts 5 passed, exit 0",
+          "lastStepAt": "2026-09-24T12:42:18.486Z"
         }
       },
       "status": "planned",
