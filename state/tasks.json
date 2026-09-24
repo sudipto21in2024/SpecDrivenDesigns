@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-24T12:48:44.081Z",
+  "generated": "2026-09-24T12:52:56.086Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -210,15 +210,15 @@
           "lastStepAt": "2026-09-24T11:51:08.903Z"
         },
         "qa": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "cline-main",
           "started": "2026-09-24T12:02:16.994Z",
-          "lastStep": "step 9/11: AC-10 GET matrix (401/403/200s) + UI seams (Admin tab+at-risk chip+status/q filters, Driver no tab) green; fixed page-object filter accessors to combobox role/name because MUI puts aria-label on an aria-hidden dummy input; shipments-list.spec.ts 8 passed, exit 0",
-          "lastStepAt": "2026-09-24T12:48:44.078Z"
+          "lastStep": "sealed: create spec 8 passed; list spec 8 passed; full-suite regression 63 passed (47 base + 16 new) 0 failed 0 flaky in 37.6s on a fresh DB; API log has no SQLITE_BUSY / database is locked / no such table; AC-10 matrix with real JWTs 401 anon, 403 Driver, 200 Admin/Dispatcher/Viewer; git status manifest-clean (no src/**, no contracts/**); LOGI-0006 suites still green unmodified",
+          "lastStepAt": "2026-09-24T12:52:12.841Z"
         }
       },
       "status": "planned",
-      "next": "qa"
+      "next": "done"
     }
   }
 }

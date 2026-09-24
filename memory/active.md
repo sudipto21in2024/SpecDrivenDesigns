@@ -3,15 +3,15 @@
 > Read this file first at every session start. Position: `tracker current` + this file.
 
 ## Current work
-- **2026-09-24: LOGI-0007 frontend arm sealed (F5/F8 UI + 12 vitest tests green); handed off to qa**
+- **2026-09-24: LOGI-0007 qa arm sealed and handed off qa to done - 16 new e2e tests green, full suite 63 passed**
   - Active arms: none
   - Recent commits:
-    - cb466ae LOGI-0007 frontend: step 8/9 green - vitest suite (12 tests, AC-1..AC-4/AC-6..AC-10) + dialog form submit; tsc clean, tests 53/53, build ok
-    - 08ebcdf LOGI-0007 frontend: step 7/9 green - shipments tab gated by viewShipments; tsc clean, tests 41/41
-    - 05ac157 LOGI-0007 frontend: step 6/9 green - dialog + shipments page (typed filters, sorts, at-risk chip, role-gated create); tsc clean, tests 41/41
-    - 1da2872 LOGI-0007 frontend: step 5/9 green - shipments feature data layer
-    - 1c48a19 LOGI-0007 frontend: step 4/9 green - GET/POST /shipments MSW handlers
+    - 4969dfe LOGI-0007 qa: step 9/11 green - AC-10 GET RBAC matrix + list UI seams (at-risk chip, filters, Driver gating)
+    - 271e50d LOGI-0007 qa: step 8/11 green - list spec AC-8 sorting/tiebreak/nulls-last + AC-9 BR-2 at-risk projection
+    - a8d6fec LOGI-0007 qa: step 7/11 green - list spec AC-6/AC-7 + defect LOGI-0007-F1 (query-binder 500) captured as expected failure
+    - c0d1603 LOGI-0007 qa: step 6/11 green - AC-10 POST RBAC + AC-11 LOGI-0006 seam; create spec 8 passed
+    - de4ca95 LOGI-0007 qa: step 5/11 green - AC-4 validation matrix + AC-5 concurrency/unique codes; create spec 6 passed
 
 ## Next action
-1. dispatch qa arm for LOGI-0007 (e2e AC-1..AC-11)
-1. main thread must not edit source
+1. Watch CI on the pushed SHA
+1. raise backend follow-up for LOGI-0007-F1 (unparsable query values answer 500, must be 400)
