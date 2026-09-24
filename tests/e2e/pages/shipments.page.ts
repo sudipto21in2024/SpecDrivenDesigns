@@ -35,11 +35,14 @@ export class ShipmentsPage {
   readonly tab = () => this.page.getByTestId('tab-shipments');
   readonly newButton = () => this.page.getByTestId('new-shipment');
   readonly searchInput = () => this.page.getByLabel('Search shipments by reference or destination');
-  readonly statusFilter = () => this.page.getByLabel('Filter by status');
-  readonly priorityFilter = () => this.page.getByLabel('Filter by priority');
-  readonly originFilter = () => this.page.getByLabel('Filter by origin warehouse');
-  readonly slaRiskFilter = () => this.page.getByLabel('Filter by SLA risk');
-  readonly sortFilter = () => this.page.getByLabel('Sort shipments');
+  // MUI Select puts `inputProps.aria-label` on an aria-hidden dummy input, so `getByLabel('Filter by
+  // status')` resolves to a non-clickable element. The visible control is the combobox whose
+  // accessible name comes from the InputLabel — the same role/name pair `fillCreate` drives.
+  readonly statusFilter = () => this.page.getByRole('combobox', { name: 'Status', exact: true });
+  readonly priorityFilter = () => this.page.getByRole('combobox', { name: 'Priority', exact: true });
+  readonly originFilter = () => this.page.getByRole('combobox', { name: 'Origin warehouse', exact: true });
+  readonly slaRiskFilter = () => this.page.getByRole('combobox', { name: 'SLA risk', exact: true });
+  readonly sortFilter = () => this.page.getByRole('combobox', { name: 'Sort', exact: true });
   readonly table = () => this.page.getByRole('table', { name: 'Shipments table' });
   readonly emptyRow = () => this.page.getByRole('cell', { name: 'No shipments found' });
   readonly nextPage = () => this.page.getByRole('button', { name: /next page/i });

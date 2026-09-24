@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
+import { ShipmentsPage } from './pages/shipments.page';
 import { seedWarehouse, signIn } from './support/api';
 import { createShipment, listShipments, seedShipmentAt } from './support/shipments';
 
@@ -307,5 +308,83 @@ test.describe('LOGI-0007 shipment list & search', () => {
     expect(atRisk.body.totalCount + safeOnly.body.totalCount, 'the two filters partition the result set').toBe(
       flags.size,
     );
+  });
+
+  // AC-10 (GET side) — read matrix over /shipments with real JWTs: 401 anon, 403 Driver,
+  // 200 for the roles carrying x-roles: [Admin, Dispatcher, Viewer].
+  test('AC-10 — GET matrix: 401 anonymous, 403 Driver, 200 Admin/Dispatcher/Viewer', async ({ request }) => {
+    const anonymous = await listShipments(request, null, '');
+    expect(anonymous.status, 'no Authorization header ⇒ 401').toBe(401);
+    expect(anonymous.body.status).toBe(401);
+    expect(anonymous.body.title, 'the 401 is ProblemDetails').toBeTruthy();
+
+    const driverToken = (await signIn(request, 'Driver')).accessToken;
+    const driver = await listShipments(request, driverToken, '');
+    expect(driver.status, 'Driver is not a list-reader role (§2 matrix)').toBe(403);
+    expect(driver.body.title, 'the 403 is ProblemDetails').toBeTruthy();
+
+    for (const role of ['Admin', 'Dispatcher', 'Viewer'] as const) {
+      const token = (await signIn(request, role)).accessToken;
+      const read = await listShipments(request, token, '');
+      expect(read.status, `${role} reads the list (contract x-roles)`).toBe(200);
+      expect(read.body.items, `${role} really received an envelope`).toBeDefined();
+      expect(read.body.page, 'the envelope is a real page').toBeGreaterThanOrEqual(1);
+      expect(read.body.pageSize).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * AC-10 UI seam — the unmocked list screen as Admin: the tab opens, a seeded at-risk row renders
+   * with its BR-2 chip, and the status / q controls actually narrow the query. The list is global
+   * (every test's rows are in one table), but the default `-createdAt` order puts this test's fresh
+   * rows first, so row presence/absence assertions are safe within page 1.
+   */
+  test('AC-10 UI — Admin: tab visible, at-risk chip rendered, status and q filters narrow the list', async ({ page, request }) => {
+    const warehouseId = await freshWarehouse(request);
+    const atRiskRow = await seedShipmentAt(request, adminToken, {
+      warehouseId,
+      slaDueAt: new Date(Date.now() + 90 * 60_000), // inside the BR-2 window ⇒ atRisk true
+    });
+    const safeRow = await seedShipmentAt(request, adminToken, {
+      warehouseId,
+      status: 'Assigned',
+      slaDueAt: new Date(Date.now() + 26 * 3600_000), // well outside the window ⇒ atRisk false
+    });
+
+    const shipments = new ShipmentsPage(page);
+    await shipments.goto('Admin'); // signs in and opens the tab
+    await expect(shipments.tab(), 'Admin holds the viewShipments capability').toBeVisible();
+    await expect(shipments.title()).toBeVisible();
+
+    // The seeded row carries the read-time at-risk chip; the safe one shows the empty cell instead.
+    const atRiskCell = shipments.row(atRiskRow.referenceCode);
+    await expect(atRiskCell).toBeVisible();
+    await expect(atRiskCell.getByText('At risk'), 'BR-2 projection surfaces in the At risk column').toBeVisible();
+    const safeCell = shipments.row(safeRow.referenceCode);
+    await expect(safeCell).toBeVisible();
+    await expect(safeCell.getByText('At risk')).toHaveCount(0);
+
+    // A status select narrows the query: Pending keeps the at-risk row, drops the Assigned one.
+    await shipments.chooseOption(shipments.statusFilter(), 'Pending');
+    await expect(atRiskCell).toBeVisible();
+    await expect(shipments.row(safeRow.referenceCode)).toHaveCount(0);
+
+    // Reset, then q = reference code: one row, the exact match.
+    await shipments.clearFilters();
+    await shipments.search(atRiskRow.referenceCode);
+    await expect(shipments.row(atRiskRow.referenceCode)).toBeVisible();
+    await expect(shipments.row(safeRow.referenceCode)).toHaveCount(0);
+    await shipments.clearFilters();
+    await expect(atRiskCell, 'back to the unfiltered list').toBeVisible();
+    await expect(safeCell).toBeVisible();
+  });
+
+  // AC-10 UI seam — the other half of the capability gate: Driver never sees the Shipments tab
+  // (own-route scoping is deferred to LOGI-0009/0010, so the role is excluded entirely).
+  test('AC-10 UI — Driver has no shipments tab', async ({ page }) => {
+    const shipments = new ShipmentsPage(page);
+    await shipments.signInOnly('Driver');
+    await expect(shipments.tab()).toHaveCount(0);
+    await expect(shipments.title()).toHaveCount(0);
   });
 });
