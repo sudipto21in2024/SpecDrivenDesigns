@@ -3,7 +3,7 @@
 Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS.md`.
 
 | Ticket | Description | Status |
-| LOGI-0007 | Platform | 🟢 DONE — all four arms sealed (architect/backend/frontend/qa, 16 new e2e, full 63/63 local); ⚠ tail CI red on LOGI-0007-F2 (concurrent-create 500 race, backend follow-up) + F1 (query-binder 500-vs-400); seal-SHA run #39 green |
+| LOGI-0007 | Platform | 🟢 DONE — all four arms sealed; 16 new e2e tests, full 63/63 local; CI run #42 (tip 3cc010a) GREEN; follow-ups: LOGI-0007-F2 concurrent-create 500 race (CI-only) + F1 query-binder 500-vs-400 → backend scope |
 |---|---|---|
 | LOGI-0014 | Agent platform tooling (tracker seal/tick/show, contract slicer) | 🟢 DONE |
 | LOGI-0000 | Scaffold | 🟢 DONE |
