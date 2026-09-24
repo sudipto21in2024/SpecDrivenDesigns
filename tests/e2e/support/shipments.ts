@@ -1,17 +1,26 @@
 import { expect, type APIRequestContext } from '@playwright/test';
 import { DatabaseSync } from 'node:sqlite';
-import type { Paged, ProblemDetails, ShipmentStatus, ShipmentStatusEvent } from '../../../src/frontend/src/api/client';
+import type {
+  Paged,
+  ProblemDetails,
+  Shipment,
+  ShipmentPriority,
+  ShipmentStatus,
+  ShipmentStatusEvent,
+} from '../../../src/frontend/src/api/client';
 import { API, authHeaders, seedWarehouse } from './api';
 import { E2E_DB_PATH } from './paths';
 
 /**
- * LOGI-0006 shipment fixtures + lifecycle endpoint helpers.
+ * LOGI-0006 lifecycle fixtures + LOGI-0007 create/list endpoint helpers.
  *
- * Creation is LOGI-0007, so the contract still exposes only the two lifecycle paths and the spec's
- * §3 precondition applies: fixtures seed rows straight into the throwaway SQLite file the API runs
- * against. That is safe here because the API opens it in WAL mode and this helper sets a busy
- * timeout, so a fixture INSERT never blocks on the API's connection pool (the API is idle whenever a
- * fixture runs — `fullyParallel: false`).
+ * `createShipment` / `listShipments` drive the real `POST`/`GET /shipments` endpoints. `seedShipment`
+ * and `seedShipmentAt` still write rows straight into the throwaway SQLite file the API runs against:
+ * LOGI-0007 removed the "no create endpoint" reason, but a fixture is the only way to pin an instant —
+ * AC-8 needs `sla_due_at = NULL` rows (which the API never creates) and AC-9 needs rows on both sides
+ * of the BR-2 window without racing the wall clock. That is safe because the API opens the file in WAL
+ * mode and these helpers set a busy timeout, so a fixture INSERT never blocks on the API's connection
+ * pool (the API is idle whenever a fixture runs — `fullyParallel: false`).
  *
  * The path comes from `./paths`, i.e. the very same value the Playwright config injects as the API's
  * `Database__ConnectionString`, so a fixture can never seed a different database than the API reads.
@@ -123,3 +132,133 @@ export async function driveShipment(
   }
   return events;
 }
+
+/** A directly-seeded shipment row: its id, the code it carries and the origin warehouse it belongs to. */
+export type SeededShipment = {
+  id: number;
+  referenceCode: string;
+  warehouseId: number;
+  status: ShipmentStatus;
+  createdAt: string;
+  slaDueAt: string | null;
+};
+
+/** What `seedShipmentAt` lets a test pin. Everything is optional and defaults to the plain Pending row. */
+export type SeedShipmentAtOptions = {
+  /** Initial status — AC-8/AC-9 need Assigned/InTransit/Delivered/Cancelled rows. Defaults to Pending. */
+  status?: ShipmentStatus;
+  /** Pins `sla_due_at`; `null` (the default) seeds a legacy row without a promise (BR-2 rule 2.7). */
+  slaDueAt?: Date | null;
+  /** Pins `created_at`; two rows may share one instant to prove the id tiebreak (AC-8). Defaults to now. */
+  createdAt?: Date;
+  /** Attaches the row to an existing origin warehouse, so one filtered page can hold several rows. */
+  warehouseId?: number;
+  destinationAddress?: string;
+  weightKg?: number;
+  priority?: ShipmentPriority;
+};
+
+/**
+ * Seeds one shipment with pinned instants and status into the throwaway database (see the module note):
+ * the only way to obtain `sla_due_at = NULL` rows or rows inside a specific BR-2 window without racing
+ * the clock. Its reference code carries the per-run tag and never matches `^SHP-[0-9]{6}$`, so
+ * "every code is server-generated" assertions stay scoped to the API-created rows.
+ */
+export async function seedShipmentAt(
+  request: APIRequestContext,
+  accessToken: string,
+  options: SeedShipmentAtOptions = {},
+): Promise<SeededShipment> {
+  const tag = `${runId}-${seq++}`;
+  const status = options.status ?? 'Pending';
+  const createdAt = options.createdAt ?? new Date();
+  const slaDueAt = options.slaDueAt ?? null;
+  const warehouseId = options.warehouseId ?? (await seedWarehouse(request, accessToken, `QA WH ${tag}`));
+  const referenceCode = `SHPX-${tag}`.toUpperCase();
+  const stamp = efTimestamp(createdAt);
+
+  const db = new DatabaseSync(E2E_DB_PATH);
+  try {
+    db.exec('PRAGMA busy_timeout = 5000');
+    const inserted = db.prepare(
+      `INSERT INTO shipments (reference_code, origin_warehouse_id, destination_address, destination_lat,
+         destination_lng, weight_kg, status, priority, sla_due_at, route_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(referenceCode, warehouseId, options.destinationAddress ?? '1 QA Destination Rd', null, null,
+      options.weightKg ?? 1000, status, options.priority ?? 'Standard',
+      slaDueAt ? efTimestamp(slaDueAt) : null, null, stamp, stamp);
+    expect(Number(inserted.changes), 'the fixture must insert exactly one shipment row').toBe(1);
+    const row = db.prepare('SELECT last_insert_rowid() AS id').get() as { id: number };
+    return {
+      id: Number(row.id),
+      referenceCode,
+      warehouseId,
+      status,
+      createdAt: createdAt.toISOString(),
+      slaDueAt: slaDueAt ? slaDueAt.toISOString() : null,
+    };
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Outcome of a shipment create: the 201 body on success, the ProblemDetails fields on 4xx.
+ */
+export type CreateShipmentResult = {
+  status: number;
+  body: Partial<Shipment> & Partial<ProblemDetails>;
+};
+
+/** Outcome of a shipment list read: the page on 2xx, the ProblemDetails fields on 4xx. */
+export type ListShipmentsResult = {
+  status: number;
+  body: Partial<Paged<Shipment>> & Partial<ProblemDetails>;
+};
+
+/**
+ * Query for `listShipments`: a raw query string (`'?status=Pending'`) or an object whose `undefined`
+ * entries are dropped — so a test only sends the filters it means to combine (AC-7).
+ */
+export type ShipmentListQuery = string | Record<string, string | number | boolean | undefined>;
+
+function toQueryString(query: ShipmentListQuery): string {
+  if (typeof query === 'string') return query;
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined) continue;
+    search.set(key, String(value));
+  }
+  const serialized = search.toString();
+  return serialized ? `?${serialized}` : '';
+}
+
+/**
+ * POSTs a shipment (AC-1..AC-5, AC-11). `body` is deliberately untyped so a test can also send
+ * server-owned fields (referenceCode/status/slaDueAt/createdAt) and prove BR-1 rule 1.2 — they are
+ * ignored, never trusted. Pass `null` as the token for the anonymous (401) case.
+ */
+export async function createShipment(
+  request: APIRequestContext,
+  accessToken: string | null,
+  body: Record<string, unknown>,
+): Promise<CreateShipmentResult> {
+  const response = await request.post(`${API}/api/v1/shipments`, {
+    headers: accessToken ? authHeaders(accessToken) : {},
+    data: body,
+  });
+  return { status: response.status(), body: (await response.json()) as CreateShipmentResult['body'] };
+}
+
+/** GETs one page of the shipment list (AC-6..AC-10); `query` is a raw string or a filter object. */
+export async function listShipments(
+  request: APIRequestContext,
+  accessToken: string | null,
+  query: ShipmentListQuery = '',
+): Promise<ListShipmentsResult> {
+  const response = await request.get(`${API}/api/v1/shipments${toQueryString(query)}`, {
+    headers: accessToken ? authHeaders(accessToken) : {},
+  });
+  return { status: response.status(), body: (await response.json()) as ListShipmentsResult['body'] };
+}
+

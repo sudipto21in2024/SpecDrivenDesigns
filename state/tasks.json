@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-24T11:58:42.250Z",
+  "generated": "2026-09-24T12:05:51.216Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -208,6 +208,13 @@
           "started": "2026-09-23T13:19:59.383Z",
           "lastStep": "sealed: tsc --noEmit clean; vitest 5 files 53/53 (new 12: AC-1..AC-4, AC-6..AC-10); npm run build (tsc+vite) ok; commits 08ebcdf, cb466ae",
           "lastStepAt": "2026-09-24T11:51:08.903Z"
+        },
+        "qa": {
+          "status": "in_progress",
+          "agent": "cline-main",
+          "started": "2026-09-24T12:02:16.994Z",
+          "lastStep": "step 2/11: tests/e2e/pages/shipments.page.ts created (login+tab, filters, create dialog, rows, pagination); tsc exit 0; playwright --list 47 tests/5 files",
+          "lastStepAt": "2026-09-24T12:05:51.209Z"
         }
       },
       "status": "planned",
