@@ -26,7 +26,7 @@ interface ShipmentFormDialogProps {
   open: boolean;
   onClose: () => void;
   /** Persists the create; returns the created Shipment so the caller can surface its referenceCode. */
-    onSubmit: (input: ShipmentInput) => Promise<void>;
+  onSubmit: (input: ShipmentInput) => Promise<void>;
 }
 
 /**
@@ -98,107 +98,109 @@ export default function ShipmentFormDialog({ open, onClose, onSubmit }: Shipment
     }
   });
 
-    return (
+  return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Create shipment</DialogTitle>
-      <DialogContent dividers>
-        {serverError != null && (
-          <Alert severity="error" sx={{ mb: 2 }} role="alert">
-            {serverError}
-          </Alert>
-        )}
-        <Grid container spacing={2} component="form" onSubmit={submit} noValidate>
-                    <Grid item xs={12}>
-            <FormControl fullWidth required error={errors.originWarehouseId != null}>
-              <InputLabel id="origin-warehouse-label">Origin warehouse</InputLabel>
-              <Select
-                labelId="origin-warehouse-label"
-                label="Origin warehouse"
-                displayEmpty
-                {...register('originWarehouseId')}
-              >
-                {(warehouses.data?.items ?? []).map((warehouse) => (
-                  <MenuItem key={warehouse.id} value={String(warehouse.id)}>
-                    {warehouse.name}
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.originWarehouseId && (
-                <FormHelperText>{errors.originWarehouseId.message}</FormHelperText>
-              )}
-            </FormControl>
+      <form onSubmit={(event) => void submit(event)}>
+        <DialogContent dividers>
+          {serverError != null && (
+            <Alert severity="error" sx={{ mb: 2 }} role="alert">
+              {serverError}
+            </Alert>
+          )}
+          <Grid container spacing={2} component="form" onSubmit={submit} noValidate>
+                      <Grid item xs={12}>
+              <FormControl fullWidth required error={errors.originWarehouseId != null}>
+                <InputLabel id="origin-warehouse-label">Origin warehouse</InputLabel>
+                <Select
+                  labelId="origin-warehouse-label"
+                  label="Origin warehouse"
+                  displayEmpty
+                  {...register('originWarehouseId')}
+                >
+                  {(warehouses.data?.items ?? []).map((warehouse) => (
+                    <MenuItem key={warehouse.id} value={String(warehouse.id)}>
+                      {warehouse.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.originWarehouseId && (
+                  <FormHelperText>{errors.originWarehouseId.message}</FormHelperText>
+                )}
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Destination address"
+                fullWidth
+                required
+                error={errors.destinationAddress != null}
+                helperText={errors.destinationAddress?.message}
+                inputProps={{ 'aria-label': 'Destination address', maxLength: 500 }}
+                {...register('destinationAddress')}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Weight (kg)"
+                type="number"
+                fullWidth
+                required
+                error={errors.weightKg != null}
+                helperText={errors.weightKg?.message}
+                inputProps={{ 'aria-label': 'Weight in kilograms', min: 0, step: '0.01' }}
+                {...register('weightKg')}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth required error={errors.priority != null}>
+                <InputLabel id="shipment-priority-label">Priority</InputLabel>
+                <Select
+                  labelId="shipment-priority-label"
+                  label="Priority"
+                  defaultValue="Standard"
+                  {...register('priority')}
+                >
+                  {shipmentPriorities.map((priority) => (
+                    <MenuItem key={priority} value={priority}>
+                      {priority}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.priority && <FormHelperText>{errors.priority.message}</FormHelperText>}
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Destination latitude"
+                type="number"
+                fullWidth
+                error={errors.destinationLat != null}
+                helperText={errors.destinationLat?.message}
+                inputProps={{ 'aria-label': 'Destination latitude', step: '0.0001' }}
+                {...register('destinationLat')}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Destination longitude"
+                type="number"
+                fullWidth
+                error={errors.destinationLng != null}
+                helperText={errors.destinationLng?.message}
+                inputProps={{ 'aria-label': 'Destination longitude', step: '0.0001' }}
+                {...register('destinationLng')}
+              />
+            </Grid>
           </Grid>
-          <Grid item xs={12}>
-            <TextField
-              label="Destination address"
-              fullWidth
-              required
-              error={errors.destinationAddress != null}
-              helperText={errors.destinationAddress?.message}
-              inputProps={{ 'aria-label': 'Destination address', maxLength: 500 }}
-              {...register('destinationAddress')}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Weight (kg)"
-              type="number"
-              fullWidth
-              required
-              error={errors.weightKg != null}
-              helperText={errors.weightKg?.message}
-              inputProps={{ 'aria-label': 'Weight in kilograms', min: 0, step: '0.01' }}
-              {...register('weightKg')}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth required error={errors.priority != null}>
-              <InputLabel id="shipment-priority-label">Priority</InputLabel>
-              <Select
-                labelId="shipment-priority-label"
-                label="Priority"
-                defaultValue="Standard"
-                {...register('priority')}
-              >
-                {shipmentPriorities.map((priority) => (
-                  <MenuItem key={priority} value={priority}>
-                    {priority}
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.priority && <FormHelperText>{errors.priority.message}</FormHelperText>}
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Destination latitude"
-              type="number"
-              fullWidth
-              error={errors.destinationLat != null}
-              helperText={errors.destinationLat?.message}
-              inputProps={{ 'aria-label': 'Destination latitude', step: '0.0001' }}
-              {...register('destinationLat')}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Destination longitude"
-              type="number"
-              fullWidth
-              error={errors.destinationLng != null}
-              helperText={errors.destinationLng?.message}
-              inputProps={{ 'aria-label': 'Destination longitude', step: '0.0001' }}
-              {...register('destinationLng')}
-            />
-          </Grid>
-        </Grid>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button type="submit" variant="contained" disabled={isSubmitting}>
-          Create
-        </Button>
-      </DialogActions>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="contained" disabled={isSubmitting} data-testid="shipment-submit">
+            Create
+          </Button>
+        </DialogActions>
+      </form>
     </Dialog>
   );
 }
