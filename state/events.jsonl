@@ -301,3 +301,4 @@
 {"ts":"2026-09-26T12:40:17.912Z","type":"STEP_DONE","ticket":"LOGI-0008","arm":"qa","note":"M1 API matrix green (shipment-edit 5/5 + shipment-cancel 5/5); AC-4 needs legit-field pairing (unknown-only keys collapse), AC-12 seeded rows carry null slaDueAt"}
 {"ts":"2026-09-26T12:40:56.286Z","type":"STEP_DONE","ticket":"LOGI-0008","arm":"qa","note":"M2 UI seam green (shipment-ui 2/2: matrix + dialog flows); page-object drivers added"}
 {"ts":"2026-09-26T12:42:11.564Z","type":"STEP_DONE","ticket":"LOGI-0008","arm":"qa","note":"sealed: playwright full suite 75/75 passed (63 pre-existing + 12 new); no src/contracts changes"}
+{"ts":"2026-09-26T12:42:15.770Z","type":"HANDOFF","ticket":"LOGI-0008","from":"qa","to":"done","toState":"done","summary_ptr":"memory/journal/LOGI-0008.md#qa-arm","gates":["playwright 75/75"]}
