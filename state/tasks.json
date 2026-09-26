@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-26T12:42:20.298Z",
+  "generated": "2026-09-26T14:15:46.793Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -279,6 +279,20 @@
       },
       "status": "done",
       "next": "done"
+    },
+    "LOGI-0009": {
+      "ticket": "LOGI-0009",
+      "arms": {
+        "architect": {
+          "status": "done",
+          "agent": null,
+          "started": "2026-09-26T13:47:18.831Z",
+          "lastStep": "sealed: spec slicers ac/summary/defaults/scope resolve; contract +146/-0 additive; spectral 0 errors; routes slicer 4 ops; validate-plan 0 errors",
+          "lastStepAt": "2026-09-26T14:13:10.447Z"
+        }
+      },
+      "status": "in_progress",
+      "next": "backend"
     }
   }
 }
