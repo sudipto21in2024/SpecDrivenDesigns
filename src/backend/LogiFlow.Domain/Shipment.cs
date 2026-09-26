@@ -61,4 +61,47 @@ public class Shipment
         Status = to;
         return new ShipmentStatusEvent(0, from, to, changedByUserId, at, note);
     }
+
+    /// <summary>
+    /// Applies an edit to the descriptive columns of a shipment that is still <c>Pending</c>
+    /// (F6 / LOGI-0008 AC-1, AC-2). A PATCH is partial, so the Application handler merges the
+    /// supplied fields with the stored row and always calls this method with the full editable set —
+    /// the domain never sees a half-applied row.
+    ///
+    /// The server-owned columns are absent from the signature by construction: <c>reference_code</c>,
+    /// <c>status</c> (BR-7, owned by <see cref="TransitionTo"/>) and above all <c>priority</c> and
+    /// <c>sla_due_at</c> (BR-1 rule 1.5 — the due date is computed once at creation and "edits
+    /// (LOGI-0008) do not reset the clock", so an editable priority could never stay BR-1-true).
+    /// <c>route_id</c> arrives with route assignment (LOGI-0010).
+    ///
+    /// Throws <see cref="ShipmentNotEditableException"/> when the status is no longer Pending; the
+    /// Application handler translates that into 409 ProblemDetails naming the required status.
+    /// </summary>
+    public void UpdateDetails(
+        long originWarehouseId, string destinationAddress, double? destinationLat,
+        double? destinationLng, double weightKg, DateTime at)
+    {
+        if (!string.Equals(Status, nameof(ShipmentStatus.Pending), StringComparison.Ordinal))
+        {
+            throw new ShipmentNotEditableException(Status);
+        }
+
+        OriginWarehouseId = originWarehouseId;
+        DestinationAddress = destinationAddress;
+        DestinationLat = destinationLat;
+        DestinationLng = destinationLng;
+        WeightKg = weightKg;
+
+        // Server-managed row timestamp (spec §7 O6): refreshed by an edit, never accepted from the
+        // client — the endpoint rejects updatedAt with 400 (AC-4).
+        UpdatedAt = at;
+    }
 }
+
+/// <summary>
+/// Raised by <c>Shipment.UpdateDetails</c> when the shipment is no longer editable — BR-7 keeps
+/// edits to the Pending state (LOGI-0008 AC-2). The message names the required status because the
+/// API surfaces it verbatim as the 409 ProblemDetails detail.
+/// </summary>
+public class ShipmentNotEditableException(string status)
+    : Exception($"Cannot edit a shipment with status {status}: only Pending shipments can be edited.");

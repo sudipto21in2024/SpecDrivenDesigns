@@ -4,6 +4,7 @@ using LogiFlow.Application.Abstractions;
 using LogiFlow.Application.Common;
 using LogiFlow.Application.Messaging;
 using LogiFlow.Domain;
+using LogiFlow.Domain.Security;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,8 +37,30 @@ public class TransitionShipmentStatusValidator : AbstractValidator<TransitionShi
 public class TransitionShipmentStatusHandler(IAppDbContext db, ICurrentUser currentUser)
     : IRequestHandler<TransitionShipmentStatusCommand, ShipmentStatusEventDto>
 {
+    /// <summary>
+    /// AC-10: the target-state half of the BR-6 rule — trimmed, exact match, mirroring how
+    /// <c>Shipment.TransitionTo</c> normalises the requested state.
+    /// </summary>
+    private static bool IsCancellation(string? toStatus) =>
+        string.Equals(toStatus?.Trim(), nameof(ShipmentStatus.Cancelled), StringComparison.Ordinal);
+
+    /// <summary>BR-6: exactly these two roles may cancel a shipment.</summary>
+    private static bool MayCancel(string? role) =>
+        string.Equals(role, Roles.Admin, StringComparison.Ordinal)
+        || string.Equals(role, Roles.Dispatcher, StringComparison.Ordinal);
+
     public async Task<ShipmentStatusEventDto> Handle(TransitionShipmentStatusCommand request, CancellationToken cancellationToken)
     {
+        // BR-6 / AC-10: cancellation is a management action, and the endpoint's x-roles cannot express
+        // that because Driver legitimately appears there for own-route transitions (LOGI-0009/0010).
+        // The rule depends on the *target state*, so it is enforced here — before the row is read, so
+        // the answer never leaks whether the shipment exists. Every other Driver transition keeps the
+        // LOGI-0006 behaviour.
+        if (IsCancellation(request.ToStatus) && !MayCancel(currentUser.Role))
+        {
+            throw new ForbiddenException("Only Admin and Dispatcher may cancel a shipment (BR-6).");
+        }
+
         var shipment = await db.Shipments
             .SingleOrDefaultAsync(s => s.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Shipment), request.Id);
@@ -70,6 +93,75 @@ public class TransitionShipmentStatusHandler(IAppDbContext db, ICurrentUser curr
             // message to the ProblemDetails detail, which names the legal next state(s).
             throw new ConflictException(illegal.Message);
         }
+    }
+}
+
+/// <summary>
+/// AC-1..AC-4: apply one F6 edit. The editable fields are nullable, but <c>null</c> is ambiguous in a
+/// PATCH body — "omitted" and "explicitly set to null" both bind to <c>null</c> — so
+/// <paramref name="SuppliedFields"/> carries the set of property names actually present in the JSON
+/// and is the only thing that decides what gets written. That is also what makes an explicit
+/// <c>destinationLat: null</c> (clearing a coordinate) work while an omitted one is preserved.
+///
+/// <paramref name="RejectedFields"/> lists server-owned/immutable properties the client sent
+/// (AC-4); they are reported as 400 field-keyed errors and never merged.
+/// </summary>
+public record UpdateShipmentCommand(
+    long Id,
+    long? OriginWarehouseId, string? DestinationAddress, double? WeightKg,
+    double? DestinationLat, double? DestinationLng,
+    IReadOnlyCollection<string> SuppliedFields,
+    IReadOnlyCollection<string> RejectedFields) : ICommand<ShipmentDto>;
+
+public class UpdateShipmentValidator : AbstractValidator<UpdateShipmentCommand>
+{
+    public UpdateShipmentValidator()
+    {
+        RuleFor(x => x.Id).GreaterThan(0);
+
+        // AC-3: an empty patch is a client mistake, not a no-op success — fail loudly so a UI that
+        // submits a blank dialog tells the user instead of silently "succeeding" with no change.
+        // Written as a rule over the command rather than over SuppliedFields: on a collection
+        // property FluentValidation keeps the child property name and ignores WithName, so the
+        // errors map would be keyed "suppliedFields" instead of the contract's "body".
+        RuleFor(x => x)
+            .Must(x => x.SuppliedFields.Any())
+            .WithMessage("At least one editable field is required.")
+            .WithName("body");
+
+        // AC-4: id/referenceCode/status/slaDueAt/createdAt/updatedAt/routeId/atRisk are server-owned
+        // and priority is immutable under BR-1 rule 1.5. The handler raises these as one
+        // ValidationFailure *per field* before anything is read or written, because the errors map is
+        // keyed by property name (ExceptionHandlingMiddleware) and a RuleForEach over the collection
+        // would collapse them all under "rejectedFields" instead of "priority"/"status"/....
+
+        // Every rule below is conditional on presence: an omitted field is never validated (it keeps
+        // its stored value), so a partial patch cannot fail on fields the client did not touch.
+        RuleFor(x => x.OriginWarehouseId)
+            .Must((x, id) => id is null or > 0)
+            .WithMessage("originWarehouseId must be a positive integer.")
+            .When(x => x.SuppliedFields.Contains(nameof(UpdateShipmentCommand.OriginWarehouseId)));
+
+        RuleFor(x => x.DestinationAddress)
+            .Must((x, address) => !string.IsNullOrWhiteSpace(address) && address.Trim().Length <= 500)
+            .WithMessage("destinationAddress must be non-blank and at most 500 characters.")
+            .When(x => x.SuppliedFields.Contains(nameof(UpdateShipmentCommand.DestinationAddress)));
+
+        RuleFor(x => x.WeightKg)
+            .Must((x, weight) => weight is > 0)
+            .WithMessage("weightKg must be greater than 0.")
+            .When(x => x.SuppliedFields.Contains(nameof(UpdateShipmentCommand.WeightKg)));
+
+        // Contract ranges, identical to the create validator (stored as supplied — no geocoding).
+        RuleFor(x => x.DestinationLat)
+            .Must((x, lat) => lat is null or >= -90 and <= 90)
+            .WithMessage("destinationLat must be between -90 and 90.")
+            .When(x => x.SuppliedFields.Contains(nameof(UpdateShipmentCommand.DestinationLat)));
+
+        RuleFor(x => x.DestinationLng)
+            .Must((x, lng) => lng is null or >= -180 and <= 180)
+            .WithMessage("destinationLng must be between -180 and 180.")
+            .When(x => x.SuppliedFields.Contains(nameof(UpdateShipmentCommand.DestinationLng)));
     }
 }
 
@@ -245,4 +337,76 @@ public class CreateShipmentHandler(IAppDbContext db, ICurrentUser currentUser)
 
     internal static bool IsUniqueViolation(DbUpdateException ex) =>
         ex.InnerException is not null && ex.InnerException.Message.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase);
+}
+
+public class UpdateShipmentHandler(IAppDbContext db) : IRequestHandler<UpdateShipmentCommand, ShipmentDto>
+{
+    public async Task<ShipmentDto> Handle(UpdateShipmentCommand request, CancellationToken cancellationToken)
+    {
+        // AC-4: server-owned / immutable properties are reported per field (so the UI can render each
+        // inline) and rejected *before* the row is read, so nothing is applied or leaked. This lives
+        // here rather than in the validator because the errors map is keyed by property name — a rule
+        // over the RejectedFields collection would collapse everything under "rejectedFields".
+        if (request.RejectedFields.Count > 0)
+        {
+            // "Priority" is a literal, not nameof: the command has no Priority member by design —
+            // priority is one of the rejected server-owned properties AC-4 refuses to bind.
+            throw new ValidationException(request.RejectedFields
+                .Select(field => new ValidationFailure(field, field == "Priority"
+                    ? "priority is immutable; create a new shipment instead (BR-1 rule 1.5)."
+                    : $"{field} is server-owned and cannot be supplied in a shipment edit."))
+                .ToList());
+        }
+
+        var shipment = await db.Shipments
+            .SingleOrDefaultAsync(s => s.Id == request.Id, cancellationToken)
+            ?? throw new NotFoundException(nameof(Domain.Shipment), request.Id);
+
+        // AC-4/§7: FK existence is Application-layer validation keyed to errors.originWarehouseId,
+        // mirroring CreateShipmentHandler — 400, not 404, because the shipment itself does exist.
+        // Only checked when the field is actually supplied (an omitted origin is the stored one).
+        if (request.SuppliedFields.Contains(nameof(request.OriginWarehouseId)))
+        {
+            var warehouseExists = await db.Warehouses.AsNoTracking()
+                .AnyAsync(w => w.Id == request.OriginWarehouseId, cancellationToken);
+            if (!warehouseExists)
+            {
+                throw new ValidationException(
+                [
+                    new ValidationFailure(nameof(request.OriginWarehouseId),
+                        $"Warehouse {request.OriginWarehouseId} does not exist."),
+                ]);
+            }
+        }
+
+        // Merge-then-update: the domain always receives the full editable set, so a partial patch can
+        // never half-apply and the Pending-only guard inside UpdateDetails runs against the merged row.
+        // One request instant drives both the UpdatedAt stamp and the BR-2 atRisk projection.
+        var now = SlaPolicy.TruncateToSeconds(DateTime.UtcNow);
+        var supplied = new HashSet<string>(request.SuppliedFields, StringComparer.Ordinal);
+
+        try
+        {
+            shipment.UpdateDetails(
+                supplied.Contains(nameof(request.OriginWarehouseId)) ? request.OriginWarehouseId!.Value : shipment.OriginWarehouseId,
+                supplied.Contains(nameof(request.DestinationAddress)) ? request.DestinationAddress! : shipment.DestinationAddress,
+                supplied.Contains(nameof(request.DestinationLat)) ? request.DestinationLat : shipment.DestinationLat,
+                supplied.Contains(nameof(request.DestinationLng)) ? request.DestinationLng : shipment.DestinationLng,
+                supplied.Contains(nameof(request.WeightKg)) ? request.WeightKg!.Value : shipment.WeightKg,
+                now);
+        }
+        catch (ShipmentNotEditableException notEditable)
+        {
+            // AC-2: the status moved on since the form was loaded — 409 naming the required status,
+            // same shape as a BR-7 conflict. Nothing is written: the guard runs before any assignment,
+            // and no SaveChanges is reached, so the row stays byte-identical.
+            throw new ConflictException(notEditable.Message);
+        }
+
+        // AC-1/§6: exactly one UPDATE, and deliberately NO shipment_status_history row — an edit is not
+        // a status transition (F7 audits transitions; spec §7 O3).
+        await db.SaveChangesAsync(cancellationToken);
+
+        return ShipmentDto.From(shipment, now);
+    }
 }

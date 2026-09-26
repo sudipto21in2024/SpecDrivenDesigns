@@ -162,3 +162,31 @@ public class ListShipmentsHandler(IAppDbContext db)
         return PagedResult<ShipmentDto>.Create(items, request.Page, request.PageSize, totalCount);
     }
 }
+
+/// <summary>
+/// AC-5/AC-6: one shipment in the same ShipmentResponse shape the list rows use — including the
+/// read-time BR-2 <c>atRisk</c> flag and <c>routeId</c> (null until LOGI-0010) — and 404 when the id
+/// is unknown. This is the detail read LOGI-0007 §5 deferred to LOGI-0008 because the edit form
+/// needs it.
+/// </summary>
+public record GetShipmentQuery(long Id) : IQuery<ShipmentDto>;
+
+public class GetShipmentValidator : AbstractValidator<GetShipmentQuery>
+{
+    public GetShipmentValidator() => RuleFor(x => x.Id).GreaterThan(0);
+}
+
+public class GetShipmentHandler(IAppDbContext db) : IRequestHandler<GetShipmentQuery, ShipmentDto>
+{
+    public async Task<ShipmentDto> Handle(GetShipmentQuery request, CancellationToken cancellationToken)
+    {
+        // Read-only: AsNoTracking keeps the detail path out of the change tracker entirely.
+        var shipment = await db.Shipments.AsNoTracking()
+            .SingleOrDefaultAsync(s => s.Id == request.Id, cancellationToken)
+            ?? throw new NotFoundException(nameof(Domain.Shipment), request.Id);
+
+        // One request instant, truncated to the whole second (BR-sla-rules §3), so the at-risk flag
+        // can never disagree with the list endpoint's projection for the same shipment.
+        return ShipmentDto.From(shipment, SlaPolicy.TruncateToSeconds(DateTime.UtcNow));
+    }
+}

@@ -49,6 +49,15 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
                 "https://logiflow.dev/errors/conflict", "Conflict",
                 conflict.Message, null);
         }
+        catch (ForbiddenException forbidden)
+        {
+            // Payload-dependent role rule (LOGI-0008 AC-10 / BR-6: only Admin/Dispatcher may cancel
+            // a shipment). Type and title match the authorization handlers' 403 (Program.cs
+            // OnForbidden) so both sources share one contract shape; the detail names the rule.
+            await ProblemDetailsWriter.WriteAsync(context, StatusCodes.Status403Forbidden,
+                "https://logiflow.dev/errors/forbidden", "Forbidden",
+                forbidden.Message, null);
+        }
         catch (Exception exception)
         {
             logger.LogError(exception, "Unhandled exception while processing {Method} {Path}",
