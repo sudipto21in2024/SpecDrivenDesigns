@@ -59,6 +59,14 @@
 
 **Dependencies:** LOGI-0001 → LOGI-0003 (auth gates domain features); LOGI-0006 before LOGI-0007/0008.
 
+> **Planned (not implemented):** this prose is invisible to tooling — the tracker's dispatch queue
+> (`tools/tracker`) reads only the table above and consults **no** dependency information, so a ticket
+> whose prerequisite is unimplemented (e.g. LOGI-0010 needs LOGI-0009's route) is offered as "ready".
+> Converting this sentence into a machine-readable **`Depends on` column** (plus `planned->blocked`
+> parking and a `tracker unblock` release gate) is planned in
+> `Docs/planned-features/LOGI-0016-dependency-graph-and-blocking.md`; full execution steps in that
+> doc §7, roadmap backfill in §11.3. Tracked as **LOGI-0016 (PROPOSED — no tracker state yet)**.
+
 ### Execution Model
 
 - **Orchestrator (inline):** Spec, Architect, Review, DevOps, Docs steps.
@@ -218,6 +226,7 @@ first full vertical slice prove every layer of the pipeline end-to-end).
    (missing frontend install; Spectral ruleset resolution + deprecated CLI). Run
    `35339953505` → **`build-and-test` ✅ + `e2e` ✅**.
 9. ~~**Proceed to LOGI-0002** (SLA business-rules spec-only) and **LOGI-0003** (auth)~~ ✅ **BOTH DONE (2026-09-20).** LOGI-0002: BR-1/BR-2 authoritative reference (`Docs/business-rules/BR-sla-rules.md`) + feature spec committed (`896d3ab`); AC-1..7 verified against BRD §6. LOGI-0003: Identity + JWT + RBAC across backend (`0b04a02`, dotnet 20/20), frontend (`2c254a7`, vitest 18/18 + build) and e2e (`ce485a8`, playwright 21/21) arms; architect artifacts committed (`d1ec277`): ADR-007, root `security: [BearerAuth]` contract (anonymous only /health + /auth/*, 401/403 on every protected operation), schema mirror. **Next: LOGI-0004 (Vehicle CRUD + status enum).**
+10. **Planned (not started): LOGI-0016 — Dependency graph, blocking & queue release gates.** The tracker can record which *arm* depends on which plan (`depends_on_plans`, warnings only) but has no ticket-level dependency model, so the dispatch queue never checks whether an upstream ticket is actually implemented; `planned->blocked` is also illegal, so a ticket that cannot start has no legal way to be parked without `--force`. Full analysis (context, 7 scenarios, 12 ACs, design, 3-milestone execution plan, risks, open questions, pre-drafted arm plan, evidence appendix) lives in `Docs/planned-features/LOGI-0016-dependency-graph-and-blocking.md`; register in `Docs/OPTIMIZATION_TASKS.md` Phase 6. Recommended slot: before dispatching LOGI-0010, the first real cross-ticket dependency (a route must exist before assignment).
 
 ---
 

@@ -56,3 +56,19 @@
 - [x] **Task 5.1:** Derive ticket status from the handoff destination — `tracker handoff` now records `toState` (previously absent from all 24 handoffs), so a finished ticket reads `done` instead of staying `planned`.
 - [x] **Task 5.2:** Dispatch queue excludes `done`/`blocked`/open-arm tickets and appends unstarted roadmap tickets (`Docs/PROJECT_STATUS.md`, `TRACKER_ROADMAP` override); `ready --all` audits the rest.
 - [x] **Task 5.3:** Enforce `LEGAL_TRANSITIONS` on `handoff` (exit 1 + `--force` escape) and print the head ticket, source and queue composition in `tracker status`.
+
+### Phase 6: Dependency Graph, Blocking & Queue Release Gates (LOGI-0016 — PROPOSED, not started)
+
+> **Full plan:** `Docs/planned-features/LOGI-0016-dependency-graph-and-blocking.md`
+> (context §1–§3 · scenarios §4 · ACs §5 · design §6 · execution §7 · risks §8 · open questions §9 ·
+> pre-drafted arm plan §10 · evidence §11).
+> **Status:** documented only — **no tracker state exists yet** (no `PLAN_CREATED`, no plan file, no
+> queue row). Promotion procedure: plan doc §7.6. Recommended slot: before dispatching LOGI-0010.
+> **Problem in one line:** dependencies can be *written down* (`depends_on_plans`, an empty spec
+> `depends_on:`, one prose sentence in `PROJECT_STATUS.md` §2) but are never *read* by the dispatch
+> queue, `planned->blocked` is illegal, and the only hard gate is artifact-level (§3 required files).
+
+- [ ] **Task 6.1 (Milestone 1):** Dependency model — `TRACKER_STATE_DIR` fixture override, `planned->blocked` + `blocked->planned` transitions, `dependencyEdges`/`blockerStatus`/`dependencyHeld`/`findCycles`, roadmap `Depends on` column parse, `readyQueue` held classification (event-log-first status).
+- [ ] **Task 6.2 (Milestone 2):** CLI + surfacing — `deps`, `block`, `unblock`, `ready --held`, `status` `Held`/`UNBLOCK_CANDIDATE`/`STALE_DEP`/`DEP_CYCLE` lines, `plan lock --strict-deps`, plus docs (`11-agent-context-and-execution.md`, `03-spec-driven-workflow.md`), skills (`plan-arm`, `orchestrate-dispatch`) and the roadmap dependency-column backfill.
+- [ ] **Task 6.3 (Milestone 3):** Arm verification — full CLI regression sweep on real state, LOGI-0015 non-regression contract, sealed journal, one atomic commit, `HANDOFF orchestrator→done`.
+- [ ] **Task 6.4 (Decision needed first):** resolve open questions O1–O5 (roadmap vs spec dependency source, strict-deps default, manual vs auto unblock, dedicated `tooling` arm boundary, mandatory `depends_on` for new specs).
