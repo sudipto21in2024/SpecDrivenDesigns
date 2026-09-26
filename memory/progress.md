@@ -15,7 +15,7 @@ Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS
 | LOGI-0005 | Driver CRUD + user link | 🟢 DONE — architect ✅ + backend ✅ (dotnet 42/42) + frontend ✅ (vitest 41/41, typed-client regen zero-diff, tsc+build clean) + qa ✅ (`tests/e2e/drivers.spec.ts` AC-1..AC-9, drivers 9/9, full e2e 39/39) |
 | LOGI-0006 | Shipment status lifecycle (BR-7 TransitionTo) | 🟢 DONE — architect ✅ (spec_approved, contract additive 96+/0-) + backend ✅ (ecce789, dotnet 50/50, migration 20260922095953) + frontend ✅ (BR-7 seam: schema regen, client types/methods, permissions A/D/Driver + all-role history, MSW handlers; vitest 41/41, tsc/build clean) + qa ✅ (07a3d9e, shipment-status-lifecycle.spec.ts AC-1..AC-8 vs real API + real SQLite, spec 8/8, full e2e 47/47 0 flaky; new support/shipments.ts direct-SQLite fixture + support/paths.ts single DB path) |
 | LOGI-0006..0012 (rest) | Routes, Board, Dashboard | ⬜ Backlog |
-| LOGI-0013 | E2E harness: throwaway-DB lifecycle + CI diagnostics (platform fix) | 🟢 DONE — root cause: `global-setup.ts` unlinked the live SQLite file (CI/Linux only) → empty DB → `/auth/login` 500s. Fix: `start-api.mjs` prepares the DB before the API starts + absolute `Data Source` + API-log/test-results artifacts on failure. Local 30/30; **CI run #17 `75c039e` green (e2e 30 passed, 0 flaky)** |
+| LOGI-0013 | E2E harness: throwaway-DB lifecycle + CI diagnostics (platform fix) | DONE (e2e harness: start-api wrapper + absolute E2E_DB_PATH + CI failure artifacts; CI run #17 green; orchestrator disposition closed) |
 
 Remote CI: last verified green (run #10 `35522784324`, 2026-09-20, `fa324be` — the LOGI-0004 push:
 spectral 0 errors, dotnet 30/30, vitest 25/25, playwright 30/30 all confirmed remotely).

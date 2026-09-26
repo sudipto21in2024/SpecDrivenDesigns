@@ -47,10 +47,10 @@
 | 1 | LOGI-0001 | Warehouse CRUD | 🟢 DONE (E2E 7/7 green vs integrated stack; CI pushed) |
 | 2 | LOGI-0002 | SLA business-rules reference doc (spec-only) | 🟢 DONE (BR-1/BR-2 reference: `Docs/business-rules/BR-sla-rules.md`; executable rules → LOGI-0007) |
 | 3 | LOGI-0003 | Auth & roles (Identity + JWT + RBAC) | 🟢 DONE (backend 20/20 + frontend 18/18 + e2e 21/21; ADR-007) |
-| 4 | LOGI-0004 | Vehicle CRUD + status enum | ⬜ Not Started |
-| 5 | LOGI-0005 | Driver CRUD + `user_id` link to Identity | ⬜ Not Started |
-| 6 | LOGI-0006 | Shipment status lifecycle (`TransitionTo`) | ⬜ Not Started |
-| 7 | LOGI-0007 | Create shipment (SLA due calculation) | ⬜ Not Started |
+| 4 | LOGI-0004 | Vehicle CRUD + status enum | 🟢 DONE (all arms sealed) |
+| 5 | LOGI-0005 | Driver CRUD + `user_id` link to Identity | 🟢 DONE (all arms sealed; users-link ADR) |
+| 6 | LOGI-0006 | Shipment status lifecycle (`TransitionTo`) | 🟢 DONE (4 arms sealed; audit history + 409 on illegal transitions) |
+| 7 | LOGI-0007 | Create shipment (SLA due calculation) | 🟢 DONE (F5+F8; 4 arms sealed; e2e 63/63 local, CI #42 green; open follow-ups F1/F2 → backend) |
 | 8 | LOGI-0008 | Edit (Pending) / cancel (Pending, Assigned) | ⬜ Not Started |
 | 9 | LOGI-0009 | Create route + assign vehicle/driver | ⬜ Not Started |
 | 10 | LOGI-0010 | Assign shipment→route (capacity check) | ⬜ Not Started |
