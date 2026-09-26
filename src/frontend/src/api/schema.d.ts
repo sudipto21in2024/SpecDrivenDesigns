@@ -210,6 +210,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/shipments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * Get shipment by id
+         * @description Returns a single shipment in the same ShipmentResponse shape the list rows use, including the read-time atRisk projection (BR-2) and routeId (null until LOGI-0010). Responds 404 when the id does not exist. Driver access stays deferred with own-route scoping (LOGI-0009/0010), consistent with GET /shipments.
+         */
+        get: operations["getShipment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit shipment fields (Pending only)
+         * @description Partially updates the descriptive fields of a shipment that is still Pending (F6, BR-6/BR-7): originWarehouseId, destinationAddress, destinationLat/Lng and weightKg. The write is all-or-nothing — a rejected request leaves every column untouched and appends no audit row, because shipment_status_history records status transitions only (F7). Responds 400 with field-keyed errors (including errors.priority for the immutable priority), 403 for Viewer/Driver, 404 for an unknown id, and 409 when the shipment is no longer Pending.
+         */
+        patch: operations["updateShipment"];
+        trace?: never;
+    };
     "/shipments/{id}/status-transitions": {
         parameters: {
             query?: never;
@@ -232,6 +258,9 @@ export interface paths {
          *     legal next state(s). No history row is written for rejected attempts.
          *     Note: the Driver role is declared here per BR-6 (own-route shipments only);
          *     ownership scoping is enforced from LOGI-0009/0010.
+         *     BR-6 also makes cancellation a management action: toStatus "Cancelled" is rejected with
+         *     403 for a Driver token (LOGI-0008), while the remaining Driver transitions keep the
+         *     LOGI-0006 behaviour.
          */
         post: operations["createShipmentStatusTransition"];
         delete?: never;
@@ -628,6 +657,32 @@ export interface components {
              * @enum {string}
              */
             priority: "Standard" | "Express";
+        };
+        /**
+         * @description Body of PATCH /shipments/{id} (F6). Partial update of a shipment that is still Pending:
+         *     send only the fields to change. Server-owned/immutable fields — id, referenceCode, status,
+         *     priority, slaDueAt, createdAt, updatedAt, routeId and atRisk — are never accepted and are
+         *     rejected with 400; priority is immutable so BR-1 keeps its single sla_due_at writer
+         *     (Docs/business-rules/BR-sla-rules.md). A shipment that is no longer Pending is rejected
+         *     with 409 and no column is written.
+         *     Immutable priority: BR-1 rule 1.5 (Docs/business-rules/BR-sla-rules.md) fixes sla_due_at once
+         *     at creation and states that LOGI-0008 edits do not reset the clock, so a priority change
+         *     could never stay BR-1-true — priority is rejected with 400 (errors.priority), not recomputed.
+         */
+        ShipmentUpdateRequest: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            originWarehouseId?: number;
+            /** @example 12 Dock Road, Rotterdam */
+            destinationAddress?: string;
+            /** @example 51.9225 */
+            destinationLat?: number | null;
+            /** @example 4.47917 */
+            destinationLng?: number | null;
+            /** @example 1250.5 */
+            weightKg?: number;
         };
         ShipmentResponse: {
             /**
@@ -1254,6 +1309,62 @@ export interface operations {
             400: components["responses"]["ValidationProblem"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getShipment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The shipment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShipmentResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateShipment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShipmentUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated — the shipment with its new values */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShipmentResponse"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     createShipmentStatusTransition: {

@@ -25,6 +25,8 @@ export type StatusTransitionRequest = components['schemas']['StatusTransitionReq
 export type Shipment = components['schemas']['ShipmentResponse'];
 export type ShipmentInput = components['schemas']['ShipmentRequest'];
 export type ShipmentPriority = NonNullable<Shipment['priority']>;
+/** LOGI-0008 AC-1..AC-4: PATCH /shipments/{id} body — every property optional (send only what changes). */
+export type ShipmentUpdateInput = components['schemas']['ShipmentUpdateRequest'];
 /** Sort keys accepted by GET /shipments — createdAt|-createdAt|slaDueAt|-slaDueAt (default -createdAt). */
 export type ShipmentSort = NonNullable<
   NonNullable<operations['listShipments']['parameters']['query']>['sort']
@@ -270,6 +272,20 @@ export const api = {
   /** LOGI-0007 F5 (AC-1): create shipment — the 201 body is the authoritative read-back. */
   createShipment(body: ShipmentInput): Promise<Shipment> {
     return request<Shipment>('/api/v1/shipments', { method: 'POST', body: JSON.stringify(body) });
+  },
+
+  /** LOGI-0008 AC-6: shipment detail — the read the edit dialog pre-fills from. */
+  getShipment(id: number): Promise<Shipment> {
+    return request<Shipment>(`/api/v1/shipments/${id}`);
+  },
+
+  /**
+   * LOGI-0008 AC-1..AC-5: partial update of a Pending shipment. Only the supplied keys are sent
+   * (server-owned/immutable fields are rejected with 400 and a non-Pending shipment with 409), so
+   * the caller must build the body from what actually changed.
+   */
+  updateShipment(id: number, body: ShipmentUpdateInput): Promise<Shipment> {
+    return request<Shipment>(`/api/v1/shipments/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
   },
 
   /** AC-1/AC-2: exchange credentials for a token pair. */

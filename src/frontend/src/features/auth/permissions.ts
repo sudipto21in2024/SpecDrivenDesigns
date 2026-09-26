@@ -56,6 +56,19 @@ export const capabilities = {
    */
   viewShipments: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher' || role === 'Viewer',
 
+  /** GET /shipments/{id} — x-roles: [Admin, Dispatcher, Viewer] (LOGI-0008 AC-7). */
+  viewShipment: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher' || role === 'Viewer',
+
+  /** PATCH /shipments/{id} — x-roles: [Admin, Dispatcher] (LOGI-0008 AC-7). */
+  editShipments: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
+
+  /**
+   * LOGI-0008 AC-10 (BR-6): the *cancel* transition is Admin/Dispatcher-only. Deliberately separate
+   * from `transitionShipments`, which stays as LOGI-0006 declared it — a Driver may still perform a
+   * non-terminal transition (e.g. Assigned → InTransit) and is only barred from cancelling.
+   */
+  cancelShipments: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
+
   /** POST /shipments — x-roles: [Admin, Dispatcher] (LOGI-0007 AC-10). */
   createShipments: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
 } as const;

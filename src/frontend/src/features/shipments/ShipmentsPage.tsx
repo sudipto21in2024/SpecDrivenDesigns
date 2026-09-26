@@ -31,19 +31,26 @@ import type {
 import { useAuth } from '../auth/AuthContext';
 import { can } from '../auth/permissions';
 import { useWarehouses } from '../warehouses/hooks';
-import { useCreateShipment, useShipments } from './hooks';
+import { useCreateShipment, useCancelShipment, useShipments, useUpdateShipment } from './hooks';
 import {
   shipmentPriorities,
   shipmentSortOptions,
   shipmentStatusOptions,
 } from './schema';
 import ShipmentFormDialog from './ShipmentFormDialog';
-import type { ShipmentInput } from '../../api/client';
+import EditShipmentDialog from './EditShipmentDialog';
+import CancelShipmentDialog from './CancelShipmentDialog';
+import { ApiError } from '../../api/client';
+import type { Shipment, ShipmentInput, ShipmentUpdateInput } from '../../api/client';
+
+/** BR-7: a shipment may be cancelled from Pending or Assigned only (AC-8/AC-11). */
+const cancellableStatuses: readonly ShipmentStatus[] = ['Pending', 'Assigned'];
 
 /**
- * Shipment list + create page (LOGI-0007 F5/F8, AC-1..AC-10). Paged table with AND filters, 4
- * sorts, a read-time at-risk chip, and a role-gated create dialog. Row click is inert — edit/detail
- * are LOGI-0008.
+ * Shipment list + create page (LOGI-0007 F5/F8, AC-1..AC-10; LOGI-0008 F6, AC-11). Paged table with
+ * AND filters, 4 sorts, a read-time at-risk chip, a role-gated create dialog, and the row actions
+ * this ticket adds: Edit (Pending only) and Cancel (Pending/Assigned), both role-gated to
+ * Admin/Dispatcher, with a 409 on either surfacing a message and refreshing the row.
  */
 export default function ShipmentsPage() {
   // MUI TablePagination is zero-based; the API is one-based (page defaults to 1, pageSize 25).
@@ -59,6 +66,12 @@ export default function ShipmentsPage() {
 
   const { user } = useAuth();
   const canCreate = user != null && can(user.role, 'createShipments');
+  // LOGI-0008 AC-11: Edit is the PATCH capability, Cancel is the BR-6 role rule for the
+  // Cancelled transition — two separate capabilities, so neither implies the other.
+  const canEdit = user != null && can(user.role, 'editShipments');
+  const canCancel = user != null && can(user.role, 'cancelShipments');
+  /** Viewer and Driver see no row actions at all (AC-11). */
+  const showRowActions = canEdit || canCancel;
 
   const warehouses = useWarehouses(1, 200, '');
   const warehouseName = useMemo(() => {
@@ -84,8 +97,52 @@ export default function ShipmentsPage() {
 
   const { data, isPending, isError, error, refetch } = useShipments(params);
   const createMutation = useCreateShipment();
+  const updateMutation = useUpdateShipment();
+  const cancelMutation = useCancelShipment();
   const [formOpen, setFormOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Shipment | null>(null);
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
+
+  /**
+   * AC-11: a 409 means the row's state changed in another tab. Surface the server's detail and
+   * refetch so the table shows the truth instead of a stale affordance.
+   */
+  const conflictMessage = (caught: unknown, fallback: string) => {
+    const detail = caught instanceof ApiError ? (caught.problem.detail ?? caught.message) : fallback;
+    setSnackbar({ message: detail, severity: 'error' });
+    void refetch();
+  };
+
+  const handleUpdate = async (body: ShipmentUpdateInput) => {
+    if (editId == null) return;
+    try {
+      const updated = await updateMutation.mutateAsync({ id: editId, body });
+      setSnackbar({ message: `Shipment ${updated.referenceCode} updated`, severity: 'success' });
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 409) {
+        conflictMessage(caught, 'This shipment can no longer be edited.');
+        throw caught; // re-thrown so the dialog stays open and shows the detail (AC-11)
+      }
+      throw caught; // the dialog renders field-keyed 400s and other failures
+    }
+  };
+
+  const handleCancel = async (note?: string) => {
+    if (cancelTarget == null) return;
+    const { referenceCode } = cancelTarget;
+    try {
+      await cancelMutation.mutateAsync({ id: cancelTarget.id, note });
+      setSnackbar({ message: `Shipment ${referenceCode} cancelled`, severity: 'success' });
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 409) {
+        conflictMessage(caught, 'This shipment can no longer be cancelled.');
+        return;
+      }
+      // 403/404/400 are shown inside the dialog, which stays open.
+      throw caught;
+    }
+  };
 
   const applySearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -266,12 +323,13 @@ export default function ShipmentsPage() {
                   <TableCell>SLA due</TableCell>
                   <TableCell>At risk</TableCell>
                   <TableCell>Created</TableCell>
+                  {showRowActions && <TableCell align="right">Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {data.items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} align="center">
+                    <TableCell colSpan={showRowActions ? 10 : 9} align="center">
                       No shipments found
                     </TableCell>
                   </TableRow>
@@ -297,6 +355,30 @@ export default function ShipmentsPage() {
                       )}
                     </TableCell>
                     <TableCell>{shipment.createdAt}</TableCell>
+                    {showRowActions && (
+                      <TableCell align="right">
+                        {/* AC-11: Edit is Pending-only; Cancel is legal from Pending or Assigned. */}
+                        {canEdit && shipment.status === 'Pending' && (
+                          <Button
+                            size="small"
+                            onClick={() => setEditId(shipment.id)}
+                            aria-label={`Edit ${shipment.referenceCode}`}
+                          >
+                            Edit
+                          </Button>
+                        )}
+                        {canCancel && cancellableStatuses.includes(shipment.status) && (
+                          <Button
+                            size="small"
+                            color="error"
+                            onClick={() => setCancelTarget(shipment)}
+                            aria-label={`Cancel ${shipment.referenceCode}`}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -318,21 +400,38 @@ export default function ShipmentsPage() {
       )}
 
       {canCreate && (
-        <>
-          <ShipmentFormDialog
-            open={formOpen}
-            onClose={() => setFormOpen(false)}
-            onSubmit={handleCreate}
-          />
-          <Snackbar
-            open={snackbar != null}
-            autoHideDuration={4000}
-            onClose={() => setSnackbar(null)}
-            message={snackbar?.message}
-            data-testid="snackbar"
-          />
-        </>
-            )}
+        <ShipmentFormDialog
+          open={formOpen}
+          onClose={() => setFormOpen(false)}
+          onSubmit={handleCreate}
+        />
+      )}
+
+      {canEdit && (
+        <EditShipmentDialog
+          open={editId != null}
+          shipmentId={editId}
+          onClose={() => setEditId(null)}
+          onSubmit={handleUpdate}
+        />
+      )}
+
+      {canCancel && (
+        <CancelShipmentDialog
+          open={cancelTarget != null}
+          shipment={cancelTarget}
+          onClose={() => setCancelTarget(null)}
+          onConfirm={handleCancel}
+        />
+      )}
+
+      <Snackbar
+        open={snackbar != null}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(null)}
+        message={snackbar?.message}
+        data-testid="snackbar"
+      />
     </Box>
   );
 }

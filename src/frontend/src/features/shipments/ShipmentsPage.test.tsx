@@ -56,6 +56,21 @@ function iso(offsetMs: number): string {
 
 const HOUR = 3_600_000;
 
+/**
+ * Awaits a request that must fail and returns the `ApiError` the client throws, so assertions can
+ * read `status` / `problem` / `fieldErrors` without fighting the union the `.catch` produces.
+ * Fails the test if the call unexpectedly succeeds.
+ */
+async function expectApiError(promise: Promise<unknown>): Promise<ApiError> {
+  try {
+    await promise;
+  } catch (error) {
+    expect(error).toBeInstanceOf(ApiError);
+    return error as ApiError;
+  }
+  throw new Error('Expected the request to fail, but it succeeded.');
+}
+
 /** The RFC 7807 body the API returns for 400s (`problem()` in the mocks) — used for forced server errors. */
 function problemBody(errors: Record<string, string[]>) {
   return {
@@ -293,3 +308,268 @@ describe('ShipmentsPage (LOGI-0007)', () => {
   });
 });
 
+describe('ShipmentsPage - edit & cancel row actions (LOGI-0008)', () => {
+  /** Opens the edit dialog for a row and returns it (pre-filled from the detail read). */
+  async function openEditDialog(user: ReturnType<typeof userEvent.setup>, referenceCode: string) {
+    await user.click(within(rowFor(referenceCode)).getByRole('button', { name: `Edit ${referenceCode}` }));
+    return screen.getByRole('dialog', { name: 'Edit shipment' });
+  }
+
+  it('AC-11: Edit + Cancel on a Pending row, Cancel only on Assigned', async () => {
+    const pending = seedShipment({ status: 'Pending' });
+    const assigned = seedShipment({ status: 'Assigned' });
+    await renderShipmentsTab('Admin');
+
+    await waitFor(() => expect(bodyRows()).toHaveLength(2));
+    const pendingRow = rowFor(pending.referenceCode);
+    expect(within(pendingRow).getByRole('button', { name: `Edit ${pending.referenceCode}` })).toBeInTheDocument();
+    expect(within(pendingRow).getByRole('button', { name: `Cancel ${pending.referenceCode}` })).toBeInTheDocument();
+    // AC-11: an Assigned row offers Cancel but not Edit.
+    const assignedRow = rowFor(assigned.referenceCode);
+    expect(within(assignedRow).getByRole('button', { name: `Cancel ${assigned.referenceCode}` })).toBeInTheDocument();
+    expect(within(assignedRow).queryByRole('button', { name: `Edit ${assigned.referenceCode}` })).not.toBeInTheDocument();
+  });
+
+  it('AC-11: InTransit, Delayed, Delivered and Cancelled rows offer neither action', async () => {
+    const rows = [
+      seedShipment({ status: 'InTransit' }),
+      seedShipment({ status: 'Delayed' }),
+      seedShipment({ status: 'Delivered' }),
+      seedShipment({ status: 'Cancelled' }),
+    ];
+    await renderShipmentsTab('Admin');
+
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    for (const shipment of rows) {
+      const row = rowFor(shipment.referenceCode);
+      expect(within(row).queryByRole('button', { name: `Edit ${shipment.referenceCode}` })).not.toBeInTheDocument();
+      expect(within(row).queryByRole('button', { name: `Cancel ${shipment.referenceCode}` })).not.toBeInTheDocument();
+    }
+  });
+
+  it('AC-11: a Viewer sees no row actions at all', async () => {
+    const pending = seedShipment({ status: 'Pending' });
+    await renderShipmentsTab('Viewer');
+
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    const row = rowFor(pending.referenceCode);
+    expect(within(row).queryByRole('button', { name: `Edit ${pending.referenceCode}` })).toBeNull();
+    expect(within(row).queryByRole('button', { name: `Cancel ${pending.referenceCode}` })).toBeNull();
+  });
+
+  it('AC-6/AC-11: Edit pre-fills from GET /shipments/{id} and saves a PATCH that refreshes the row', async () => {
+    seedWarehouse();
+    const shipment = seedShipment({ destinationAddress: 'Old Address 1', weightKg: 10 });
+    const user = await renderShipmentsTab('Dispatcher');
+
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    const dialog = await openEditDialog(user, shipment.referenceCode);
+
+    // AC-6: the dialog is pre-filled from the detail read, not from the row.
+    const address = await within(dialog).findByLabelText('Destination address');
+    await waitFor(() => expect(address).toHaveValue('Old Address 1'));
+    expect(within(dialog).getByLabelText('Weight in kilograms')).toHaveValue(10);
+
+    await user.clear(address);
+    await user.type(address, 'New Address 9');
+    await user.click(within(dialog).getByTestId('shipment-save'));
+
+    // AC-1: the row reads back the new value and untouched fields are not resent.
+    await waitFor(() => expect(screen.getByText('New Address 9')).toBeInTheDocument());
+    expect(shipmentsDb[0].destinationAddress).toBe('New Address 9');
+    expect(shipmentsDb[0].weightKg).toBe(10);
+    expect(shipmentsDb[0].statusHistory).toHaveLength(1); // an edit writes no audit row
+  });
+
+  it('AC-1/AC-12: an edit leaves status, priority, slaDueAt and createdAt untouched', async () => {
+    const shipment = seedShipment({ priority: 'Express', destinationAddress: 'Immutable Check 1' });
+    const before = { ...shipment };
+    const user = await renderShipmentsTab('Admin');
+
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    const dialog = await openEditDialog(user, shipment.referenceCode);
+    const weight = await within(dialog).findByLabelText('Weight in kilograms');
+    await user.clear(weight);
+    await user.type(weight, '250');
+    await user.click(within(dialog).getByTestId('shipment-save'));
+
+    await waitFor(() => expect(screen.getByText('250')).toBeInTheDocument());
+    expect(shipmentsDb[0].status).toBe(before.status);
+    expect(shipmentsDb[0].priority).toBe('Express');
+    expect(shipmentsDb[0].slaDueAt).toBe(before.slaDueAt);
+    expect(shipmentsDb[0].createdAt).toBe(before.createdAt);
+  });
+
+  it('AC-3: a server 400 for the edited field surfaces on that field and nothing is written', async () => {
+    const shipment = seedShipment({ destinationAddress: 'Blanked Address' });
+    const user = await renderShipmentsTab('Admin');
+
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    const dialog = await openEditDialog(user, shipment.referenceCode);
+    const address = await within(dialog).findByLabelText('Destination address');
+    // Force the server path: the endpoint answers 400 keyed to destinationAddress.
+    server.use(
+      http.patch('/api/v1/shipments/:id', () =>
+        HttpResponse.json(problemBody({ destinationAddress: ['Destination address is required'] }), { status: 400 }),
+      ),
+    );
+    await user.clear(address);
+    await user.type(address, 'Forced');
+    await user.click(within(dialog).getByTestId('shipment-save'));
+
+    expect(await within(dialog).findByText('Destination address is required')).toBeInTheDocument();
+    expect(shipmentsDb[0].destinationAddress).toBe('Blanked Address');
+  });
+
+  it('AC-11: a 409 from the PATCH surfaces a message and refreshes the row', async () => {
+    const shipment = seedShipment({ destinationAddress: 'Race Condition 1' });
+    const user = await renderShipmentsTab('Admin');
+
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    server.use(
+      http.patch('/api/v1/shipments/:id', () =>
+        HttpResponse.json(
+          {
+            type: 'https://logiflow.dev/errors/conflict',
+            title: 'Conflict',
+            status: 409,
+            detail: "Shipment is in status 'Assigned' and can no longer be edited. Required status: 'Pending'.",
+            traceId: 'test',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const dialog = await openEditDialog(user, shipment.referenceCode);
+    const address = await within(dialog).findByLabelText('Destination address');
+    await user.clear(address);
+    await user.type(address, 'Never Saved');
+    await user.click(within(dialog).getByTestId('shipment-save'));
+
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(/can no longer be edited/);
+    expect(screen.getByRole('dialog', { name: 'Edit shipment' })).toBeInTheDocument();
+    expect(shipmentsDb[0].destinationAddress).toBe('Race Condition 1');
+  });
+
+  it('AC-8/AC-11: Cancel requires a confirmation and then transitions the row to Cancelled', async () => {
+    const shipment = seedShipment({ destinationAddress: 'Withdraw Me 1' });
+    const user = await renderShipmentsTab('Dispatcher');
+
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    await user.click(
+      within(rowFor(shipment.referenceCode)).getByRole('button', { name: `Cancel ${shipment.referenceCode}` }),
+    );
+
+    const dialog = screen.getByRole('dialog', { name: 'Cancel shipment' });
+    await user.type(within(dialog).getByLabelText('Cancellation note'), 'Customer withdrew the order');
+    await user.click(within(dialog).getByTestId('confirm-cancel'));
+
+    // AC-8: the row reports Cancelled and the note is in the append-only audit trail.
+    await waitFor(() => expect(within(rowFor(shipment.referenceCode)).getByText('Cancelled')).toBeInTheDocument());
+    const history = await api.listShipmentStatusHistory(shipment.id);
+    const last = history.items[history.items.length - 1];
+    expect(last.toStatus).toBe('Cancelled');
+    expect(last.fromStatus).toBe('Pending');
+    expect(last.note).toBe('Customer withdrew the order');
+  });
+
+  it('AC-11: dismissing the cancel confirmation sends no request', async () => {
+    const shipment = seedShipment({ destinationAddress: 'Keep Me 1' });
+    const user = await renderShipmentsTab('Admin');
+
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    await user.click(
+      within(rowFor(shipment.referenceCode)).getByRole('button', { name: `Cancel ${shipment.referenceCode}` }),
+    );
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Cancel shipment' })).getByRole('button', { name: 'Keep shipment' }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Cancel shipment' })).not.toBeInTheDocument());
+    expect(shipmentsDb[0].status).toBe('Pending');
+  });
+
+  it('AC-7: PATCH is Admin/Dispatcher-only — a Viewer gets 403, not a silent no-op', async () => {
+    const pending = seedShipment({ status: 'Pending' });
+    renderAppAs('Viewer'); // a Viewer may read but not write
+    const viewerError = await expectApiError(
+      api.updateShipment(pending.id, { destinationAddress: 'Forged' }),
+    );
+    expect(viewerError.status).toBe(403); // hiding the button is not authorization
+    expect(shipmentsDb[0].destinationAddress).toBe('12 Dock Road, Rotterdam');
+  });
+
+  it('AC-5: PATCH 404s an unknown shipment id', async () => {
+    renderAppAs('Admin');
+    const missing = await expectApiError(api.updateShipment(999999, { weightKg: 5 }));
+    expect(missing.status).toBe(404);
+    expect(shipmentsDb).toHaveLength(0);
+  });
+
+  it('AC-2: a non-Pending shipment is 409 and nothing is applied', async () => {
+    const assigned = seedShipment({ status: 'Assigned' });
+    renderAppAs('Admin');
+    const conflict = await expectApiError(
+      api.updateShipment(assigned.id, { destinationAddress: 'Too Late' }),
+    );
+
+    expect(conflict.status).toBe(409);
+    expect(conflict.problem.detail).toMatch(/Required status: 'Pending'/);
+    expect(shipmentsDb[0].destinationAddress).toBe('12 Dock Road, Rotterdam');
+  });
+
+  it('AC-4: server-owned and immutable fields are rejected per field and nothing is applied', async () => {
+    const shipment = seedShipment({ destinationAddress: 'Untouched 1' });
+    renderAppAs('Admin');
+    const errors = await expectApiError(
+      api.updateShipment(shipment.id, { priority: 'Express', status: 'Assigned' } as never),
+    );
+
+    expect(errors.status).toBe(400);
+    expect(errors.fieldErrors.priority?.[0]).toMatch(/immutable/i);
+    expect(errors.fieldErrors.status?.[0]).toMatch(/server-owned/i);
+    expect(shipmentsDb[0].priority).toBe('Standard');
+    expect(shipmentsDb[0].status).toBe('Pending');
+  });
+
+  it('AC-3: an empty PATCH body is rejected with errors.body', async () => {
+    const shipment = seedShipment();
+    renderAppAs('Admin');
+    const errors = await expectApiError(api.updateShipment(shipment.id, {}));
+
+    expect(errors.status).toBe(400);
+    expect(errors.fieldErrors.body?.[0]).toMatch(/at least one editable field/i);
+  });
+
+  it('AC-6: GET /shipments/{id} returns the detail and 404s an unknown id', async () => {
+    const shipment = seedShipment({ destinationAddress: 'Detail Read 1', destinationLat: 51.92 });
+    renderAppAs('Viewer'); // AC-7: Viewer may read the detail
+    const detail = await api.getShipment(shipment.id);
+
+    expect(detail.referenceCode).toBe(shipment.referenceCode);
+    expect(detail.destinationAddress).toBe('Detail Read 1');
+    expect(detail.destinationLat).toBe(51.92);
+    expect(detail.routeId).toBeNull();
+
+    const missing = await expectApiError(api.getShipment(999999));
+    expect(missing.status).toBe(404);
+  });
+
+  it('AC-10: a Driver may not cancel (403) but still transitions a non-terminal status (200)', async () => {
+    renderAppAs('Driver');
+    const assigned = seedShipment({ status: 'Assigned' });
+    const pending = seedShipment({ status: 'Pending' });
+
+    const forbidden = await expectApiError(
+      api.transitionShipmentStatus(pending.id, { toStatus: 'Cancelled' }),
+    );
+    expect(forbidden.status).toBe(403);
+    expect(shipmentsDb[1].status).toBe('Pending');
+    expect(shipmentsDb[1].statusHistory).toHaveLength(1); // no audit row for the rejected attempt
+
+    // LOGI-0006 behaviour is unchanged for a non-terminal transition.
+    const ok = await api.transitionShipmentStatus(assigned.id, { toStatus: 'InTransit' });
+    expect(ok.toStatus).toBe('InTransit');
+    expect(shipmentsDb[0].statusHistory).toHaveLength(2);
+  });
+});

@@ -940,6 +940,126 @@ export const handlers = [
     return HttpResponse.json(toShipmentResponse(shipment), { status: 201 });
   }),
 
+  // ------------------------- Shipments: detail + edit (LOGI-0008 AC-1..AC-7)
+
+  /**
+   * GET /shipments/{id} — the detail read LOGI-0007 deferred here. Same `ShipmentResponse` shape as
+   * a list row (including the read-time atRisk projection and routeId); 404 for an unknown id.
+   * Roles: x-roles [Admin, Dispatcher, Viewer] — Driver excluded (own-route scoping is LOGI-0009/0010).
+   */
+  http.get('/api/v1/shipments/:id', ({ request, params }) => {
+    const auth = authorize(request, 'read', 'shipments', shipmentListRules);
+    if (!('user' in auth)) return auth;
+
+    const shipment = shipmentsDb.find((s) => s.id === Number(params.id));
+    if (!shipment) return problem(404, 'Resource not found', `Shipment with id '${String(params.id)}' was not found.`);
+    return HttpResponse.json(toShipmentResponse(shipment));
+  }),
+
+  /**
+   * PATCH /shipments/{id} — AC-1..AC-5/AC-12. A *partial* update of a Pending shipment:
+   *  - 404 unknown id; 409 when the status is no longer Pending, with nothing written (AC-2);
+   *  - field-keyed 400s mirroring the backend validator (AC-3), including the warehouse-existence
+   *    check and the `body` key for an empty patch;
+   *  - server-owned and immutable keys are rejected per field, and `priority` is rejected outright
+   *    (AC-4) so BR-1 keeps its single sla_due_at writer;
+   *  - no status-history row is written — an edit is not a status transition (AC-1) — and
+   *    `priority`/`slaDueAt`/`referenceCode`/`createdAt` are never touched.
+   */
+  http.patch('/api/v1/shipments/:id', async ({ request, params }) => {
+    const auth = authorize(request, 'write', 'shipments', shipmentListRules);
+    if (!('user' in auth)) return auth;
+
+    const shipment = shipmentsDb.find((s) => s.id === Number(params.id));
+    if (!shipment) return problem(404, 'Resource not found', `Shipment with id '${String(params.id)}' was not found.`);
+
+    // AC-2: the state guard comes first, so a stale client learns why nothing was applied.
+    if (shipment.status !== 'Pending') {
+      return problem409(
+        `Shipment ${shipment.referenceCode} is in status '${shipment.status}' and can no longer be edited. Required status: 'Pending'.`,
+      );
+    }
+
+    const raw = (await request.json()) as Record<string, unknown>;
+    const errors: Record<string, string[]> = {};
+
+    // AC-4: server-owned keys are never accepted; each is reported under its own name.
+    for (const key of ['id', 'referenceCode', 'status', 'slaDueAt', 'createdAt', 'updatedAt', 'routeId', 'atRisk']) {
+      if (key in raw) errors[key] = [`'${key}' is a server-owned field and cannot be set.`];
+    }
+    if ('priority' in raw) {
+      errors.priority = ['Priority is immutable; create a new shipment.'];
+    }
+    if (Object.keys(raw).length === 0) {
+      errors.body = ['At least one editable field is required.'];
+    }
+
+    const has = (key: string) => key in raw;
+    const patch: Record<string, unknown> = {};
+
+    if (has('originWarehouseId')) {
+      const originWarehouseId = Number(raw.originWarehouseId);
+      if (!Number.isInteger(originWarehouseId) || originWarehouseId < 1) {
+        errors.originWarehouseId = ['Origin warehouse id is required'];
+      } else if (!warehousesDb.some((warehouse) => warehouse.id === originWarehouseId)) {
+        errors.originWarehouseId = [`Warehouse with id '${originWarehouseId}' does not exist.`];
+      } else {
+        patch.originWarehouseId = originWarehouseId;
+      }
+    }
+
+    if (has('destinationAddress')) {
+      const address = typeof raw.destinationAddress === 'string' ? raw.destinationAddress.trim() : '';
+      if (address === '') errors.destinationAddress = ['Destination address is required'];
+      else if (address.length > 500)
+        errors.destinationAddress = ['Destination address must be at most 500 characters'];
+      else patch.destinationAddress = address;
+    }
+
+    if (has('weightKg')) {
+      const weightKg = Number(raw.weightKg);
+      if (raw.weightKg == null || !Number.isFinite(weightKg) || weightKg <= 0) {
+        errors.weightKg = ['Weight must be greater than 0'];
+      } else {
+        patch.weightKg = weightKg;
+      }
+    }
+
+    if (has('destinationLat')) {
+      if (raw.destinationLat == null) {
+        patch.destinationLat = null;
+      } else {
+        const lat = Number(raw.destinationLat);
+        if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+          errors.destinationLat = ['Destination latitude must be between -90 and 90.'];
+        } else {
+          patch.destinationLat = lat;
+        }
+      }
+    }
+
+    if (has('destinationLng')) {
+      if (raw.destinationLng == null) {
+        patch.destinationLng = null;
+      } else {
+        const lng = Number(raw.destinationLng);
+        if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+          errors.destinationLng = ['Destination longitude must be between -180 and 180.'];
+        } else {
+          patch.destinationLng = lng;
+        }
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+    }
+
+    Object.assign(shipment, patch);
+    shipment.updatedAt = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString();
+    return HttpResponse.json(toShipmentResponse(shipment));
+  }),
+
   // ------------------------------------- Shipments: BR-7 status lifecycle (LOGI-0006)
 
   /**
@@ -955,6 +1075,14 @@ export const handlers = [
     if (!shipment) return problem(404, 'Resource not found', `Shipment with id '${String(params.id)}' was not found.`);
 
     const body = (await request.json()) as StatusTransitionRequest;
+
+    // LOGI-0008 AC-10 (BR-6): cancelling is Admin/Dispatcher-only. Checked before the transition
+    // table so a Driver's rejected attempt writes nothing; a Driver's non-terminal transition
+    // (e.g. Assigned → InTransit) is still 2xx, i.e. the LOGI-0006 behaviour is unchanged.
+    if (body.toStatus === 'Cancelled' && auth.user.role === 'Driver') {
+      return problem(403, 'Forbidden', `The ${auth.user.role} role is not permitted to cancel shipments.`);
+    }
+
     if (!body.toStatus || !shipmentStatuses.includes(body.toStatus)) {
       return problem(400, 'Validation failed', 'One or more validation errors occurred.', {
         toStatus: ['Status must be one of: Pending, Assigned, InTransit, Delivered, Delayed, Cancelled.'],
