@@ -51,3 +51,8 @@
 - [x] **Task 4.2:** Test `node tools/tracker/index.mjs plan-slice --ticket LOGI-0007 --arm backend` and `frontend`.
 - [x] **Task 4.3:** Test `node tools/spec/index.mjs show --ticket LOGI-0007 --section ac` and `--section summary`.
 - [x] **Task 4.4:** Clean up temporary backup directories after successful verification.
+
+### Phase 5: Follow-up Fix — State Derivation & Dispatch Queue (LOGI-0015)
+- [x] **Task 5.1:** Derive ticket status from the handoff destination — `tracker handoff` now records `toState` (previously absent from all 24 handoffs), so a finished ticket reads `done` instead of staying `planned`.
+- [x] **Task 5.2:** Dispatch queue excludes `done`/`blocked`/open-arm tickets and appends unstarted roadmap tickets (`Docs/PROJECT_STATUS.md`, `TRACKER_ROADMAP` override); `ready --all` audits the rest.
+- [x] **Task 5.3:** Enforce `LEGAL_TRANSITIONS` on `handoff` (exit 1 + `--force` escape) and print the head ticket, source and queue composition in `tracker status`.

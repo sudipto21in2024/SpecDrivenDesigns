@@ -14,11 +14,27 @@ export const MEMORY_DIR = path.join(ROOT, 'memory');
 export const JOURNAL_DIR = path.join(MEMORY_DIR, 'journal');
 export const SPECS_DIR = path.join(ROOT, 'specs', 'features');
 
+// Ordered ticket roadmap (backlog source for the dispatch queue). Override with TRACKER_ROADMAP.
+export const ROADMAP_FILE = process.env.TRACKER_ROADMAP
+  ? path.resolve(ROOT, process.env.TRACKER_ROADMAP)
+  : path.join(ROOT, 'Docs', 'PROJECT_STATUS.md');
+
 // Legal state-machine transitions (subset relevant to arms; from 03-spec-driven-workflow.md).
 export const LEGAL_TRANSITIONS = new Set([
   'planned->in_progress', 'in_progress->done', 'in_progress->blocked',
   'blocked->in_progress', 'done->in_progress', // reopen for bugfix routing
 ]);
+
+// Destination state of a handoff. `to` names the receiving arm, or 'done' / 'blocked'.
+// An explicit `toState` (foreign/older events) always wins.
+export function handoffState(ev) {
+  if (ev?.toState) return ev.toState;
+  const to = String(ev?.to ?? '').trim().toLowerCase();
+  if (!to) return null;
+  if (to === 'done' || to === 'complete' || to === 'completed') return 'done';
+  if (to === 'blocked') return 'blocked';
+  return 'in_progress';
+}
 
 export const ARM_BOUNDARIES = {
   backend: { write: ['src/backend/**'], deny: ['src/frontend/**', 'contracts/**', 'tests/e2e/**'] },
@@ -116,9 +132,17 @@ export function rebuildSnapshot() {
     const t = (tasks[ev.ticket] ??= { ticket: ev.ticket, arms: {}, status: 'planned' });
     if (ev.type === 'TASK_STARTED') {
       t.arms[ev.arm] = { status: 'in_progress', agent: ev.agent ?? null, started: ev.ts };
+      t.status = 'in_progress'; // also covers reopen (done->in_progress) for bugfix routing
     } else if (ev.type === 'HANDOFF') {
-      t.status = ev.toState ?? t.status;
+      // Derive the ticket state from the handoff DESTINATION — never assume it stays 'planned'.
+      const toState = handoffState(ev) ?? t.status;
+      t.status = toState;
       if (t.arms[ev.from]) t.arms[ev.from].status = 'done';
+      // A completed ticket holds no open arm; otherwise a half-closed parallel arm would keep
+      // the ticket "in progress" and resurface it as a phantom orphan in `ready --stuck`.
+      if (toState === 'done') {
+        for (const a of Object.values(t.arms)) if (a.status === 'in_progress') a.status = 'done';
+      }
       t.next = ev.to ?? null;
     } else if (ev.type === 'STEP_DONE' && ev.arm && t.arms[ev.arm]) {
       t.arms[ev.arm].lastStep = ev.note ?? 'step';
@@ -134,6 +158,31 @@ export function rebuildSnapshot() {
   return tasks;
 }
 
+function byTicketId(a, b) {
+  return a.ticket < b.ticket ? -1 : a.ticket > b.ticket ? 1 : 0;
+}
+
+// Roadmap backlog: ordered ticket rows from `Docs/PROJECT_STATUS.md` §2 that have never been
+// tracked. Rows the roadmap marks as complete are skipped, so pre-tracker tickets
+// (LOGI-0000/0001, no events) are never re-proposed. Tolerant: a missing or unparsable
+// roadmap yields an empty backlog instead of throwing.
+export function roadmapBacklog(file = ROADMAP_FILE) {
+  if (!fs.existsSync(file)) return [];
+  const rows = [];
+  const seen = new Set();
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    const m = line.match(/^\|\s*\d+\s*\|\s*\**\s*(LOGI-\d{4})\s*\**\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|\s*$/);
+    if (!m) continue;
+    const [, ticket, title, rawStatus] = m;
+    if (seen.has(ticket)) continue;
+    seen.add(ticket);
+    const finished = /done|complete/i.test(rawStatus) || rawStatus.includes('\u2705') || rawStatus.includes('\u{1F7E2}');
+    if (finished) continue;
+    rows.push({ ticket, title: title.replace(/\s+/g, ' ').trim(), roadmapStatus: rawStatus.replace(/\s+/g, ' ').trim() });
+  }
+  return rows.sort(byTicketId);
+}
+
 export function currentTask() {
   const tasks = rebuildSnapshot();
   const active = Object.values(tasks).filter((t) =>
@@ -141,28 +190,47 @@ export function currentTask() {
   return active;
 }
 
-export function readyQueue({ stuckOnly = false, staleMinutes = Number(process.env.TRACKER_STALE_MINUTES ?? 60) } = {}) {
-  const events = readEvents();
-  const handoffTickets = new Set(events.filter((e) => e.type === 'HANDOFF').map((e) => e.ticket));
+// Dispatch queue — the orchestrator's only source of "what next".
+//   * a ticket is actionable when it is NOT complete and no arm is currently holding it;
+//   * completed tickets (status 'done') are NEVER re-dispatched: equating "no open arm" with
+//     "ready" is what kept re-proposing finished work (LOGI-0002..0007, LOGI-0014) while the
+//     real next ticket stayed invisible;
+//   * blocked tickets are human-gated and stay out of the queue;
+//   * ordered roadmap tickets that never reached the event log are appended, so the queue can
+//     name the true next ticket (LOGI-0008) the moment one is finished;
+//   * `all` adds the non-actionable tickets back, flagged `dispatchable: false`, for audits.
+export function readyQueue({ stuckOnly = false, all = false, staleMinutes = Number(process.env.TRACKER_STALE_MINUTES ?? 60) } = {}) {
   const tasks = rebuildSnapshot();
+  const tracked = Object.values(tasks).sort(byTicketId);
   const now = Date.now();
   const result = [];
-  for (const t of Object.values(tasks)) {
-    const openArm = Object.values(t.arms).find((a) => a.status === 'in_progress');
-    if (stuckOnly) {
-      // Orphan signal: an arm claims to be in progress but nothing has happened for
-      // `staleMinutes` — the agent that claimed it is presumed dead (no handoff recorded).
-      if (!openArm) continue;
+
+  if (stuckOnly) {
+    // Orphan signal: an arm claims to be in progress but nothing has happened for
+    // `staleMinutes` — the agent that claimed it is presumed dead (no handoff recorded).
+    for (const t of tracked) {
+      if (t.status === 'done') continue;
+      const armName = Object.keys(t.arms).find((k) => t.arms[k].status === 'in_progress');
+      if (!armName) continue;
+      const openArm = t.arms[armName];
       const lastActivity = Date.parse(openArm.lastStepAt ?? openArm.started ?? 0);
-      const stale = now - lastActivity > staleMinutes * 60_000;
-      if (!stale) continue;
-      result.push({ ticket: t.ticket, orphaned: true, arm: Object.keys(t.arms).find((k) => t.arms[k] === openArm),
+      if (now - lastActivity <= staleMinutes * 60_000) continue;
+      result.push({ ticket: t.ticket, orphaned: true, arm: armName,
         lastActivity: new Date(lastActivity).toISOString(), note: 'stale in-progress arm — dispatch continuation child (verify-then-fix)' });
-    } else {
-      // Dispatch queue: tickets with no active arm are available for planning/dispatch.
-      if (openArm) continue;
-      result.push({ ticket: t.ticket, status: t.status, next: t.next ?? null });
     }
+    return result;
+  }
+
+  const started = new Set(tracked.map((t) => t.ticket));
+  for (const t of tracked) {
+    const holdingArm = Object.values(t.arms).some((a) => a.status === 'in_progress');
+    const dispatchable = t.status !== 'done' && t.status !== 'blocked' && !holdingArm;
+    if (!dispatchable && !all) continue;
+    result.push({ ticket: t.ticket, status: t.status, next: t.next ?? null, source: 'tracked', dispatchable });
+  }
+  for (const b of roadmapBacklog()) {
+    if (started.has(b.ticket)) continue; // already tracked — the event log is authoritative
+    result.push({ ticket: b.ticket, status: 'planned', next: null, title: b.title, source: 'roadmap', dispatchable: true });
   }
   return result;
 }

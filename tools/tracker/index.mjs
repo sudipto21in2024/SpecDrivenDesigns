@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
-import { ROOT, STATE_DIR, PLANS_DIR, JOURNAL_DIR, MEMORY_DIR, appendEvent, readEvents, appendHandoff, currentTask, readyQueue, sealSection, journalTail, journalFile, tailEvents, showTicket, getActiveContext } from './core.mjs';
+import { ROOT, STATE_DIR, PLANS_DIR, JOURNAL_DIR, MEMORY_DIR, appendEvent, readEvents, appendHandoff, currentTask, readyQueue, sealSection, journalTail, journalFile, tailEvents, showTicket, getActiveContext, rebuildSnapshot, handoffState, LEGAL_TRANSITIONS } from './core.mjs';
 import { planPath, validatePlan, loadPlan, inManifest, slicePlan } from './plans.mjs';
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -100,9 +100,13 @@ const cmds = {
       console.log('Active Arm  : NONE (idle)');
       const nextTicket = ctx.queue[0];
       if (nextTicket) {
-        console.log(`Dispatch Q  : Next ready ticket is ${nextTicket.ticket} (status: ${nextTicket.status}, next: ${nextTicket.next})`);
+        console.log(`Dispatch Q  : Next ready ticket is ${nextTicket.ticket} (status: ${nextTicket.status}, next: ${nextTicket.next ?? 'none'}, source: ${nextTicket.source})`);
+        if (nextTicket.title) console.log(`              ${nextTicket.title}`);
+        const trackedN = ctx.queue.filter((q) => q.source === 'tracked').length;
+        const roadmapN = ctx.queue.filter((q) => q.source === 'roadmap').length;
+        console.log(`Queue Detail: ${ctx.queue.length} actionable (tracked-in-flight ${trackedN}, roadmap-backlog ${roadmapN})`);
       } else {
-        console.log('Dispatch Q  : Queue empty.');
+        console.log('Dispatch Q  : Queue empty — no incomplete tracked ticket and no unstarted roadmap ticket.');
       }
     }
     console.log('=============================');
@@ -120,8 +124,8 @@ const cmds = {
     console.log(active.length ? JSON.stringify(active, null, 2) : 'No in-progress arms. Run `tracker ready` for the dispatch queue.');
   },
   ready() {
-    const queue = readyQueue({ stuckOnly: rest.includes('--stuck') });
-    console.log(queue.length ? JSON.stringify(queue, null, 2) : (rest.includes('--stuck') ? 'No orphaned arms.' : 'Queue empty — all tracked tickets idle.'));
+    const queue = readyQueue({ stuckOnly: rest.includes('--stuck'), all: rest.includes('--all') });
+    console.log(queue.length ? JSON.stringify(queue, null, 2) : (rest.includes('--stuck') ? 'No orphaned arms.' : 'Queue empty — every tracked ticket is done/blocked and the roadmap backlog is empty.'));
   },
   claim() {
     const { values } = parseArgs({ args: rest, options: { ticket: { type: 'string' }, arm: { type: 'string' }, agent: { type: 'string' } } });
@@ -197,11 +201,21 @@ const cmds = {
     if (verdict === 'broken') process.exit(1);
   },
   handoff() {
-    const { values } = parseArgs({ args: rest, options: { ticket: { type: 'string' }, from: { type: 'string' }, to: { type: 'string' }, summary: { type: 'string' }, gates: { type: 'string' } } });
+    // Records the destination state explicitly (`toState`) so the snapshot never has to guess,
+    // and refuses transitions that are not legal (LEGAL_TRANSITIONS) unless --force is passed.
+    const { values } = parseArgs({ args: rest, options: { ticket: { type: 'string' }, from: { type: 'string' }, to: { type: 'string' }, summary: { type: 'string' }, gates: { type: 'string' }, state: { type: 'string' }, force: { type: 'boolean' } } });
     if (!values.ticket || !values.from || !values.to) throw new Error('--ticket, --from, --to required');
-    const rec = { type: 'HANDOFF', ticket: values.ticket, from: values.from, to: values.to, summary_ptr: values.summary, gates: values.gates ? values.gates.split(',') : [] };
-    console.log(JSON.stringify(appendHandoff(rec)));
+    const toState = values.state ?? handoffState({ to: values.to });
+    const current = rebuildSnapshot()[values.ticket]?.status ?? 'planned';
+    const transition = `${current}->${toState}`;
+    if (!LEGAL_TRANSITIONS.has(transition) && !values.force) {
+      console.error(`Illegal transition ${transition} for ${values.ticket} (current: ${current}, target: ${toState}).\nLegal: ${[...LEGAL_TRANSITIONS].join(', ')}.\nClaim the arm first (tracker claim --ticket ${values.ticket} --arm ${values.from}), or pass --force with a reason.`);
+      process.exit(1);
+    }
+    const rec = { type: 'HANDOFF', ticket: values.ticket, from: values.from, to: values.to, toState, summary_ptr: values.summary, gates: values.gates ? values.gates.split(',') : [] };
+    appendHandoff(rec);
     appendEvent(rec);
+    console.log(JSON.stringify({ ...rec, transition }));
   },
   plan() {
     const sub = rest[0];
@@ -315,12 +329,13 @@ if (!cmd || !cmds[cmd]) {
 
 Commands:
   current                              show in-progress arms
-  ready [--stuck]                      dispatch queue / orphaned arms
+  ready [--stuck] [--all]              dispatch queue (actionable only) / orphaned arms / --all audit
   claim --ticket T --arm A [--agent N] mark arm in-progress
   log --ticket T --type TYPE [--arm A] [--note N]
   micro --ticket T --arm A --action "..." [--files f1,f2] [--gate pass|fail|skip] [--next "..."] [--detail "..."]
                                        log a micro-action (gate failures only — one STEP_DONE per verified step otherwise)
-  handoff --ticket T --from A --to B --summary PTR [--gates g1,g2]
+  handoff --ticket T --from A --to B --summary PTR [--gates g1,g2] [--state S] [--force]
+                                       legal-transition checked; --to done marks the ticket done
   plan new --ticket T --arm A [--objective O]
   plan get --ticket T --arm A
   plan set-status --ticket T --arm A --status S

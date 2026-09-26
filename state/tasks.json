@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-26T04:34:12.338Z",
+  "generated": "2026-09-26T05:42:49.080Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -33,7 +33,7 @@
           "lastStepAt": "2026-09-20T05:29:33.171Z"
         }
       },
-      "status": "planned",
+      "status": "done",
       "next": "done"
     },
     "LOGI-0002": {
@@ -47,7 +47,7 @@
           "lastStepAt": "2026-09-20T05:35:29.703Z"
         }
       },
-      "status": "planned",
+      "status": "done",
       "next": "done"
     },
     "LOGI-0004": {
@@ -84,7 +84,7 @@
           "lastStepAt": "2026-09-20T16:03:50.565Z"
         }
       },
-      "status": "planned",
+      "status": "done",
       "next": "done"
     },
     "LOGI-0005": {
@@ -117,7 +117,7 @@
           "lastStepAt": "2026-09-22T03:35:12.985Z"
         }
       },
-      "status": "planned",
+      "status": "done",
       "next": "done"
     },
     "LOGI-0013": {
@@ -131,7 +131,7 @@
           "lastStepAt": "2026-09-21T05:29:50.572Z"
         }
       },
-      "status": "planned",
+      "status": "in_progress",
       "next": "orchestrator"
     },
     "LOGI-0014": {
@@ -147,7 +147,7 @@
           "lastStepAt": "2026-09-22T05:34:14.158Z"
         }
       },
-      "status": "planned",
+      "status": "done",
       "next": "done"
     },
     "LOGI-0006": {
@@ -182,7 +182,7 @@
           "lastStepAt": "2026-09-23T04:33:22.939Z"
         }
       },
-      "status": "planned",
+      "status": "done",
       "next": "done"
     },
     "LOGI-0007": {
@@ -217,7 +217,23 @@
           "lastStepAt": "2026-09-24T12:52:12.841Z"
         }
       },
-      "status": "planned",
+      "status": "done",
+      "next": "done"
+    },
+    "LOGI-0015": {
+      "ticket": "LOGI-0015",
+      "arms": {
+        "orchestrator": {
+          "status": "done",
+          "agent": "cline-main",
+          "started": "2026-09-26T05:37:01.068Z",
+          "plan": "state\\plans\\LOGI-0015-orchestrator.plan.md",
+          "planStatus": "locked",
+          "lastStep": "sealed: show LOGI-0007 status=done; ready head LOGI-0013 (in_progress, next orchestrator) then roadmap LOGI-0008..LOGI-0012 with zero done tickets; ready --all flags dispatchable=false; planned->done refused exit=1; ready --stuck clean; node --check both mjs; validate-plan ok; resume-check outside_manifest=0; full CLI regression sweep exit 0",
+          "lastStepAt": "2026-09-26T05:42:38.575Z"
+        }
+      },
+      "status": "done",
       "next": "done"
     }
   }

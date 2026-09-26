@@ -48,16 +48,48 @@ Commands (run `node tools/tracker/index.mjs <cmd> --help`):
 | Command | Purpose |
 |---|---|
 | `current` | What is being worked on right now (ticket, arm, plan, last step) |
-| `ready [--stuck]` | Orchestrator dispatch queue / stale orphaned arms |
+| `ready [--stuck] [--all]` | Orchestrator dispatch queue (actionable tickets only) / stale orphaned arms / `--all` audit |
 | `claim --ticket T --arm A [--agent NAME]` | Mark arm in-progress |
 | `log --ticket T --type STEP_DONE [--note ...]` | Step-level checkpoint events |
 | `micro --ticket T --arm A --action "..." [--files f1,f2] [--gate pass\|fail\|skip] [--next "..."] [--detail "..."]` | **Micro-action log with full actionable context** — after every edit batch and every gate run, so a successor can resume at the exact next action |
 | `resume-check --ticket T --arm A [--run-gates]` | **Validate code state BEFORE resuming**: git vs plan §2 manifest, event-log vs file-mtime reconciliation, re-runs the last step's verify gates. Verdicts: `clean` / `mid_step` / `broken` (exit 1 — do not resume; reset + redo step) |
-| `handoff --ticket T --from A --to B --summary PTR [--gates ...]` | Validate + record handoff |
+| `handoff --ticket T --from A --to B --summary PTR [--gates ...] [--state S] [--force]` | Validate the transition + record handoff (writes `toState`) |
 | `plan new/get/set-status/lock` | Plan file lifecycle (draft → validated → locked → done) |
 | `validate-plan <file> [--resume]` | Deterministic pre-flight: file existence, boundary rules, parallel collisions |
 | `search "query"` | Full-text search over events, handoffs, plans, journals |
 | `history --ticket T` | Timeline |
+
+### Ticket status derivation & dispatch queue (LOGI-0015)
+
+Events are the only source of truth; `state/tasks.json` is a derived snapshot rewritten by every
+command.
+
+| Signal | Effect on ticket status |
+|---|---|
+| `TASK_STARTED` (claim) | `planned → in_progress` — also the legal reopen `done → in_progress` for bugfix routing |
+| `HANDOFF --to <arm>` | `in_progress` (the ticket is now that arm's work) |
+| `HANDOFF --to done` | **`done`**, and every still-open arm of that ticket is closed |
+| `HANDOFF --to blocked` | `blocked` (human-gated) |
+| explicit `HANDOFF.toState` / `--state` | wins over the destination-derived state |
+
+`handoff` refuses any pair outside `LEGAL_TRANSITIONS` (`planned->in_progress`, `in_progress->done`,
+`in_progress->blocked`, `blocked->in_progress`, `done->in_progress`) with a fix list and exit 1;
+`--force` is the explicit escape hatch for a documented exception. `toState` is recorded in the
+event, so the snapshot never has to infer the destination state.
+
+`readyQueue()` — used by `tracker ready` and by the `Dispatch Q` line of `tracker status` — returns
+**actionable** tickets only:
+
+1. tracked tickets whose status is not `done`/`blocked` and that no arm is currently holding
+   (e.g. a handoff not yet claimed) — `source: tracked`;
+2. then ordered roadmap tickets that never reached the event log — `source: roadmap`, read from
+   `Docs/PROJECT_STATUS.md` §2 (`TRACKER_ROADMAP` overrides the path). Rows the roadmap marks as
+   complete are skipped, so pre-tracker tickets (LOGI-0000/0001) and tracked tickets that are
+   finished are never re-proposed.
+
+Completed tickets are therefore never re-dispatched, and after a ticket closes the queue names the
+true next ticket (`LOGI-0008` once `LOGI-0007` was done) instead of the oldest finished one.
+`ready --all` adds the non-actionable tickets back, flagged `dispatchable: false`, for audits.
 
 ### Plan File format (`state/plans/<TICKET>-<arm>.plan.md`)
 ## 4. Task Handover Protocol (5 steps, executed by the outgoing task)
