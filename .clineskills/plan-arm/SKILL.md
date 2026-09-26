@@ -8,21 +8,21 @@ description: Create a persisted Plan File for a ticket arm before any implementa
 You are the planner. Produce a Plan File — no source code changes.
 
 ## Procedure
-1. Load context cheaply, in this order:
-   - `node tools/tracker/index.mjs current` (position) and `memory/active.md`
-   - the ticket file `specs/features/<TICKET>-*.md` (ACs are the source of truth)
-   - `memory/journal/<TICKET>.md` (upstream arms' sealed findings)
-   - the code graph (skill `code-graph`): resolve which files relate to the objective.
+1. Load context cheaply using CLI slice commands only (DO NOT read whole markdown files):
+   - `node tools/tracker/index.mjs status` (position and git status)
+   - `node tools/spec/index.mjs show --ticket <T> --section ac` (Acceptance criteria)
+   - `node tools/tracker/index.mjs journal-tail --ticket <T> --lines 20` (upstream arm sealed findings)
+   - `node tools/contract/index.mjs show --resource <r> [--fields x-roles|schemas]` (API contract slice)
 2. Fill the plan template (`tracker plan new --ticket T --arm A --objective "..."` creates it at
    `state/plans/<T>-<A>.plan.md`). Every section is mandatory:
    - **§2 Touched files (WRITE manifest):** exact repo-relative paths. This is the scope boundary.
-   - **§3 Required files (READ scope):** only files the plan depends on, with line ranges.
-     For the API contract use slice pointers, not the whole file: `contract:drivers (x-roles)`
-     or `contract:vehicles (schemas, params)` — resolved at execute time via
-     `node tools/contract/index.mjs show`. Never list `contracts/v1-openapi.yaml` as a whole-file
-     read, and never list generated `schema.d.ts` (the `generate:api` zero-diff gate covers it).
-   - **§4 Steps:** small (≈ one file or edit batch each), each with its own verify gate.
-   - **§6 Exit gates:** the commands that prove the arm done (tests, lint, build).
+   - **§3 Required files (READ scope):** only files the plan depends on, with line ranges or slice pointers.
+   - **§4 Steps (Vertical Slice Milestones — 2 to 3 milestones maximum):**
+     - Milestone 1: Core Logic & Data (Domain/DTOs/Commands + Unit Tests) -> Verify: unit tests pass
+     - Milestone 2: Integration & UI/Endpoints (Endpoints/Components + Integration Tests) -> Verify: tests/lint pass
+     - Milestone 3: Full-Suite Verification & Handoff -> Verify: all arm exit gates green
+     *DO NOT create 10+ single-file steps that force 15–20 passes.*
+   - **§6 Exit gates:** the local commands that prove the arm done (e.g. `dotnet test`, `npm test`).
 3. Run `node tools/tracker/index.mjs validate-plan <file>`. Fix all errors. Do not lock —
    the orchestrator locks after review (skill `validate-plan`).
 

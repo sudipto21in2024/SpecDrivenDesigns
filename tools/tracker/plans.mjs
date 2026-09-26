@@ -59,6 +59,45 @@ export function loadPlan(ticket, arm) {
   return { file, fm, body, writeFiles: manifestFiles(body, '## 2.'), readFiles: manifestFiles(body, '## 3.') };
 }
 
+export function slicePlan(ticket, arm) {
+  const plan = loadPlan(ticket, arm);
+  const body = plan.body;
+
+  // Extract Objective (§1)
+  const objMatch = body.match(/## 1\. Objective\s*\n([\s\S]*?)(?=\n## 2\.)/);
+  const objective = objMatch ? objMatch[1].trim() : '';
+
+  // Extract Touched files (§2)
+  const touchedFiles = plan.writeFiles;
+
+  // Extract Steps (§4)
+  const stepsMatch = body.match(/## 4\. Steps[^\n]*\n([\s\S]*?)(?=\n## 5\.)/);
+  const stepsRaw = stepsMatch ? stepsMatch[1].trim().split('\n').filter(Boolean) : [];
+  const steps = stepsRaw.map((line) => {
+    const isDone = line.startsWith('- [x]');
+    return { done: isDone, text: line.replace(/^- \[[ x]\]\s*/, '').trim() };
+  });
+
+  const nextStep = steps.find((s) => !s.done) ?? null;
+
+  // Extract Exit gates (§6)
+  const exitMatch = body.match(/## 6\. Exit gates[^\n]*\n([\s\S]*?)$/);
+  const exitGates = exitMatch ? exitMatch[1].trim().split('\n').filter(Boolean).map(l => l.replace(/^- /, '').trim()) : [];
+
+  return {
+    ticket,
+    arm,
+    status: plan.fm.status ?? 'unknown',
+    objective,
+    touchedFiles,
+    totalSteps: steps.length,
+    completedSteps: steps.filter(s => s.done).length,
+    nextStep: nextStep ? nextStep.text : 'All steps completed. Ready to seal.',
+    exitGates
+  };
+}
+
+
 
 export function validatePlan(planFile, { resume = false } = {}) {
   const errors = [];

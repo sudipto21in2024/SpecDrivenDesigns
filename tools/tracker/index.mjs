@@ -5,8 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
-import { ROOT, STATE_DIR, PLANS_DIR, JOURNAL_DIR, MEMORY_DIR, appendEvent, readEvents, appendHandoff, currentTask, readyQueue, sealSection, journalTail, journalFile, tailEvents, showTicket } from './core.mjs';
-import { planPath, validatePlan, loadPlan, inManifest } from './plans.mjs';
+import { ROOT, STATE_DIR, PLANS_DIR, JOURNAL_DIR, MEMORY_DIR, appendEvent, readEvents, appendHandoff, currentTask, readyQueue, sealSection, journalTail, journalFile, tailEvents, showTicket, getActiveContext } from './core.mjs';
+import { planPath, validatePlan, loadPlan, inManifest, slicePlan } from './plans.mjs';
 
 const [cmd, ...rest] = process.argv.slice(2);
 
@@ -73,6 +73,48 @@ function searchAll(query) {
 }
 
 const cmds = {
+  status() {
+    // Single consolidated context query (< 15 lines). No direct file reads required.
+    const ctx = getActiveContext();
+    const gitRes = spawnSync('git', ['-C', ROOT, 'status', '--short'], { encoding: 'utf8' });
+    const gitChanges = (gitRes.stdout || '').split('\n').filter(Boolean);
+    const gitCommit = spawnSync('git', ['-C', ROOT, 'log', '-1', '--oneline'], { encoding: 'utf8' });
+    const lastCommit = (gitCommit.stdout || '').trim();
+
+    console.log('=== AGENT CONTEXT & STATE ===');
+    console.log(`Working Tree: ${gitChanges.length === 0 ? 'CLEAN' : `${gitChanges.length} uncommitted file(s)`}`);
+    console.log(`Tip Commit  : ${lastCommit || 'none'}`);
+
+    if (ctx.activeArms.length > 0) {
+      console.log('\n--- ACTIVE ARM ---');
+      for (const a of ctx.activeArms) {
+        console.log(`Ticket/Arm : ${a.ticket} / ${a.arm} (started: ${a.started})`);
+        console.log(`Last Step  : ${a.lastStep ?? 'none'}`);
+        try {
+          const slice = slicePlan(a.ticket, a.arm);
+          console.log(`Next Step  : ${slice.nextStep}`);
+          console.log(`Touched (§2): ${slice.touchedFiles.slice(0, 5).join(', ')}${slice.touchedFiles.length > 5 ? ` (+${slice.touchedFiles.length - 5} more)` : ''}`);
+        } catch {}
+      }
+    } else {
+      console.log('Active Arm  : NONE (idle)');
+      const nextTicket = ctx.queue[0];
+      if (nextTicket) {
+        console.log(`Dispatch Q  : Next ready ticket is ${nextTicket.ticket} (status: ${nextTicket.status}, next: ${nextTicket.next})`);
+      } else {
+        console.log('Dispatch Q  : Queue empty.');
+      }
+    }
+    console.log('=============================');
+  },
+  'plan-slice'() {
+    // Extract plan touched files manifest (§2), active step, and exit gates without reading whole plan
+    const { values } = parseArgs({ args: rest, options: { ticket: { type: 'string' }, arm: { type: 'string' } } });
+    if (!values.ticket || !values.arm) throw new Error('--ticket and --arm required');
+    const slice = slicePlan(values.ticket, values.arm);
+    console.log(JSON.stringify(slice, null, 2));
+  },
+
   current() {
     const active = currentTask();
     console.log(active.length ? JSON.stringify(active, null, 2) : 'No in-progress arms. Run `tracker ready` for the dispatch queue.');

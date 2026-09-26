@@ -167,3 +167,24 @@ export function readyQueue({ stuckOnly = false, staleMinutes = Number(process.en
   return result;
 }
 
+
+export function getActiveContext() {
+  const tasks = rebuildSnapshot();
+  const activeArms = [];
+  for (const [ticket, t] of Object.entries(tasks)) {
+    for (const [arm, a] of Object.entries(t.arms)) {
+      if (a.status === 'in_progress') {
+        activeArms.push({ ticket, arm, ...a });
+      }
+    }
+  }
+
+  const git = { branch: 'unknown', clean: true, changes: [] };
+  try {
+    const branchRes = fs.readFileSync(path.join(ROOT, '.git', 'HEAD'), 'utf8').trim();
+    git.branch = branchRes.replace(/^ref: refs\/heads\//, '');
+  } catch {}
+
+  return { activeArms, queue: readyQueue(), git };
+}
+

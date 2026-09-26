@@ -41,3 +41,7 @@ secrets.json
 .DS_Store
 test-results/
 playwright-report/
+nul
+state_backup_pre_opt/
+memory_backup_pre_opt/
+

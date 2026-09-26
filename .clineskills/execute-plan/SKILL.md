@@ -8,36 +8,35 @@ description: Execute a locked plan file as the implementing child task — manif
 You are the executor for one arm. Your scope is the locked plan's §2 manifest — nothing else.
 
 ## Startup
-1. Read the locked plan (`state/plans/<T>-<A>.plan.md`), the ticket spec, and `memory/journal/<TICKET>.md`
-   (tail only: `tracker journal-tail --ticket T --lines 30`).
+1. Get position and slice plan context via CLI (NEVER read whole plan/spec files):
+   - `node tools/tracker/index.mjs plan-slice --ticket T --arm A` (touched manifest, active step, exit gates)
+   - `node tools/spec/index.mjs show --ticket T --section ac` (Acceptance criteria)
+   - `node tools/tracker/index.mjs journal-tail --ticket T --lines 20`
 2. `node tools/tracker/index.mjs claim --ticket T --arm A --agent <name>`.
-3. Read only §3 required files (targeted line ranges). If a §3 entry is a slice pointer
-   (`contract:<resource>`), run `node tools/contract/index.mjs show --resource <r> [--fields x-roles|params|responses|schemas]`
-   — **never read `contracts/v1-openapi.yaml` or `schema.d.ts` whole** (schema.d.ts is generated;
-   the `generate:api` zero-diff gate replaces reading it). If you truly need a file outside §3,
-   STOP editing, add it to §3 with justification, and note the deviation.
+3. Read only §3 required files (targeted line ranges) or slice pointers:
+   - `contract:<resource>` → `node tools/contract/index.mjs show --resource <r>`
+   - Never read whole contracts or `schema.d.ts`.
 
-## Execution loop (per §4 step)
-1. Implement the step, confined to §2 files.
-2. Run the step's verify gate.
-3. **Checkpoint (mandatory):** tick the checkbox mechanically
-   (`node tools/tracker/index.mjs tick --ticket T --arm A --step N`), then
-   `node tools/tracker/index.mjs log --ticket T --arm A --type STEP_DONE --note "step n/m: <result>"`,
-   then `git add <touched files> && git commit -m "<TICKET> <arm>: step n/m green"`.
-   One STEP_DONE per verified step — `micro` is for gate failures (`--gate fail`) only.
-4. On gate failure: journal the failure + what you tried **before** attempting a fix, and micro-log it with `--gate fail`.
+## Execution loop (per §4 milestone)
+1. Implement the vertical slice, confined to §2 touched files. You may edit multiple related files in one turn.
+2. Run the milestone's verify gate (e.g. `dotnet test ...` or `npm test ...`).
+3. **Milestone Checkpoint:**
+   - Tick the milestone: `node tools/tracker/index.mjs tick --ticket T --arm A --step N`
+   - Log completion: `node tools/tracker/index.mjs log --ticket T --arm A --type STEP_DONE --note "milestone n: <result>"`
+   - *Do NOT create git commits for intermediate micro-steps.*
+4. On gate failure: fix immediately; micro-log only if reporting an obstacle or escalation (`--gate fail`).
 
 ## Deviation protocol
 Any file edit outside §2 → log `tracker log --type PLAN_DEVIATION --note "<file> <reason>"`,
 add it to §2, re-run `validate-plan`. Repeated deviations → stop and escalate.
 
-## Completion (5-step handover — do all of them, in order)
-1. **SEAL (mechanical, CLI-only):**
+## Completion (Handover & Atomic Arm Commit)
+1. **VERIFY:** run all §6 exit gates locally (`dotnet test`, `npm test`, `playwright test`). Never wait for remote GitHub CI.
+2. **SEAL (mechanical, CLI-only):**
    `node tools/tracker/index.mjs seal --ticket T --arm A --what "<done>" --gates "<results>" --findings "<notes>" --next "<next agent needs>"`
-   — appends the journal section (char-budgeted, LF-safe) + STEP_DONE in one call.
-   Do NOT hand-edit `memory/journal/*.md` or use the editor for it.
-2. **VERIFY:** run all §6 exit gates; failures route back into this arm, never forward.
-3. **RECORD:** `node tools/tracker/index.mjs handoff --ticket T --from A --to <next> --summary "memory/journal/<T>.md#<arm>" --gates "<gate1>,<gate2>"`.
-4. **MEMORY:** `tracker active --done "<one line>" --next "<next action>;"` and
-   `tracker progress --ticket T --status "<status>"` — never rewrite these files by hand.
-5. **END:** your conversation will be destroyed — the journal + tracker are your only legacy.
+3. **ATOMIC COMMIT:** create one single git commit for the verified arm:
+   `git add <touched files> state/ memory/ && git commit -m "<TICKET> <arm>: green (<summary>)"`
+4. **RECORD & MEMORY:**
+   - `node tools/tracker/index.mjs handoff --ticket T --from A --to <next> --summary "memory/journal/<T>.md#<arm>" --gates "<gates>"`
+   - `tracker active --done "<one line>" --next "<next action>"`
+   - `tracker progress --ticket T --status "<status>"`
