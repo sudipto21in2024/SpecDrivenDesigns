@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-26T07:15:26.155Z",
+  "generated": "2026-09-26T07:15:54.688Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -254,7 +254,7 @@
           "lastStepAt": "2026-09-26T06:29:17.760Z"
         },
         "backend": {
-          "status": "in_progress",
+          "status": "done",
           "agent": null,
           "started": "2026-09-26T06:54:31.844Z",
           "lastStep": "sealed: dotnet build src/backend/LogiFlow.sln -c Release --no-incremental succeeded with 0 warnings; dotnet test 132/132 passed (82 pre-existing + 50 new across ShipmentEditTests/ShipmentCancelTests, each carrying a // LOGI-0008 AC-n comment); dotnet ef migrations has-pending-model-changes reports 'No changes have been made to the model since the last migration' and no file under Persistence/Migrations changed; route/RequireRoles pairs match the shipments contract slice exactly (getShipment Admin/Dispatcher/Viewer, updateShipment Admin/Dispatcher)",
@@ -262,7 +262,7 @@
         }
       },
       "status": "in_progress",
-      "next": "backend"
+      "next": "frontend"
     }
   }
 }
