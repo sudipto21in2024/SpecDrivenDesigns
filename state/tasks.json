@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-26T08:15:43.610Z",
+  "generated": "2026-09-26T08:16:44.991Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -261,15 +261,15 @@
           "lastStepAt": "2026-09-26T07:15:26.004Z"
         },
         "frontend": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "cline-main",
           "started": "2026-09-26T07:44:22.189Z",
-          "lastStep": "M2 UI integration: Actions column on ShipmentsPage with the AC-11 matrix (Pending=Edit+Cancel, Assigned=Cancel, InTransit/Delayed/Delivered/Cancelled=none, Viewer/Driver=none); EditShipmentDialog pre-filled from GET /shipments/{id} and saving a PATCH with field-keyed 400s rendered per input; CancelShipmentDialog requires an explicit confirmation plus an optional note before toStatus=Cancelled; a 409 on either path surfaces the server detail in the snackbar and refetches the row. npm run build clean (tsc + vite), npm test 69/69 across all 5 suites, no pre-existing test weakened.",
-          "lastStepAt": "2026-09-26T08:15:43.604Z"
+          "lastStep": "sealed: npx tsc --noEmit clean; npm run build succeeded (tsc + vite, 3.26s); npm test 69/69 passed across all 5 suites (53 pre-existing + 16 new), ShipmentsPage 28/28; every new test carries a // LOGI-0008 AC-n traceability comment in its title; capabilities table verified against the shipments contract x-roles slice (get Admin/Dispatcher/Viewer, patch Admin/Dispatcher, transitions still Admin/Dispatcher/Driver)",
+          "lastStepAt": "2026-09-26T08:16:12.626Z"
         }
       },
       "status": "in_progress",
-      "next": "frontend"
+      "next": "qa"
     }
   }
 }

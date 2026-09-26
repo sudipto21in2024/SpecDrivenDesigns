@@ -59,7 +59,7 @@ dialog) with the exact status/role matrix of AC-11. Local gate: `npm run build` 
       400) and `CancelShipmentDialog` (explicit confirmation, note field), and on a 409 from either
       surface a message and refetch the row. → verify: `npm run build` (tsc + vite) clean;
       `npm test` fully green; every new test carries a `// LOGI-0008 AC-n` comment.
-- [ ] 3. **Milestone 3 — arm verification + handoff.** Confirm the capabilities table matches the
+- [x] 3. **Milestone 3 — arm verification + handoff.** Confirm the capabilities table matches the
       contract `x-roles` slice, re-run the full gate, one atomic commit
       `feat(LOGI-0008): frontend arm — shipment edit/cancel row actions`, `tracker seal`,
       `tracker handoff --ticket LOGI-0008 --from frontend --to qa` → verify: `tracker plan-slice
