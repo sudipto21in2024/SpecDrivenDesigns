@@ -193,6 +193,7 @@ components:
         status: { type: string, enum: [Active, OffDuty, Suspended], example: Active }
     StatusTransitionRequest:
       type: object
+      # LOGI-0008 role rule: toStatus "Cancelled" is Admin/Dispatcher only (BR-6) — a Driver token receives 403.
       description: Body of POST /shipments/{id}/status-transitions. Legal transitions only (BR-7) — illegal transitions are rejected server-side with 409.
       required: [toStatus]
       properties:
@@ -242,6 +243,22 @@ components:
           default: Standard
           description: Defaults to Standard when omitted (BR-1 rule 1.3); any other value is rejected with 400 (rule 1.7).
           example: Standard
+    ShipmentUpdateRequest:
+      type: object
+      description: |
+        Body of PATCH /shipments/{id} (F6). Partial update of a shipment that is still Pending:
+        send only the fields to change. Server-owned/immutable fields — id, referenceCode, status,
+        priority, slaDueAt, createdAt, updatedAt, routeId and atRisk — are never accepted and are
+        rejected with 400; priority is immutable so BR-1 keeps its single sla_due_at writer
+        (Docs/business-rules/BR-sla-rules.md). A shipment that is no longer Pending is rejected
+        with 409 and no column is written.
+      minProperties: 1
+      properties:
+        originWarehouseId: { type: integer, format: int64, example: 1 }
+        destinationAddress: { type: string, maxLength: 500, example: '12 Dock Road, Rotterdam' }
+        destinationLat: { type: number, nullable: true, minimum: -90, maximum: 90, example: 51.9225 }
+        destinationLng: { type: number, nullable: true, minimum: -180, maximum: 180, example: 4.47917 }
+        weightKg: { type: number, exclusiveMinimum: 0, example: 1250.5 }
     ShipmentResponse:
       type: object
       required: [id, referenceCode, originWarehouseId, destinationAddress, weightKg, status, priority, slaDueAt, atRisk, createdAt]
@@ -704,6 +721,56 @@ paths:
         "400": { $ref: '#/components/responses/ValidationProblem' }
         "401": { $ref: '#/components/responses/Unauthorized' }
         "403": { $ref: '#/components/responses/Forbidden' }
+  /shipments/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [Shipments]
+      summary: Get shipment by id
+      description: >
+        Returns a single shipment in the same ShipmentResponse shape the list rows use, including the
+        read-time atRisk projection (BR-2) and routeId (null until LOGI-0010). Responds 404 when the
+        id does not exist. Driver access stays deferred with own-route scoping (LOGI-0009/0010),
+        consistent with GET /shipments.
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: getShipment
+      responses:
+        "200":
+          description: The shipment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShipmentResponse' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Shipments]
+      summary: Edit shipment fields (Pending only)
+      description: >
+        Partially updates the descriptive fields of a shipment that is still Pending (F6, BR-6/BR-7):
+        originWarehouseId, destinationAddress, destinationLat/Lng and weightKg. The write is
+        all-or-nothing — a rejected request leaves every column untouched and appends no audit row,
+        because shipment_status_history records status transitions only (F7). Responds 400 with
+        field-keyed errors (including errors.priority for the immutable priority), 403 for
+        Viewer/Driver, 404 for an unknown id, and 409 when the shipment is no longer Pending.
+      x-roles: [Admin, Dispatcher]
+      operationId: updateShipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShipmentUpdateRequest' }
+      responses:
+        "200":
+          description: Updated — the shipment with its new values
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShipmentResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }
   /shipments/{id}/status-transitions:
     parameters:
       - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
@@ -720,6 +787,9 @@ paths:
         legal next state(s). No history row is written for rejected attempts.
         Note: the Driver role is declared here per BR-6 (own-route shipments only);
         ownership scoping is enforced from LOGI-0009/0010.
+        BR-6 also makes cancellation a management action: toStatus "Cancelled" is rejected with
+        403 for a Driver token (LOGI-0008), while the remaining Driver transitions keep the
+        LOGI-0006 behaviour.
       x-roles: [Admin, Dispatcher, Driver]
       operationId: createShipmentStatusTransition
       requestBody:
