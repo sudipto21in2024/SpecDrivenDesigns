@@ -1,0 +1,25 @@
+openapi: 3.1.0
+info:
+  title: LogiFlow API
+  version: 1.0.0
+  description: |
+    LogiFlow logistics management API. Single source of truth for backend and frontend.
+    Base path: /api/v1
+  contact:
+    name: LogiFlow
+    url: https://logiflow.dev
+  license:
+    name: Proprietary
+servers:
+  - url: https://localhost:5001/api/v1
+    description: Local development
+  - url: https://logiflow.example.com/api/v1
+    description: Production (single-node v1)
+tags:
+  - { name: System, description: Health and metadata }
+  - { name: Auth, description: Authentication and token management }
+  - { name: Warehouses, description: Warehouse master data }
+  - { name: Vehicles, description: Vehicle master data }
+  - { name: Drivers, description: Driver master data }
+  - { name: Shipments, description: Shipment lifecycle }
+  - { name: Routes, description: Route planning and assignment }

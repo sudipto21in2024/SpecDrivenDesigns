@@ -1,0 +1,7 @@
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Issue via POST /auth/login. Required on every endpoint except
+        /auth/login and /auth/refresh.

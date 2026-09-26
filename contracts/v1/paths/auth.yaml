@@ -1,0 +1,79 @@
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Issue access + refresh tokens
+      description: >
+        Authenticates an email/password pair and returns a short-lived access token plus a
+        single-use refresh token. Anonymous endpoint. Invalid credentials return 401 without
+        revealing whether the email exists (BR-driven anti-enumeration).
+      security: []
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        "200":
+          description: Tokens issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token
+      description: >
+        Exchanges a valid refresh token for a NEW access token and a NEW refresh token. The
+        presented token is revoked in the same operation (rotation), so replaying it fails with
+        401. Anonymous endpoint — the refresh token itself is the credential.
+      security: []
+      operationId: refresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        "200":
+          description: New token pair issued; the presented refresh token is revoked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke a refresh token
+      description: >
+        Revokes the supplied refresh token so it can never be exchanged again. Idempotent from the
+        caller's perspective: returns 204 and does not disclose whether the token existed.
+      security: []
+      operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        "204": { description: Refresh token revoked (or already unusable) }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Current authenticated user
+      description: >
+        Returns the identity carried by the presented access token. Used by the SPA on start-up to
+        restore session state and decide which UI affordances to render for the user's role.
+      operationId: getCurrentUser
+      x-roles: [Admin, Dispatcher, Driver, Viewer]
+      responses:
+        "200":
+          description: Authenticated user's identity
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthUser' }
+        "401": { $ref: '#/components/responses/Unauthorized' }

@@ -45,6 +45,12 @@ Append-only JSONL events are the source of truth; `tasks.json` is a derived snap
 
 Commands (run `node tools/tracker/index.mjs <cmd> --help`):
 
+> **Rigid code-size + contract-authorship rules (LOGI-0015, every arm/step):** contract
+> humans edit ONLY `contracts/v1/*.yaml` (regenerate the artifact with
+> `node tools/contract/bundle.mjs`); no **code** file may exceed **150 lines** — split or
+> modularize first (gate: `node tools/contract/check-size.mjs`; Markdown docs and
+> project/state/telemetry JSON are out of scope; legacy files are shrink-only ratchets).
+
 | Command | Purpose |
 |---|---|
 | `current` | What is being worked on right now (ticket, arm, plan, last step) |

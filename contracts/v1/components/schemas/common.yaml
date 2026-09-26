@@ -1,0 +1,21 @@
+    HealthResponse:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        service: { type: string, example: LogiFlow }
+        timestamp: { type: string, format: date-time, example: 2026-09-18T00:00:00Z }
+      required: [status, service, timestamp]
+    ProblemDetails:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri, example: https://logiflow.dev/errors/validation }
+        title: { type: string, example: Validation failed }
+        status: { type: integer, format: int32, example: 400 }
+        detail: { type: string, nullable: true }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+        traceId: { type: string, nullable: true, example: "00-abc123" }

@@ -1,0 +1,33 @@
+    VehicleRequest:
+      type: object
+      required: [plateNumber, type, capacityKg]
+      properties:
+        plateNumber:
+          type: string
+          minLength: 1
+          maxLength: 20
+          example: RT-8421-X
+        type:
+          type: string
+          enum: [Van, Truck, Trailer]
+          example: Truck
+        capacityKg:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+          example: 12000
+        status:
+          type: string
+          enum: [Available, InRoute, Maintenance]
+          default: Available
+          example: Available
+    VehicleResponse:
+      type: object
+      required: [id, plateNumber, type, capacityKg, status, createdAt]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        plateNumber: { type: string, example: RT-8421-X }
+        type: { type: string, enum: [Van, Truck, Trailer], example: Truck }
+        capacityKg: { type: number, format: double, example: 12000 }
+        status: { type: string, enum: [Available, InRoute, Maintenance], example: Available }
+        createdAt: { type: string, format: date-time, example: 2026-09-20T00:00:00Z }

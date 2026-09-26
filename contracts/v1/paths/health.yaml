@@ -1,0 +1,13 @@
+  /health:
+    get:
+      tags: [System]
+      summary: Service health
+      description: Liveness probe used by CI, Playwright webServer readiness checks, and container orchestration.
+      security: []
+      operationId: getHealth
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }

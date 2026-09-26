@@ -1,0 +1,8 @@
+  x-role-sets:
+    Admin: [Admin]
+    Dispatcher: [Dispatcher]
+    Driver: [Driver]
+    Viewer: [Viewer]
+  x-conventions:
+    resource-naming: plural nouns
+    status-transitions: POST /{resource}/{id}/status-transitions with { "toStatus":"...", "note":"..." }

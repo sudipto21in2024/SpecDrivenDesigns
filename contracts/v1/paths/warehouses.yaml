@@ -1,0 +1,98 @@
+  /warehouses:
+    get:
+      tags: [Warehouses]
+      summary: List warehouses (paged)
+      description: >
+        Returns a paged list of warehouses. Query params: page (default 1),
+        pageSize (default 25, max 100), q (name contains, case-insensitive).
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: listWarehouses
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1, minimum: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 25, minimum: 1, maximum: 100 } }
+        - { name: q, in: query, description: "Filter by name (contains, case-insensitive)", schema: { type: string } }
+      responses:
+        "200":
+          description: Paged warehouse list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PagedResponse' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/WarehouseResponse' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Warehouses]
+      summary: Create warehouse
+      description: Creates a warehouse. Name and address are required; coordinates optional but range-validated.
+      x-roles: [Admin, Dispatcher]
+      operationId: createWarehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseRequest' }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+  /warehouses/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [Warehouses]
+      summary: Get warehouse by id
+      description: Returns a single warehouse. Responds 404 when the id does not exist.
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: getWarehouse
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseResponse' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Warehouses]
+      summary: Update warehouse (full update)
+      description: Replaces name, address and coordinates. Responds 404 when the id does not exist.
+      x-roles: [Admin, Dispatcher]
+      operationId: updateWarehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseRequest' }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+    delete:
+      tags: [Warehouses]
+      summary: Delete warehouse
+      description: Hard delete in v1 (no soft-delete column). Later restricted once shipments reference warehouses.
+      x-roles: [Admin]
+      operationId: deleteWarehouse
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }

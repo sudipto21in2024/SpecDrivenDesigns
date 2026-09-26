@@ -1,0 +1,114 @@
+  /shipments:
+    get:
+      tags: [Shipments]
+      summary: List shipments (paged, filterable)
+      description: >
+        Returns a paged shipment list (F8). Filters combine with AND: status, priority,
+        originWarehouseId, slaRisk (BR-2 at-risk projection) and q (referenceCode or
+        destinationAddress contains, case-insensitive). Ordering defaults to createdAt
+        descending; sort accepts createdAt, -createdAt, slaDueAt, -slaDueAt with a
+        deterministic id tiebreak. Each item carries the read-time atRisk flag, which is
+        never stored (Docs/business-rules/BR-sla-rules.md §2.5).
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: listShipments
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1, minimum: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 25, minimum: 1, maximum: 100 } }
+        - { name: status, in: query, description: "Filter by exact status (BR-7 enum)", schema: { type: string, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled] } }
+        - { name: priority, in: query, description: "Filter by exact priority", schema: { type: string, enum: [Standard, Express] } }
+        - { name: originWarehouseId, in: query, description: "Filter by origin warehouse", schema: { type: integer, format: int64 } }
+        - { name: slaRisk, in: query, description: "true = only at-risk shipments (BR-2); false = only the complement", schema: { type: boolean } }
+        - { name: q, in: query, description: "Filter by referenceCode or destinationAddress (contains, case-insensitive)", schema: { type: string } }
+        - { name: sort, in: query, description: "Sort key; prefix with - for descending (default -createdAt)", schema: { type: string, enum: [createdAt, -createdAt, slaDueAt, -slaDueAt], default: -createdAt } }
+      responses:
+        "200":
+          description: Paged shipment list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PagedResponse' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/ShipmentResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Shipments]
+      summary: Create shipment (BR-1 SLA due date)
+      description: >
+        Creates a shipment in status Pending (F5). The reference code (SHP-######) and
+        sla_due_at are generated server-side: created_at + 48h for Standard, +12h for
+        Express (BR-1). The initial Pending audit row is appended to
+        shipment_status_history in the same transaction. An unknown originWarehouseId,
+        a non-positive weightKg, a blank destinationAddress or an unknown priority
+        respond 400.
+      x-roles: [Admin, Dispatcher]
+      operationId: createShipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShipmentRequest' }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShipmentResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+  /shipments/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [Shipments]
+      summary: Get shipment by id
+      description: >
+        Returns a single shipment in the same ShipmentResponse shape the list rows use, including the
+        read-time atRisk projection (BR-2) and routeId (null until LOGI-0010). Responds 404 when the
+        id does not exist. Driver access stays deferred with own-route scoping (LOGI-0009/0010),
+        consistent with GET /shipments.
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: getShipment
+      responses:
+        "200":
+          description: The shipment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShipmentResponse' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Shipments]
+      summary: Edit shipment fields (Pending only)
+      description: >
+        Partially updates the descriptive fields of a shipment that is still Pending (F6, BR-6/BR-7):
+        originWarehouseId, destinationAddress, destinationLat/Lng and weightKg. The write is
+        all-or-nothing — a rejected request leaves every column untouched and appends no audit row,
+        because shipment_status_history records status transitions only (F7). Responds 400 with
+        field-keyed errors (including errors.priority for the immutable priority), 403 for
+        Viewer/Driver, 404 for an unknown id, and 409 when the shipment is no longer Pending.
+      x-roles: [Admin, Dispatcher]
+      operationId: updateShipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShipmentUpdateRequest' }
+      responses:
+        "200":
+          description: Updated — the shipment with its new values
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShipmentResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }

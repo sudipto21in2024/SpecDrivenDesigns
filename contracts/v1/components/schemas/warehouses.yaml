@@ -1,0 +1,26 @@
+    WarehouseRequest:
+      type: object
+      required: [name, address]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Central DC
+        address:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: 12 Industrial Rd, Rotterdam
+        latitude: { type: number, format: double, minimum: -90, maximum: 90, example: 51.9244 }
+        longitude: { type: number, format: double, minimum: -180, maximum: 180, example: 4.4777 }
+    WarehouseResponse:
+      type: object
+      required: [id, name, address, createdAt]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        name: { type: string, example: Central DC }
+        address: { type: string, example: 12 Industrial Rd, Rotterdam }
+        latitude: { type: number, format: double, nullable: true, example: 51.9244 }
+        longitude: { type: number, format: double, nullable: true, example: 4.4777 }
+        createdAt: { type: string, format: date-time, example: 2026-09-18T08:00:00Z }

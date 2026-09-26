@@ -1,0 +1,39 @@
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 256, example: dana@logiflow.dev }
+        password: { type: string, format: password, minLength: 1, maxLength: 128 }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string, minLength: 1 }
+    AuthUser:
+      type: object
+      description: Identity of an authenticated user. Never carries credential material (no hash, no stamp, no token).
+      required: [id, email, fullName, role]
+      properties:
+        id: { type: integer, format: int64, example: 2 }
+        email: { type: string, format: email, example: dana@logiflow.dev }
+        fullName: { type: string, example: Dana Doolittle }
+        role:
+          type: string
+          enum: [Admin, Dispatcher, Driver, Viewer]
+          example: Dispatcher
+    TokenResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresIn, user]
+      properties:
+        accessToken:
+          type: string
+          description: Signed JWT bearer token (lifetime = expiresIn seconds).
+        refreshToken:
+          type: string
+          description: Opaque, single-use rotating refresh token. Consumed and replaced by POST /auth/refresh.
+        expiresIn:
+          type: integer
+          format: int32
+          description: Access token lifetime in seconds.
+          example: 900
+        user: { $ref: '#/components/schemas/AuthUser' }

@@ -1,0 +1,94 @@
+    StatusTransitionRequest:
+      type: object
+      # LOGI-0008 role rule: toStatus "Cancelled" is Admin/Dispatcher only (BR-6) — a Driver token receives 403.
+      description: Body of POST /shipments/{id}/status-transitions. Legal transitions only (BR-7) — illegal transitions are rejected server-side with 409.
+      required: [toStatus]
+      properties:
+        toStatus:
+          type: string
+          enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled]
+          example: Assigned
+        note:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Optional free-text reason recorded in the audit trail.
+          example: Loaded onto vehicle RT-8421-X
+    ShipmentStatusEvent:
+      type: object
+      description: One entry of the shipment audit trail (shipment_status_history). Immutable, append-only.
+      required: [id, toStatus, changedByUserId, changedAt]
+      properties:
+        id: { type: integer, format: int64, example: 42 }
+        fromStatus:
+          type: string
+          enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled]
+          nullable: true
+          description: null on the initial entry.
+          example: Pending
+        toStatus: { type: string, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled], example: Assigned }
+        changedByUserId: { type: integer, format: int64, example: 7 }
+        changedAt: { type: string, format: date-time, example: 2026-09-22T08:00:00Z }
+        note: { type: string, nullable: true, maxLength: 500, example: Loaded onto vehicle RT-8421-X }
+    ShipmentRequest:
+      type: object
+      description: |
+        Body of POST /shipments (F5). Server-owned fields — referenceCode, status, slaDueAt,
+        createdAt/updatedAt — are never accepted from the client: the handler generates the
+        reference code and derives sla_due_at from the server clock per BR-1
+        (Docs/business-rules/BR-sla-rules.md).
+      required: [originWarehouseId, destinationAddress, weightKg]
+      properties:
+        originWarehouseId: { type: integer, format: int64, example: 1 }
+        destinationAddress: { type: string, maxLength: 500, example: '12 Dock Road, Rotterdam' }
+        destinationLat: { type: number, nullable: true, minimum: -90, maximum: 90, example: 51.9225 }
+        destinationLng: { type: number, nullable: true, minimum: -180, maximum: 180, example: 4.47917 }
+        weightKg: { type: number, exclusiveMinimum: 0, example: 1250.5 }
+        priority:
+          type: string
+          enum: [Standard, Express]
+          default: Standard
+          description: Defaults to Standard when omitted (BR-1 rule 1.3); any other value is rejected with 400 (rule 1.7).
+          example: Standard
+    ShipmentUpdateRequest:
+      type: object
+      description: |
+        Body of PATCH /shipments/{id} (F6). Partial update of a shipment that is still Pending:
+        send only the fields to change. Server-owned/immutable fields — id, referenceCode, status,
+        priority, slaDueAt, createdAt, updatedAt, routeId and atRisk — are never accepted and are
+        rejected with 400; priority is immutable so BR-1 keeps its single sla_due_at writer
+        (Docs/business-rules/BR-sla-rules.md). A shipment that is no longer Pending is rejected
+        with 409 and no column is written.
+        Immutable priority: BR-1 rule 1.5 (Docs/business-rules/BR-sla-rules.md) fixes sla_due_at once
+        at creation and states that LOGI-0008 edits do not reset the clock, so a priority change
+        could never stay BR-1-true — priority is rejected with 400 (errors.priority), not recomputed.
+      minProperties: 1
+      properties:
+        originWarehouseId: { type: integer, format: int64, example: 1 }
+        destinationAddress: { type: string, maxLength: 500, example: '12 Dock Road, Rotterdam' }
+        destinationLat: { type: number, nullable: true, minimum: -90, maximum: 90, example: 51.9225 }
+        destinationLng: { type: number, nullable: true, minimum: -180, maximum: 180, example: 4.47917 }
+        weightKg: { type: number, exclusiveMinimum: 0, example: 1250.5 }
+    ShipmentResponse:
+      type: object
+      required: [id, referenceCode, originWarehouseId, destinationAddress, weightKg, status, priority, slaDueAt, atRisk, createdAt]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        referenceCode: { type: string, pattern: '^SHP-[0-9]{6}$', example: SHP-000123 }
+        originWarehouseId: { type: integer, format: int64, example: 1 }
+        destinationAddress: { type: string, maxLength: 500, example: '12 Dock Road, Rotterdam' }
+        destinationLat: { type: number, nullable: true, example: 51.9225 }
+        destinationLng: { type: number, nullable: true, example: 4.47917 }
+        weightKg: { type: number, example: 1250.5 }
+        status: { type: string, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled], example: Pending }
+        priority: { type: string, enum: [Standard, Express], example: Standard }
+        slaDueAt: { type: string, format: date-time, nullable: true, description: ISO8601 UTC — created_at + 48h (Standard) / +12h (Express) per BR-1., example: 2026-09-20T08:00:00Z }
+        routeId: { type: integer, format: int64, nullable: true, description: Set by route assignment (LOGI-0010); null until then. }
+        atRisk:
+          type: boolean
+          description: >-
+            Read-time BR-2 projection (never stored): true when now >= slaDueAt - 2h (whole-second,
+            inclusive) and status is not Delivered/Cancelled; false when slaDueAt is null.
+          example: false
+        createdAt: { type: string, format: date-time, example: 2026-09-18T08:00:00Z }
+        updatedAt: { type: string, format: date-time, nullable: true, example: 2026-09-18T08:00:00Z }

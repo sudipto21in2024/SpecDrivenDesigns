@@ -1,3 +1,5 @@
+# GENERATED — do not hand-edit. Authorship: contracts/v1/*.yaml.
+# Regenerate: node tools/contract/bundle.mjs   Verify: node tools/contract/bundle.mjs --check
 openapi: 3.1.0
 info:
   title: LogiFlow API

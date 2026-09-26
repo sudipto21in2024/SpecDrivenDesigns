@@ -1,0 +1,107 @@
+  /routes:
+    get:
+      tags: [Routes]
+      summary: List routes (paged, filterable)
+      description: >
+        Returns a paged route list (LOGI-0009). Filters combine with AND: status,
+        vehicleId, driverId and q (name contains,
+        case-insensitive). Sort defaults to -createdAt. Driver-role callers receive
+        only their own routes (driverId = linked driver); cross-driver reads are 403.
+      x-roles: [Admin, Dispatcher, Viewer, Driver]
+      operationId: listRoutes
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1, minimum: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 25, minimum: 1, maximum: 100 } }
+        - { name: q, in: query, description: "Filter by name (contains, case-insensitive)", schema: { type: string } }
+        - { name: status, in: query, description: "Filter by exact status", schema: { type: string, enum: [Planned, InProgress, Completed, Cancelled] } }
+        - { name: vehicleId, in: query, schema: { type: integer, format: int64 } }
+        - { name: driverId, in: query, schema: { type: integer, format: int64 } }
+      responses:
+        "200":
+          description: Paged route list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PagedResponse' }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/RouteResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Routes]
+      summary: Create route (+ optional vehicle/driver assignment)
+      description: >
+        Creates a route in status Planned (LOGI-0009). name (1..200) and the planned
+        start/end window are required (plannedEnd after plannedStart); vehicleId/driverId
+        are optional (omitted or null → unassigned lane). Unknown vehicleId/driverId
+        respond 404; double-booking the same vehicle or driver on an overlapping window
+        (BR-3/BR-4 interval overlap, Planned/InProgress) responds 409.
+        Shipment assignment is LOGI-0010 — no shipment is touched here.
+      x-roles: [Admin, Dispatcher]
+      operationId: createRoute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RouteRequest' }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RouteResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }
+  /routes/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [Routes]
+      summary: Get route by id
+      description: Returns a single route. Responds 404 when the id does not exist; a Driver token for another driver's route is 403.
+      x-roles: [Admin, Dispatcher, Viewer, Driver]
+      operationId: getRoute
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RouteResponse' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+    patch:
+      tags: [Routes]
+      summary: Assign / reassign vehicle/driver (Planned routes only)
+      description: >
+        Partial update of a Planned route (LOGI-0009): rename, reschedule, assign,
+        reassign or unassign (explicit null) vehicle/driver. Unknown vehicleId/driverId
+        respond 404; double-booking responds 409; non-Planned routes respond 409 and
+        nothing is written. Server-owned fields (id, status, createdAt, updatedAt) are
+        rejected with 400; an empty body is rejected with 400.
+      x-roles: [Admin, Dispatcher]
+      operationId: updateRoute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RouteUpdateRequest' }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RouteResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "409": { $ref: '#/components/responses/Conflict' }

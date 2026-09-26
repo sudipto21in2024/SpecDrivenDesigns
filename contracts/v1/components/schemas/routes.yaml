@@ -1,0 +1,55 @@
+    RouteRequest:
+      type: object
+      description: |
+        Body of POST /routes and PATCH /routes/{id} (LOGI-0009). Create accepts
+        name + plannedStart/plannedEnd window with optional vehicleId/driverId
+        (nullable → unassigned lane); plannedEnd must be after plannedStart.
+        PATCH accepts any non-empty subset for rename/reschedule/assign/reassign/unassign
+        (explicit null unassigns). Server-owned fields — id, status, createdAt, updatedAt —
+        are never accepted and are rejected with 400.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200, example: North loop }
+        plannedStart: { type: string, format: date-time, example: 2026-10-01T08:00:00Z }
+        plannedEnd: { type: string, format: date-time, example: 2026-10-01T16:00:00Z }
+        vehicleId: { type: integer, format: int64, nullable: true, minimum: 1, example: 1 }
+        driverId: { type: integer, format: int64, nullable: true, minimum: 1, example: 2 }
+      required: [name, plannedStart, plannedEnd]
+    RouteUpdateRequest:
+      type: object
+      description: |
+        Body of PATCH /routes/{id} (LOGI-0009). Partial update of a Planned route only:
+        send only the fields to change; explicit null on vehicleId/driverId unassigns.
+        Non-Planned routes are rejected with 409 and nothing is written.
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200, example: North loop }
+        plannedStart: { type: string, format: date-time, example: 2026-10-01T08:00:00Z }
+        plannedEnd: { type: string, format: date-time, example: 2026-10-01T16:00:00Z }
+        vehicleId: { type: integer, format: int64, nullable: true, minimum: 1, example: 1 }
+        driverId: { type: integer, format: int64, nullable: true, minimum: 1, example: 2 }
+    RouteResponse:
+      type: object
+      required: [id, name, plannedStart, plannedEnd, status, createdAt]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        name: { type: string, example: North loop }
+        plannedStart: { type: string, format: date-time, example: 2026-10-01T08:00:00Z }
+        plannedEnd: { type: string, format: date-time, example: 2026-10-01T16:00:00Z }
+        vehicleId: { type: integer, format: int64, nullable: true, example: 1 }
+        driverId: { type: integer, format: int64, nullable: true, example: 2 }
+        status: { type: string, enum: [Planned, InProgress, Completed, Cancelled], example: Planned }
+        createdAt: { type: string, format: date-time, example: 2026-09-26T08:00:00Z }
+        updatedAt: { type: string, format: date-time, nullable: true, example: 2026-09-26T09:00:00Z }
+    PagedResponse:
+      type: object
+      description: Envelope for all list endpoints (max pageSize 100, default 25).
+      required: [items, page, pageSize, totalCount, totalPages]
+      properties:
+        items:
+          type: array
+          items: {}
+          description: Array of resource objects (schema defined per endpoint).
+        page: { type: integer, minimum: 1, default: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        totalCount: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }

@@ -1,0 +1,26 @@
+    ValidationProblem:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Forbidden:
+      description: Authenticated but not authorized for this role/resource
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    NotFound:
+      description: The requested resource does not exist
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Conflict:
+      description: Conflicting state — e.g. a unique constraint violation or a referenced resource
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  # Conventions per 05-api-contract-standards.md §Auth + §Status transitions

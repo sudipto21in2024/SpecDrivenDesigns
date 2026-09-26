@@ -1,0 +1,39 @@
+    DriverRequest:
+      type: object
+      required: [fullName, licenseNumber]
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Raj Patil
+        licenseNumber:
+          type: string
+          minLength: 1
+          maxLength: 40
+          example: DL-112-4589
+        phone:
+          type: string
+          maxLength: 40
+          example: "+31 6 1234 5678"
+        status:
+          type: string
+          enum: [Active, OffDuty, Suspended]
+          default: Active
+          example: Active
+        userId:
+          type: integer
+          format: int64
+          description: Optional link to a login user account (users.id). The user must exist and may be linked to at most one driver (User 1---1 Driver).
+          example: 7
+    DriverResponse:
+      type: object
+      description: Driver master data. Deliberately carries no createdAt — the approved schema §drivers defines no created_at column.
+      required: [id, fullName, licenseNumber, status]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        userId: { type: integer, format: int64, nullable: true, example: 7 }
+        fullName: { type: string, example: Raj Patil }
+        licenseNumber: { type: string, example: DL-112-4589 }
+        phone: { type: string, nullable: true, example: "+31 6 1234 5678" }
+        status: { type: string, enum: [Active, OffDuty, Suspended], example: Active }
