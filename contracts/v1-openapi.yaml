@@ -252,6 +252,9 @@ components:
         rejected with 400; priority is immutable so BR-1 keeps its single sla_due_at writer
         (Docs/business-rules/BR-sla-rules.md). A shipment that is no longer Pending is rejected
         with 409 and no column is written.
+        Immutable priority: BR-1 rule 1.5 (Docs/business-rules/BR-sla-rules.md) fixes sla_due_at once
+        at creation and states that LOGI-0008 edits do not reset the clock, so a priority change
+        could never stay BR-1-true — priority is rejected with 400 (errors.priority), not recomputed.
       minProperties: 1
       properties:
         originWarehouseId: { type: integer, format: int64, example: 1 }

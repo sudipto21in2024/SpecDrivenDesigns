@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-26T06:10:17.673Z",
+  "generated": "2026-09-26T06:30:13.687Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -247,12 +247,15 @@
       "ticket": "LOGI-0008",
       "arms": {
         "architect": {
-          "status": "in_progress",
+          "status": "done",
           "agent": null,
-          "started": "2026-09-26T06:10:17.669Z"
+          "started": "2026-09-26T06:10:17.669Z",
+          "lastStep": "sealed: spectral lint --ruleset contracts/.spectral.yaml 0 errors; contracts/v1-openapi.yaml +73/-0 additions-only; slicer shipments x-roles lists getShipment + updateShipment and warehouses is unaffected; node --check tools/contract/index.mjs OK; spec slicers ac/summary/scope/defaults/all resolve; validate-plan 0 errors 0 warnings",
+          "lastStepAt": "2026-09-26T06:29:17.760Z"
         }
       },
-      "status": "in_progress"
+      "status": "in_progress",
+      "next": "backend"
     }
   }
 }

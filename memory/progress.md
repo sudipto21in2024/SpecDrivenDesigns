@@ -3,6 +3,7 @@
 Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS.md`.
 
 | Ticket | Description | Status |
+| LOGI-0008 | Platform | ARCHITECT DONE (spec spec_approved + additive contract; next: backend arm) |
 | LOGI-0015 | Platform | DONE (tracker status-derivation + dispatch-queue fix) |
 | LOGI-0007 | Platform | 🟢 DONE — all four arms sealed; 16 new e2e tests, full 63/63 local; CI run #42 (tip 3cc010a) GREEN; follow-ups: LOGI-0007-F2 concurrent-create 500 race (CI-only) + F1 query-binder 500-vs-400 → backend scope |
 |---|---|---|

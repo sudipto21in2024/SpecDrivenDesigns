@@ -1,7 +1,7 @@
 ---
 id: LOGI-0008
 title: Edit (Pending) / cancel (Pending, Assigned)
-status: draft
+status: spec_approved
 owner_agent: spec-agent
 created: 2026-09-26
 depends_on:
@@ -11,8 +11,10 @@ depends_on:
   - LOGI-0007
 ---
 
-> `status: draft` until the architect checkpoint approves §7. Contract slices and the backend arm
-> must not start before `spec_approved` (03-spec-driven-workflow.md state machine).
+> `status: spec_approved` — the architect checkpoint resolved §7 O1 by reading the authoritative
+> rules rather than choosing: `Docs/business-rules/BR-sla-rules.md` rule 1.5 fixes `sla_due_at` once
+> at creation and states that LOGI-0008 edits do not reset the clock, so `priority` cannot be
+> editable (it would contradict BR-1) and the offset constants stay untouched.
 
 ## 1. Summary
 As a **Dispatcher**, I want to correct a shipment that has not left the warehouse yet, and to cancel
@@ -93,7 +95,9 @@ When the PATCH body contains id, referenceCode, status, slaDueAt, createdAt, upd
 Then I receive 400 ProblemDetails with errors.<field> naming it server-owned
 When the PATCH body contains priority (Standard or Express)
 Then I receive 400 with errors.priority populated ("priority is immutable; create a new shipment")
-     — the §7 O1 default, which keeps BR-1's single sla_due_at writer (LOGI-0007) intact
+     — BR-1 rule 1.5 (Docs/business-rules/BR-sla-rules.md): sla_due_at is computed once at
+     creation and "edits (LOGI-0008) do not reset the clock"; changing priority without moving
+     sla_due_at would contradict BR-1, and moving it is forbidden by rule 1.5
 And no field of a rejected request is partially applied
 ```
 
@@ -176,8 +180,9 @@ And a 409 (state changed in another tab) surfaces a message and refreshes the ro
 **AC-12 — BR-1/BR-2 non-regression after an edit or cancel**
 ```
 Given a Pending shipment whose address, weight and origin warehouse are edited (AC-1)
-Then slaDueAt is byte-identical to its creation value (BR-1: computed once at insert by LOGI-0007)
-And priority is unchanged
+Then slaDueAt is byte-identical to its creation value (BR-1 rule 1.5: computed once at insert by
+     LOGI-0007; LOGI-0008 edits do not reset the clock)
+And priority is unchanged — a priority value in the body is rejected outright (AC-4)
 Given a shipment cancelled per AC-8
 Then the BR-2 read-time projection still reports atRisk=false for it (rule 2.3: Delivered and
      Cancelled are excluded) and slaRisk=true/false behaves exactly as before
@@ -189,8 +194,10 @@ And no at_risk/breached column is introduced anywhere
   route including the BR-5 capacity check — LOGI-0010. `routeId` stays null and is never set here.
 - Driver own-route visibility/transition scoping — LOGI-0009/0010. This ticket only closes the
   `Cancelled` role hole (AC-10); it does not scope the remaining Driver transitions.
-- Changing `priority` (and therefore `sla_due_at`) — see §7 O1. Amending BR-1's enforcement seam is a
-  `Docs/business-rules/BR-sla-rules.md` change and needs a BRD revision, not a feature ticket.
+- Changing `priority` (and therefore `sla_due_at`) — ruled out by BR-1 rule 1.5 in
+  `Docs/business-rules/BR-sla-rules.md`: the due date is computed once at creation and "edits
+  (LOGI-0008) do not reset the clock", so a priority change could never stay BR-1-true. Reopening
+  that needs a BRD revision, not a field in this form.
 - Deleting a shipment, bulk/batch edit, CSV import, edit history/audit of field changes (§7 O3).
 - Planning board / kanban (LOGI-0011) and dashboard aggregates (LOGI-0012).
 - `PATCH` of a shipment that has a route (only reachable from `Assigned`, which AC-2 rejects anyway).
@@ -202,7 +209,8 @@ And no at_risk/breached column is introduced anywhere
   `destination_lat`, `destination_lng`, `weight_kg` (and the server-managed row timestamp) while the
   status is `Pending`; `shipment_status_history` — only the row written by the LOGI-0006 cancel
   transition.
-- Never written here: `sla_due_at` and `priority` (BR-1 seam — LOGI-0007 is their single writer),
+- Never written here: `sla_due_at` and `priority` (BR-1 rules 1.5 + enforcement seam — LOGI-0007 stays
+  their single writer, exactly as this ticket's BRD check confirmed),
   `status` through PATCH (BR-7 is owned by `Shipment.TransitionTo` in LOGI-0006), `reference_code`,
   `created_at`, `route_id` (LOGI-0010), and any at-risk column (it does not exist by design).
 - Migration: **none expected** — all columns already exist from the LOGI-0006/0007 migrations. The
@@ -211,7 +219,7 @@ And no at_risk/breached column is introduced anywhere
 ## 7. Open questions (safe defaults applied — confirm at the checkpoint)
 | # | Question | Safe default applied | Alternative |
 |---|---|---|---|
-| O1 | Is `priority` editable while `Pending`? | **No** — 400 `errors.priority` ("priority is immutable; create a new shipment"). Keeps BR-1's single `sla_due_at` writer and needs no doc change. | Allow it and recompute `sla_due_at = created_at + offset` — requires amending `Docs/business-rules/BR-sla-rules.md` (BRD revision). |
+| O1 | Is `priority` editable while `Pending`? | **No** — 400 `errors.priority`. Settled by the BRD expansion, not by preference: rule 1.5 fixes `sla_due_at` at creation and states that edits (LOGI-0008) do not reset the clock, so any priority change would break BR-1. | Allow it and recompute `sla_due_at = created_at + offset` — needs a BRD revision (rule 1.5 + the BRD-owned 48h/12h constants). Rejected. |
 | O2 | Dedicated `POST /shipments/{id}/cancel` endpoint? | **No** — reuse the LOGI-0006 transition endpoint with `toStatus: "Cancelled"`; one status-write path (`Shipment.TransitionTo`), one audit trail, no contract surface duplication. | Add the convenience endpoint (a second path into the state machine; rejected for BR-7 ownership). |
 | O3 | Is a field edit audited? | **No** `shipment_status_history` row — F7 audits *status* transitions; the server-managed row timestamp is the only trace. | Add an edit-audit table (new migration, outside F6). |
 | O4 | Driver cancelling shipments | **403** for `toStatus: "Cancelled"` only (BR-6). | Exclude Driver from the transitions endpoint entirely (breaks LOGI-0006 AC-8); or implement own-route scoping now (LOGI-0009/0010). |

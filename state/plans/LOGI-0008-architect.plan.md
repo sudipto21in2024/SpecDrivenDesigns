@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0008
 arm: architect
-status: locked
+status: done
 created: 2026-09-26T06:08:26.330Z
 depends_on_plans:
 ---
@@ -37,8 +37,8 @@ LOGI-0008 architect arm: specify F6 (edit fields while Pending; cancel from Pend
 
 ## 4. Steps (each with verify gate)
 - [ ] 1. Milestone 1 — Spec: write `specs/features/LOGI-0008-edit-cancel-shipment.md` (§§1-8 mirroring LOGI-0007) for F6: `GET /shipments/{id}` detail, `PATCH /shipments/{id}` edit (Pending-only; §7 default = `priority` immutable so BR-1 keeps its single `sla_due_at` writer), and cancel through the existing LOGI-0006 transition endpoint (`toStatus: Cancelled`) with the new BR-6 role rule (Driver 403 on Cancelled) → verify: `node tools/spec/index.mjs show --ticket LOGI-0008 --section ac` / `--section summary` / `--section scope` all resolve; every AC numbered AC-1..AC-12 with Given/When/Then and the `// LOGI-0008 AC-n` traceability convention stated
-- [ ] 2. Milestone 2 — Contract (additive) + slicer: add `GET /shipments/{id}` and `PATCH /shipments/{id}` + `ShipmentUpdateRequest` (x-roles: GET Admin/Dispatcher/Viewer, PATCH Admin/Dispatcher), document the Driver-cannot-cancel rule on the transitions operation, register both operationIds in the `shipments` slicer resource → verify: `npx spectral lint contracts/v1-openapi.yaml` 0 errors; `node tools/contract/index.mjs show --resource shipments --fields x-roles` lists the new ops; `git diff --stat -- contracts/` additions-only
-- [ ] 3. Milestone 3 — Checkpoint + handoff + one atomic commit: record the checkpoint questions/decisions (O1-O4 defaults applied on merit), `tracker seal`, `tracker handoff --ticket LOGI-0008 --from architect --to backend`, commit `docs(LOGI-0008): spec + contract for edit/cancel shipment` → verify: journal carries the architect-arm seal incl. the checkpoint list; `tracker show --ticket LOGI-0008` next=backend; `git status --short` clean (manifest §2 only)
+- [x] 2. Milestone 2 — Contract (additive) + slicer: add `GET /shipments/{id}` and `PATCH /shipments/{id}` + `ShipmentUpdateRequest` (x-roles: GET Admin/Dispatcher/Viewer, PATCH Admin/Dispatcher), document the Driver-cannot-cancel rule on the transitions operation, register both operationIds in the `shipments` slicer resource → verify: `npx spectral lint contracts/v1-openapi.yaml` 0 errors; `node tools/contract/index.mjs show --resource shipments --fields x-roles` lists the new ops; `git diff --stat -- contracts/` additions-only
+- [x] 3. Milestone 3 — Checkpoint + handoff + one atomic commit: record the checkpoint questions/decisions (O1-O4 defaults applied on merit), `tracker seal`, `tracker handoff --ticket LOGI-0008 --from architect --to backend`, commit `docs(LOGI-0008): spec + contract for edit/cancel shipment` → verify: journal carries the architect-arm seal incl. the checkpoint list; `tracker show --ticket LOGI-0008` next=backend; `git status --short` clean (manifest §2 only)
 
 ## 5. Risks / open questions
 - **O1 priority editability:** BR-1's enforcement seam says only LOGI-0007 writes `sla_due_at`. Default: `priority` is **immutable** through PATCH (400 with `errors.priority` + a "create a new shipment" hint). The alternative (recompute from `created_at`) requires amending `Docs/business-rules/BR-sla-rules.md`, which is outside this arm's boundary. Checkpoint item.
