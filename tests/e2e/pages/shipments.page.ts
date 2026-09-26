@@ -123,4 +123,35 @@ export class ShipmentsPage {
   async expectSnackbar(message: string | RegExp): Promise<void> {
     await expect(this.page.getByTestId('snackbar')).toContainText(message);
   }
+
+  /**
+   * LOGI-0008 AC-11 row-action seam. Buttons carry `aria-label="Edit|Cancel <referenceCode>"`;
+   * absence of the button is the assertion for gated-out role×status cells.
+   */
+  rowEditButton(referenceCode: string): Locator {
+    return this.page.getByRole('button', { name: `Edit ${referenceCode}`, exact: true });
+  }
+
+  rowCancelButton(referenceCode: string): Locator {
+    return this.page.getByRole('button', { name: `Cancel ${referenceCode}`, exact: true });
+  }
+
+  async openEdit(referenceCode: string): Promise<void> {
+    await this.rowEditButton(referenceCode).click();
+    await expect(this.page.getByRole('heading', { name: 'Edit shipment' })).toBeVisible();
+  }
+
+  async saveEdit(): Promise<void> {
+    await this.page.getByTestId('shipment-save').click();
+  }
+
+  async openCancel(referenceCode: string): Promise<void> {
+    await this.rowCancelButton(referenceCode).click();
+    await expect(this.page.getByRole('heading', { name: 'Cancel shipment' })).toBeVisible();
+  }
+
+  async confirmCancel(note?: string): Promise<void> {
+    if (note !== undefined) await this.page.getByLabel('Cancellation note').fill(note);
+    await this.page.getByTestId('confirm-cancel').click();
+  }
 }

@@ -271,3 +271,47 @@ export async function listShipments(
   return { status: response.status(), body: await readBody<ListShipmentsResult['body']>(response) };
 }
 
+/** Outcome of a shipment detail read: the Shipment on 2xx, ProblemDetails fields on 4xx. */
+export type GetShipmentResult = {
+  status: number;
+  body: Partial<Shipment> & Partial<ProblemDetails>;
+};
+
+/** Outcome of a shipment PATCH: the updated Shipment on 2xx, ProblemDetails fields on 4xx. */
+export type PatchShipmentResult = {
+  status: number;
+  body: Partial<Shipment> & Partial<ProblemDetails>;
+};
+
+/**
+ * LOGI-0008 AC-6/AC-7: GETs `GET /api/v1/shipments/{id}`. Pass `null` as the token for the 401 case.
+ */
+export async function getShipment(
+  request: APIRequestContext,
+  accessToken: string | null,
+  shipmentId: number,
+): Promise<GetShipmentResult> {
+  const response = await request.get(`${API}/api/v1/shipments/${shipmentId}`, {
+    headers: accessToken ? authHeaders(accessToken) : {},
+  });
+  return { status: response.status(), body: await readBody<GetShipmentResult['body']>(response) };
+}
+
+/**
+ * LOGI-0008 AC-1..AC-5: PATCHes `PATCH /api/v1/shipments/{id}`. `body` is deliberately untyped so a
+ * test can send server-owned/immutable keys (AC-4), empty `{}` (AC-3) or explicit `null` clears.
+ * Pass `null` as the token for the anonymous (401) case.
+ */
+export async function patchShipment(
+  request: APIRequestContext,
+  accessToken: string | null,
+  shipmentId: number,
+  body: Record<string, unknown>,
+): Promise<PatchShipmentResult> {
+  const response = await request.patch(`${API}/api/v1/shipments/${shipmentId}`, {
+    headers: accessToken ? authHeaders(accessToken) : {},
+    data: body,
+  });
+  return { status: response.status(), body: await readBody<PatchShipmentResult['body']>(response) };
+}
+
