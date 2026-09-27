@@ -127,6 +127,9 @@ public class DeleteVehicleHandler(IAppDbContext db) : IRequestHandler<DeleteVehi
             .SingleOrDefaultAsync(v => v.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Vehicle), request.Id);
 
+        if (await db.Routes.AnyAsync(r => r.VehicleId == request.Id, cancellationToken))
+            throw new ConflictException(nameof(Domain.Vehicle), $"Vehicle {request.Id} is assigned to one or more routes.");
+
         db.Vehicles.Remove(vehicle);
         await db.SaveChangesAsync(cancellationToken);
     }

@@ -28,5 +28,8 @@ public interface IAppDbContext
     /// <summary>Rotating refresh tokens (`refresh_tokens` table) — LOGI-0003.</summary>
     DbSet<Domain.RefreshToken> RefreshTokens { get; }
 
+    /// <summary>Routes (`routes` table) — LOGI-0009.</summary>
+    DbSet<Domain.Route> Routes { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

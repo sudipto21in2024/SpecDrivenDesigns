@@ -7,14 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace LogiFlow.Infrastructure.Persistence;
 
 /// <summary>
-/// EF Core DbContext for LogiFlow. Column/table names mirror 04-database-schema.md
-/// (snake_case tables/columns, ISO8601 UTC timestamps as TEXT).
-///
-/// Derives from Identity's context so password hashing and user storage are framework-managed
-/// (ADR-007). The LogiFlow <c>users</c> table is the Identity user table; its companion
-/// Identity tables (roles, claims, logins, tokens) are additionally mapped into snake_case so the
-/// database stays consistent and self-describing. In v1 those tables are the framework's business
-/// and are unused by domain code, because the role is a scalar <c>users.role</c> column.
+/// EF Core DbContext for LogiFlow (04-database-schema.md snake_case tables/columns).
 /// </summary>
 public class LogiFlowDbContext(DbContextOptions<LogiFlowDbContext> options)
     : IdentityDbContext<AppUser, IdentityRole<long>, long>(options), IAppDbContext
@@ -30,6 +23,8 @@ public class LogiFlowDbContext(DbContextOptions<LogiFlowDbContext> options)
     public DbSet<ShipmentStatusHistory> ShipmentStatusHistory => Set<ShipmentStatusHistory>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    public DbSet<Route> Routes => Set<Route>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -150,6 +145,8 @@ public class LogiFlowDbContext(DbContextOptions<LogiFlowDbContext> options)
                 .HasConstraintName("fk_shipment_status_history_users")
                 .OnDelete(DeleteBehavior.NoAction);
         });
+
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(LogiFlowDbContext).Assembly);
 
         ConfigureIdentityTables(modelBuilder);
         ConfigureRefreshTokens(modelBuilder);

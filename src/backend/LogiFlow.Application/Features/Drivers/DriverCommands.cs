@@ -22,11 +22,7 @@ public static class DriverValues
 }
 
 /// <summary>
-/// Shared user-link rules (AC-5/AC-6): a linked user must exist (otherwise 400 keyed to
-/// errors.userId) and may be linked to at most one driver — User 1---1 Driver per the approved
-/// schema entity overview (otherwise 409). <paramref name="excludeDriverId"/> lets the update
-/// handler ignore the driver being updated. The 1:1 rule is a handler pre-check by design: the
-/// approved schema has no unique index on user_id.
+/// Shared user-link rules (AC-5/AC-6): linked user must exist and be 1:1.
 /// </summary>
 internal static class DriverUserLink
 {
@@ -174,6 +170,9 @@ public class DeleteDriverHandler(IAppDbContext db) : IRequestHandler<DeleteDrive
         var driver = await db.Drivers
             .SingleOrDefaultAsync(d => d.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Driver), request.Id);
+
+        if (await db.Routes.AnyAsync(r => r.DriverId == request.Id, cancellationToken))
+            throw new ConflictException(nameof(Domain.Driver), $"Driver {request.Id} is assigned to one or more routes.");
 
         db.Drivers.Remove(driver);
         await db.SaveChangesAsync(cancellationToken);
