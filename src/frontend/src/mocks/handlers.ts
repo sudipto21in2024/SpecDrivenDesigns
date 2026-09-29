@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput, ShipmentStatusEvent, ShipmentStatus, StatusTransitionRequest, Shipment, ShipmentInput, ShipmentPriority } from '../api/client';
+import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput, ShipmentStatusEvent, ShipmentStatus, StatusTransitionRequest, Shipment, ShipmentInput, ShipmentPriority, Route, RouteStatus } from '../api/client';
 
 /**
  * MSW handlers derived from contracts/v1-openapi.yaml (ADR-004). The in-memory store mirrors the API
@@ -62,6 +62,46 @@ export function resetVehiclesDb(seed: Vehicle[] = []): void {
 /** Clears the driver store. */
 export function resetDriversDb(seed: Driver[] = []): void {
   driversDb.splice(0, driversDb.length, ...seed);
+}
+
+/** A route in the mock store — `RouteResponse` is flat, so the row *is* the read model. */
+export interface MockRoute {
+  id: number;
+  name: string;
+  plannedStart: string;
+  plannedEnd: string;
+  /** Nullable FK — a route may be planned unassigned (LOGI-0009 O3). */
+  vehicleId: number | null;
+  /** Nullable FK — assigned/reassigned via PATCH (LOGI-0009 O3). */
+  driverId: number | null;
+  status: RouteStatus;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export const routesDb: MockRoute[] = [];
+
+/** Clears the route store. */
+export function resetRoutesDb(seed: MockRoute[] = []): void {
+  routesDb.splice(0, routesDb.length, ...seed);
+}
+
+/** Inserts a route into the mock store, mirroring the API defaults (status → Planned, unassigned). */
+export function seedRoute(overrides: Partial<MockRoute> = {}): MockRoute {
+  const route: MockRoute = {
+    id: nextId++,
+    name: 'North loop',
+    plannedStart: '2026-10-01T08:00:00Z',
+    plannedEnd: '2026-10-01T16:00:00Z',
+    vehicleId: null,
+    driverId: null,
+    status: 'Planned',
+    createdAt: new Date('2026-09-26T08:00:00Z').toISOString(),
+    updatedAt: null,
+    ...overrides,
+  };
+  routesDb.push(route);
+  return route;
 }
 
 /** A shipment in the mock store: the aggregate row plus its append-only status history. */
@@ -424,6 +464,110 @@ function validateDriver(body: Partial<DriverInput>): Record<string, string[]> | 
   return Object.keys(errors).length > 0 ? errors : undefined;
 }
 
+/** Route statuses in contract order (RouteResponse.status enum). */
+const routeStatuses: RouteStatus[] = ['Planned', 'InProgress', 'Completed', 'Cancelled'];
+
+/**
+ * Route role rules — x-roles for /routes: GET [Admin, Dispatcher, Viewer, Driver],
+ * POST/PATCH [Admin, Dispatcher] (LOGI-0009 AC-7). The Driver's *read* is additionally
+ * scoped to their own routes inside the handlers, because a role whitelist alone cannot
+ * express row-level ownership (BR-6).
+ */
+const routeRoleRules: Record<Role, { read: boolean; write: boolean; delete: boolean }> = {
+  Admin: { read: true, write: true, delete: false },
+  Dispatcher: { read: true, write: true, delete: false },
+  Driver: { read: true, write: false, delete: false },
+  Viewer: { read: true, write: false, delete: false },
+};
+
+/** The mock's projection of a store row (RouteResponse is flat, so this is a shallow copy). */
+function toRouteResponse(route: MockRoute): Route {
+  return {
+    id: route.id,
+    name: route.name,
+    plannedStart: route.plannedStart,
+    plannedEnd: route.plannedEnd,
+    vehicleId: route.vehicleId,
+    driverId: route.driverId,
+    status: route.status,
+    createdAt: route.createdAt,
+    updatedAt: route.updatedAt,
+  };
+}
+
+/** Whole-second UTC instant, mirroring the backend's Kind=Utc normalization; null when unparseable. */
+function toUtcInstant(value: string): string | null {
+  const ms = Date.parse(value);
+  return Number.isNaN(ms) ? null : new Date(Math.floor(ms / 1000) * 1000).toISOString();
+}
+
+/**
+ * BR-3/BR-4 (AC-5): two routes conflict only when their planned windows *overlap*
+ * (`start < other.end && other.start < end`) and both are non-terminal
+ * (Planned/InProgress). Windows that merely touch at the boundary do not conflict.
+ */
+function windowsOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+  return aStart < bEnd && bStart < aEnd;
+}
+
+/** The first non-terminal route whose window overlaps AND that shares the vehicle/driver (AC-5). */
+function findRouteConflict(
+  candidateStart: number,
+  candidateEnd: number,
+  vehicleId: number | null,
+  driverId: number | null,
+  excludeRouteId: number | null,
+): { kind: 'vehicle' | 'driver'; other: MockRoute } | null {
+  for (const other of routesDb) {
+    if (excludeRouteId != null && other.id === excludeRouteId) continue;
+    if (other.status !== 'Planned' && other.status !== 'InProgress') continue;
+    const otherStart = Date.parse(other.plannedStart);
+    const otherEnd = Date.parse(other.plannedEnd);
+    if (!windowsOverlap(candidateStart, candidateEnd, otherStart, otherEnd)) continue;
+    if (vehicleId != null && other.vehicleId === vehicleId) return { kind: 'vehicle', other };
+    if (driverId != null && other.driverId === driverId) return { kind: 'driver', other };
+  }
+  return null;
+}
+
+/** AC-5: the 409 body must name which assignment collided, and with which route/window. */
+function routeConflict(conflict: { kind: 'vehicle' | 'driver'; other: MockRoute }): HttpResponse<ProblemDetails> {
+  const label = conflict.kind === 'vehicle' ? 'Vehicle' : 'Driver';
+  const id = conflict.kind === 'vehicle' ? conflict.other.vehicleId : conflict.other.driverId;
+  return problem409(
+    `${label} with id '${String(id)}' is already assigned to route '${conflict.other.name}' ` +
+      `(${conflict.other.plannedStart}..${conflict.other.plannedEnd}), whose planned window overlaps.`,
+  );
+}
+
+/** BR-6 (AC-7): the driver row linked to the caller's account, if any. */
+function linkedDriverId(userId: number): number | null {
+  return driversDb.find((driver) => driver.userId === userId)?.id ?? null;
+}
+
+/** Server-owned keys that must never appear in a route body (AC-10). */
+const routeServerOwnedFields = ['id', 'status', 'createdAt', 'updatedAt'] as const;
+
+/** AC-10: rejects any server-owned key present in the body, keyed like the API's field 400s. */
+function rejectServerOwnedFields(body: Record<string, unknown>): Record<string, string[]> {
+  const errors: Record<string, string[]> = {};
+  for (const field of routeServerOwnedFields) {
+    if (Object.prototype.hasOwnProperty.call(body, field)) {
+      errors[field] = [`The '${field}' field is server-owned and must not be supplied.`];
+    }
+  }
+  return errors;
+}
+
+/** Parses an optional vehicleId/driverId: null/undefined → unassigned, else a positive integer. */
+function parseOptionalId(value: unknown): { id: number | null; error?: string } {
+  if (value === null || value === undefined) return { id: null };
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    return { id: null, error: 'Must be an integer greater than or equal to 1, or null.' };
+  }
+  return { id: value };
+}
+
 export const handlers = [
   // ---------------------------------------------------------------- Auth (LOGI-0003)
 
@@ -654,6 +798,13 @@ export const handlers = [
 
     const index = vehiclesDb.findIndex((v) => v.id === Number(params.id));
     if (index === -1) return problem(404, 'Resource not found', `Vehicle with id '${String(params.id)}' was not found.`);
+    // AC-8: the deferred delete-when-referenced 409 goes live now that routes.vehicle_id exists.
+    const referencing = routesDb.find((route) => route.vehicleId === Number(params.id));
+    if (referencing) {
+      return problem409(
+        `Vehicle with id '${String(params.id)}' is referenced by route '${referencing.name}' (id ${referencing.id}) and cannot be deleted.`,
+      );
+    }
     vehiclesDb.splice(index, 1);
     return new HttpResponse(null, { status: 204 });
   }),
@@ -778,6 +929,13 @@ export const handlers = [
 
     const index = driversDb.findIndex((d) => d.id === Number(params.id));
     if (index === -1) return problem(404, 'Resource not found', `Driver with id '${String(params.id)}' was not found.`);
+    // AC-8: the deferred delete-when-referenced 409 goes live now that routes.driver_id exists.
+    const referencing = routesDb.find((route) => route.driverId === Number(params.id));
+    if (referencing) {
+      return problem409(
+        `Driver with id '${String(params.id)}' is referenced by route '${referencing.name}' (id ${referencing.id}) and cannot be deleted.`,
+      );
+    }
     driversDb.splice(index, 1);
     return new HttpResponse(null, { status: 204 });
   }),
@@ -1134,5 +1292,283 @@ export const handlers = [
       totalCount: shipment.statusHistory.length,
       totalPages: Math.max(1, Math.ceil(shipment.statusHistory.length / pageSize)),
     });
+  }),
+
+  // ------------------------------------------------------- Routes (LOGI-0009 AC-1..AC-10)
+
+  /**
+   * GET /routes — AC-9: paged envelope, AND filters (status/vehicleId/driverId/q), q is a
+   * case-insensitive name contains, sort fixed to `-createdAt` with an id tiebreak (the
+   * contract exposes no sort parameter for routes). AC-7/BR-6: a Driver caller sees only the
+   * routes assigned to their linked driver row.
+   */
+  http.get('/api/v1/routes', ({ request }) => {
+    const auth = authorize(request, 'read', 'routes', routeRoleRules);
+    if (!('user' in auth)) return auth;
+
+    const url = new URL(request.url);
+    const errors: Record<string, string[]> = {};
+
+    const pageRaw = url.searchParams.get('page');
+    const page = pageRaw == null ? 1 : Number(pageRaw);
+    if (pageRaw != null && (!Number.isInteger(page) || page < 1)) {
+      errors.page = ['Page must be an integer greater than or equal to 1.'];
+    }
+    const pageSizeRaw = url.searchParams.get('pageSize');
+    const pageSize = pageSizeRaw == null ? 25 : Number(pageSizeRaw);
+    if (pageSizeRaw != null && (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100)) {
+      errors.pageSize = ['Page size must be an integer between 1 and 100.'];
+    }
+
+    const statusRaw = url.searchParams.get('status');
+    if (statusRaw != null && !routeStatuses.includes(statusRaw as RouteStatus)) {
+      errors.status = ['Status must be one of: Planned, InProgress, Completed, Cancelled.'];
+    }
+    const vehicleIdRaw = url.searchParams.get('vehicleId');
+    const vehicleId = vehicleIdRaw == null ? null : Number(vehicleIdRaw);
+    if (vehicleIdRaw != null && (!Number.isInteger(vehicleId) || vehicleId! < 1)) {
+      errors.vehicleId = ['vehicleId must be an integer greater than or equal to 1.'];
+    }
+    const driverIdRaw = url.searchParams.get('driverId');
+    const driverId = driverIdRaw == null ? null : Number(driverIdRaw);
+    if (driverIdRaw != null && (!Number.isInteger(driverId) || driverId! < 1)) {
+      errors.driverId = ['driverId must be an integer greater than or equal to 1.'];
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+    }
+
+    // AC-7: Driver callers are scoped to their own routes; a Driver with no linked driver row
+    // therefore sees an empty page rather than the whole fleet's plan.
+    const isDriver = auth.user.role === 'Driver';
+    const ownDriverId = isDriver ? linkedDriverId(auth.user.id) : null;
+    const qRaw = url.searchParams.get('q');
+    const qNeedle = qRaw == null ? null : qRaw.toLowerCase();
+
+    const rows = routesDb
+      .filter(
+        (route) =>
+          (statusRaw == null || route.status === statusRaw) &&
+          (vehicleId == null || route.vehicleId === vehicleId) &&
+          (driverId == null || route.driverId === driverId) &&
+          // A Driver with no linked driver row owns nothing — least of all unassigned routes.
+          (!isDriver || (ownDriverId != null && route.driverId === ownDriverId)) &&
+          (qNeedle == null || route.name.toLowerCase().includes(qNeedle)),
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id);
+
+    const totalCount = rows.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const start = (page - 1) * pageSize;
+    const items = rows.slice(start, start + pageSize).map(toRouteResponse);
+
+    return HttpResponse.json({ items, page, pageSize, totalCount, totalPages });
+  }),
+
+  /**
+   * POST /routes — AC-1..AC-5/AC-10: create a route in status Planned. name plus the planned
+   * window are required (plannedEnd after plannedStart); vehicleId/driverId are optional
+   * (omitted or explicit null → the unassigned lane). A dangling vehicleId/driverId is a 404
+   * (O1); double-booking an overlapping window is a 409 (O2, BR-3/BR-4). No shipment is
+   * touched — shipment→route assignment is LOGI-0010.
+   */
+  http.post('/api/v1/routes', async ({ request }) => {
+    const auth = authorize(request, 'write', 'routes', routeRoleRules);
+    if (!('user' in auth)) return auth;
+
+    const raw = (await request.json()) as Record<string, unknown>;
+    const errors: Record<string, string[]> = { ...rejectServerOwnedFields(raw) };
+
+    const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+    if (name === '') errors.name = ['Name is required'];
+    else if (name.length > 200) errors.name = ['Name must be at most 200 characters'];
+
+    const plannedStartRaw = typeof raw.plannedStart === 'string' ? raw.plannedStart : '';
+    const plannedEndRaw = typeof raw.plannedEnd === 'string' ? raw.plannedEnd : '';
+    const plannedStart = plannedStartRaw === '' ? null : toUtcInstant(plannedStartRaw);
+    const plannedEnd = plannedEndRaw === '' ? null : toUtcInstant(plannedEndRaw);
+
+    if (plannedStartRaw === '') errors.plannedStart = ['Planned start is required'];
+    else if (plannedStart == null) errors.plannedStart = ['Planned start must be a valid date-time'];
+    if (plannedEndRaw === '') errors.plannedEnd = ['Planned end is required'];
+    else if (plannedEnd == null) errors.plannedEnd = ['Planned end must be a valid date-time'];
+    if (
+      plannedStart != null &&
+      plannedEnd != null &&
+      Date.parse(plannedEnd) <= Date.parse(plannedStart)
+    ) {
+      errors.plannedEnd = ['Planned end must be after planned start'];
+    }
+
+    const vehicle = parseOptionalId(raw.vehicleId);
+    if (vehicle.error) errors.vehicleId = [vehicle.error];
+    const driver = parseOptionalId(raw.driverId);
+    if (driver.error) errors.driverId = [driver.error];
+
+    if (Object.keys(errors).length > 0) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+    }
+
+    // O1: a dangling FK reads as "referenced resource does not exist" → 404 (contract precedent).
+    if (vehicle.id != null && !vehiclesDb.some((v) => v.id === vehicle.id)) {
+      return problem(404, 'Resource not found', `Vehicle with id '${vehicle.id}' was not found.`);
+    }
+    if (driver.id != null && !driversDb.some((d) => d.id === driver.id)) {
+      return problem(404, 'Resource not found', `Driver with id '${driver.id}' was not found.`);
+    }
+
+    // BR-3/BR-4 (AC-5): the overlap guard runs before any write, so a rejected create leaves no row.
+    const conflict = findRouteConflict(
+      Date.parse(plannedStart!),
+      Date.parse(plannedEnd!),
+      vehicle.id,
+      driver.id,
+      null,
+    );
+    if (conflict) return routeConflict(conflict);
+
+    const route: MockRoute = {
+      id: nextId++,
+      name,
+      plannedStart: plannedStart!,
+      plannedEnd: plannedEnd!,
+      vehicleId: vehicle.id,
+      driverId: driver.id,
+      status: 'Planned',
+      createdAt: new Date(Math.floor(Date.now() / 1000) * 1000).toISOString(),
+      updatedAt: null,
+    };
+    routesDb.push(route);
+    return HttpResponse.json(toRouteResponse(route), { status: 201 });
+  }),
+
+  /**
+   * GET /routes/{id} — AC-4: 404 for an unknown id. AC-7/BR-6: a Driver token for another
+   * driver's route is 403 (existence is checked first, so an unknown id stays a 404).
+   */
+  http.get('/api/v1/routes/:id', ({ request, params }) => {
+    const auth = authorize(request, 'read', 'routes', routeRoleRules);
+    if (!('user' in auth)) return auth;
+
+    const route = routesDb.find((r) => r.id === Number(params.id));
+    if (!route) return problem(404, 'Resource not found', `Route with id '${String(params.id)}' was not found.`);
+
+    if (auth.user.role === 'Driver' && route.driverId !== linkedDriverId(auth.user.id)) {
+      return problem(403, 'Forbidden', 'The Driver role is not permitted to read routes assigned to another driver.');
+    }
+
+    return HttpResponse.json(toRouteResponse(route));
+  }),
+
+  /**
+   * PATCH /routes/{id} — AC-2..AC-6/AC-10: rename / reschedule / assign / reassign / unassign.
+   * Explicit null unassigns; an empty body is a 400 (errors.body); server-owned keys are 400s;
+   * a non-Planned route is a 409 naming the required status. The store row is mutated only
+   * after every guard has passed, so a rejected PATCH leaves the row byte-identical.
+   */
+  http.patch('/api/v1/routes/:id', async ({ request, params }) => {
+    const auth = authorize(request, 'write', 'routes', routeRoleRules);
+    if (!('user' in auth)) return auth;
+
+    const route = routesDb.find((r) => r.id === Number(params.id));
+    if (!route) return problem(404, 'Resource not found', `Route with id '${String(params.id)}' was not found.`);
+
+    const raw = (await request.json()) as Record<string, unknown>;
+    const errors: Record<string, string[]> = { ...rejectServerOwnedFields(raw) };
+
+    const has = (key: string) => Object.prototype.hasOwnProperty.call(raw, key);
+    const editable = ['name', 'plannedStart', 'plannedEnd', 'vehicleId', 'driverId'].filter(has);
+    if (editable.length === 0 && Object.keys(errors).length === 0) {
+      errors.body = ['At least one field is required.'];
+    }
+
+    let name = route.name;
+    if (has('name')) {
+      const candidate = typeof raw.name === 'string' ? raw.name.trim() : '';
+      if (candidate === '') errors.name = ['Name is required'];
+      else if (candidate.length > 200) errors.name = ['Name must be at most 200 characters'];
+      else name = candidate;
+    }
+
+    let plannedStart = route.plannedStart;
+    if (has('plannedStart')) {
+      const candidate = typeof raw.plannedStart === 'string' ? raw.plannedStart : '';
+      const parsed = candidate === '' ? null : toUtcInstant(candidate);
+      if (parsed == null) errors.plannedStart = ['Planned start must be a valid date-time'];
+      else plannedStart = parsed;
+    }
+
+    let plannedEnd = route.plannedEnd;
+    if (has('plannedEnd')) {
+      const candidate = typeof raw.plannedEnd === 'string' ? raw.plannedEnd : '';
+      const parsed = candidate === '' ? null : toUtcInstant(candidate);
+      if (parsed == null) errors.plannedEnd = ['Planned end must be a valid date-time'];
+      else plannedEnd = parsed;
+    }
+
+    // Evaluated over the *effective* pair, so a partial reschedule that inverts the window is
+    // reported as a field error rather than silently stored.
+    if (
+      errors.plannedStart === undefined &&
+      errors.plannedEnd === undefined &&
+      Date.parse(plannedEnd) <= Date.parse(plannedStart)
+    ) {
+      errors.plannedEnd = ['Planned end must be after planned start'];
+    }
+
+    const vehicleProvided = has('vehicleId');
+    let vehicleId = route.vehicleId;
+    if (vehicleProvided) {
+      const parsed = parseOptionalId(raw.vehicleId);
+      if (parsed.error) errors.vehicleId = [parsed.error];
+      else vehicleId = parsed.id;
+    }
+
+    const driverProvided = has('driverId');
+    let driverId = route.driverId;
+    if (driverProvided) {
+      const parsed = parseOptionalId(raw.driverId);
+      if (parsed.error) errors.driverId = [parsed.error];
+      else driverId = parsed.id;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+    }
+
+    // AC-6: assignment/rename/reschedule is Planned-only; the 409 names the required status.
+    if (route.status !== 'Planned') {
+      return problem409(
+        `Cannot modify a route in status '${route.status}'. The route must be 'Planned'.`,
+      );
+    }
+
+    // O1: a dangling FK → 404, and the row is left untouched (AC-4).
+    if (vehicleProvided && vehicleId != null && !vehiclesDb.some((v) => v.id === vehicleId)) {
+      return problem(404, 'Resource not found', `Vehicle with id '${vehicleId}' was not found.`);
+    }
+    if (driverProvided && driverId != null && !driversDb.some((d) => d.id === driverId)) {
+      return problem(404, 'Resource not found', `Driver with id '${driverId}' was not found.`);
+    }
+
+    // AC-5: re-check the overlaid window + assignment, excluding this route so re-sending the
+    // same window/vehicle pair does not self-conflict.
+    const conflict = findRouteConflict(
+      Date.parse(plannedStart),
+      Date.parse(plannedEnd),
+      vehicleId,
+      driverId,
+      route.id,
+    );
+    if (conflict) return routeConflict(conflict);
+
+    route.name = name;
+    route.plannedStart = plannedStart;
+    route.plannedEnd = plannedEnd;
+    route.vehicleId = vehicleId;
+    route.driverId = driverId;
+    route.updatedAt = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString();
+    return HttpResponse.json(toRouteResponse(route));
   }),
 ];

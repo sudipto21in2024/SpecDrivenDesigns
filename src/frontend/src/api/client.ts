@@ -27,6 +27,12 @@ export type ShipmentInput = components['schemas']['ShipmentRequest'];
 export type ShipmentPriority = NonNullable<Shipment['priority']>;
 /** LOGI-0008 AC-1..AC-4: PATCH /shipments/{id} body — every property optional (send only what changes). */
 export type ShipmentUpdateInput = components['schemas']['ShipmentUpdateRequest'];
+/** LOGI-0009: Route read model + create/update bodies. */
+export type Route = components['schemas']['RouteResponse'];
+export type RouteInput = components['schemas']['RouteRequest'];
+export type RouteUpdateInput = components['schemas']['RouteUpdateRequest'];
+export type RouteStatus = NonNullable<Route['status']>;
+export type ListRoutesParams = NonNullable<operations['listRoutes']['parameters']['query']>;
 /** Sort keys accepted by GET /shipments — createdAt|-createdAt|slaDueAt|-slaDueAt (default -createdAt). */
 export type ShipmentSort = NonNullable<
   NonNullable<operations['listShipments']['parameters']['query']>['sort']
@@ -270,6 +276,33 @@ export const api = {
   },
 
   /** LOGI-0007 F5 (AC-1): create shipment — the 201 body is the authoritative read-back. */
+  /** LOGI-0009: paged, filterable route list. */
+  listRoutes(params: ListRoutesParams = {}): Promise<Paged<Route>> {
+    const query = new URLSearchParams();
+    if (params.page != null) query.set('page', String(params.page));
+    if (params.pageSize != null) query.set('pageSize', String(params.pageSize));
+    if (params.status) query.set('status', params.status);
+    if (params.vehicleId != null) query.set('vehicleId', String(params.vehicleId));
+    if (params.driverId != null) query.set('driverId', String(params.driverId));
+    if (params.q) query.set('q', params.q);
+    return request<Paged<Route>>('/api/v1/routes?' + query.toString());
+  },
+
+  /** LOGI-0009: route detail. */
+  getRoute(id: number): Promise<Route> {
+    return request<Route>('/api/v1/routes/' + id);
+  },
+
+  /** LOGI-0009: create route. */
+  createRoute(body: RouteInput): Promise<Route> {
+    return request<Route>('/api/v1/routes', { method: 'POST', body: JSON.stringify(body) });
+  },
+
+  /** LOGI-0009: partial update / assignment of a Planned route. */
+  updateRoute(id: number, body: RouteUpdateInput): Promise<Route> {
+    return request<Route>('/api/v1/routes/' + id, { method: 'PATCH', body: JSON.stringify(body) });
+  },
+
   createShipment(body: ShipmentInput): Promise<Shipment> {
     return request<Shipment>('/api/v1/shipments', { method: 'POST', body: JSON.stringify(body) });
   },

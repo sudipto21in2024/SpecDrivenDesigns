@@ -291,6 +291,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List routes (paged, filterable)
+         * @description Returns a paged route list (LOGI-0009). Filters combine with AND: status, vehicleId, driverId and q (name contains, case-insensitive). Sort defaults to -createdAt. Driver-role callers receive only their own routes (driverId = linked driver); cross-driver reads are 403.
+         */
+        get: operations["listRoutes"];
+        put?: never;
+        /**
+         * Create route (+ optional vehicle/driver assignment)
+         * @description Creates a route in status Planned (LOGI-0009). name (1..200) and the planned start/end window are required (plannedEnd after plannedStart); vehicleId/driverId are optional (omitted or null → unassigned lane). Unknown vehicleId/driverId respond 404; double-booking the same vehicle or driver on an overlapping window (BR-3/BR-4 interval overlap, Planned/InProgress) responds 409. Shipment assignment is LOGI-0010 — no shipment is touched here.
+         */
+        post: operations["createRoute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/routes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * Get route by id
+         * @description Returns a single route. Responds 404 when the id does not exist; a Driver token for another driver's route is 403.
+         */
+        get: operations["getRoute"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Assign / reassign vehicle/driver (Planned routes only)
+         * @description Partial update of a Planned route (LOGI-0009): rename, reschedule, assign, reassign or unassign (explicit null) vehicle/driver. Unknown vehicleId/driverId respond 404; double-booking responds 409; non-Planned routes respond 409 and nothing is written. Server-owned fields (id, status, createdAt, updatedAt) are rejected with 400; an empty body is rejected with 400.
+         */
+        patch: operations["updateRoute"];
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -739,6 +789,111 @@ export interface components {
             /**
              * Format: date-time
              * @example 2026-09-18T08:00:00Z
+             */
+            updatedAt?: string | null;
+        };
+        /**
+         * @description Body of POST /routes and PATCH /routes/{id} (LOGI-0009). Create accepts
+         *     name + plannedStart/plannedEnd window with optional vehicleId/driverId
+         *     (nullable → unassigned lane); plannedEnd must be after plannedStart.
+         *     PATCH accepts any non-empty subset for rename/reschedule/assign/reassign/unassign
+         *     (explicit null unassigns). Server-owned fields — id, status, createdAt, updatedAt —
+         *     are never accepted and are rejected with 400.
+         */
+        RouteRequest: {
+            /** @example North loop */
+            name: string;
+            /**
+             * Format: date-time
+             * @example 2026-10-01T08:00:00Z
+             */
+            plannedStart: string;
+            /**
+             * Format: date-time
+             * @example 2026-10-01T16:00:00Z
+             */
+            plannedEnd: string;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            vehicleId?: number | null;
+            /**
+             * Format: int64
+             * @example 2
+             */
+            driverId?: number | null;
+        };
+        /**
+         * @description Body of PATCH /routes/{id} (LOGI-0009). Partial update of a Planned route only:
+         *     send only the fields to change; explicit null on vehicleId/driverId unassigns.
+         *     Non-Planned routes are rejected with 409 and nothing is written.
+         */
+        RouteUpdateRequest: {
+            /** @example North loop */
+            name?: string;
+            /**
+             * Format: date-time
+             * @example 2026-10-01T08:00:00Z
+             */
+            plannedStart?: string;
+            /**
+             * Format: date-time
+             * @example 2026-10-01T16:00:00Z
+             */
+            plannedEnd?: string;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            vehicleId?: number | null;
+            /**
+             * Format: int64
+             * @example 2
+             */
+            driverId?: number | null;
+        };
+        RouteResponse: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id: number;
+            /** @example North loop */
+            name: string;
+            /**
+             * Format: date-time
+             * @example 2026-10-01T08:00:00Z
+             */
+            plannedStart: string;
+            /**
+             * Format: date-time
+             * @example 2026-10-01T16:00:00Z
+             */
+            plannedEnd: string;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            vehicleId?: number | null;
+            /**
+             * Format: int64
+             * @example 2
+             */
+            driverId?: number | null;
+            /**
+             * @example Planned
+             * @enum {string}
+             */
+            status: "Planned" | "InProgress" | "Completed" | "Cancelled";
+            /**
+             * Format: date-time
+             * @example 2026-09-26T08:00:00Z
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @example 2026-09-26T09:00:00Z
              */
             updatedAt?: string | null;
         };
@@ -1427,6 +1582,125 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listRoutes: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                /** @description Filter by name (contains, case-insensitive) */
+                q?: string;
+                /** @description Filter by exact status */
+                status?: "Planned" | "InProgress" | "Completed" | "Cancelled";
+                vehicleId?: number;
+                driverId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged route list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PagedResponse"] & {
+                        items?: components["schemas"]["RouteResponse"][];
+                    };
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RouteRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouteResponse"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouteResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RouteUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouteResponse"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     login: {

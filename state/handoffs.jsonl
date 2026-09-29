@@ -31,3 +31,4 @@
 {"ts":"2026-09-26T14:15:46.791Z","type":"HANDOFF","ticket":"LOGI-0009","from":"architect","to":"backend","toState":"in_progress","summary_ptr":"memory/journal/LOGI-0009.md","gates":["spectral-0-errors"]}
 {"ts":"2026-09-26T16:15:27.892Z","type":"HANDOFF","ticket":"LOGI-0015","from":"architect","to":"done","toState":"done","summary_ptr":"memory/journal/LOGI-0015.md#architect-arm","gates":["validate-plan clean"]}
 {"ts":"2026-09-28T03:39:46.046Z","type":"HANDOFF","ticket":"LOGI-0009","from":"backend","to":"frontend","toState":"in_progress","summary_ptr":"memory/journal/LOGI-0009.md#backend-arm","gates":["dotnet build","dotnet test 140/140"]}
+{"ts":"2026-09-29T12:54:10.654Z","type":"HANDOFF","ticket":"LOGI-0009","from":"frontend","to":"qa","toState":"in_progress","summary_ptr":"memory/journal/LOGI-0009.md#frontend-arm","gates":["tsc --noEmit","npm run build","vitest 94/94"]}

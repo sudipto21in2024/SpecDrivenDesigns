@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-28T03:41:36.865Z",
+  "generated": "2026-09-29T12:54:18.950Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -305,10 +305,19 @@
           "started": "2026-09-27T14:47:41.880Z",
           "lastStep": "sealed: dotnet build and dotnet test Release passed with 140/140 tests passing, size-gate clean",
           "lastStepAt": "2026-09-27T16:34:10.014Z"
+        },
+        "frontend": {
+          "status": "done",
+          "agent": null,
+          "started": "2026-09-28T04:41:40.463Z",
+          "plan": "state\\plans\\LOGI-0009-frontend.plan.md",
+          "planStatus": "locked",
+          "lastStep": "sealed: npx tsc --noEmit clean; npm run build succeeds; npx vitest run => 6 files / 94 tests pass, RoutesPage.test.tsx 25/25; schema.d.ts regenerated from contracts/v1-openapi.yaml with a codegen-only diff; AC-1..AC-10 each mapped to a named test.",
+          "lastStepAt": "2026-09-29T12:52:52.945Z"
         }
       },
       "status": "in_progress",
-      "next": "frontend"
+      "next": "qa"
     }
   }
 }

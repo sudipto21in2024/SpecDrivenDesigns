@@ -71,6 +71,15 @@ export const capabilities = {
 
   /** POST /shipments — x-roles: [Admin, Dispatcher] (LOGI-0007 AC-10). */
   createShipments: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
+
+  /** GET /routes, /routes/{id} — x-roles: [Admin, Dispatcher, Viewer, Driver] (LOGI-0009). */
+  viewRoutes: (role: Role): boolean => allRoles.includes(role),
+
+  /** POST /routes — x-roles: [Admin, Dispatcher] (LOGI-0009). */
+  createRoutes: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
+
+  /** PATCH /routes/{id} — x-roles: [Admin, Dispatcher] (LOGI-0009). */
+  editRoutes: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
 } as const;
 
 const allRoles: readonly Role[] = ['Admin', 'Dispatcher', 'Driver', 'Viewer'];
