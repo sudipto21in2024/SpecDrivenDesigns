@@ -1,6 +1,6 @@
 ---
 ticket: LOGI-0009
-status: draft
+status: done
 ---
 
 ## 1. Summary
@@ -168,4 +168,7 @@ BRD primacy applied: BR-3/BR-4 ("overlapping planned time windows") + PRD F9 ("p
   RouteRequest/RouteResponse (additive only).
 - Migration: new `routes` table (backend confirms; only it appears as pending).
 - Backend: CreateRouteCommand + validator (overlap guard), GetRouteQuery, UpdateRouteCommand, Driver scoping,
-  AC-8 FK guards. Frontend: routes list + create/assign dialogs + gating. QA: routes.spec.ts (AC-1..AC-10).
+  AC-8 FK guards. Frontend: routes list + create/assign dialogs + gating (`features/routes/**`, `RoutesPage.test.tsx`).
+  QA (E2E, real API + throwaway SQLite, `tests/e2e/`): `support/routes.ts` (typed helpers + `seedRoute` SQLite
+  fixture), `pages/routes.page.ts`, `routes-create.spec.ts` (AC-1..AC-6, AC-10), `routes-list.spec.ts` (AC-9),
+  `routes-authz.spec.ts` (AC-7, AC-8), `routes-ui.spec.ts` (AC-1/AC-2/AC-3/AC-5/AC-7/AC-9 through the screen).

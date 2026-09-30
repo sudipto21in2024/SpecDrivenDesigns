@@ -32,6 +32,8 @@ test.describe('LOGI-0004 Vehicle CRUD', () => {
     await vehicles.submitCreate();
 
     await vehicles.expectToast('Vehicle created');
+    // The run may hold >5 vehicles (default page size): narrow to the created row first.
+    await vehicles.search(plate);
     await expect(vehicles.row(plate)).toBeVisible();
     await expect(page.getByRole('cell', { name: '12000' })).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Available' })).toBeVisible();
@@ -69,6 +71,8 @@ test.describe('LOGI-0004 Vehicle CRUD', () => {
 
     await expect(vehicles.fieldError(/already exists/i)).toBeVisible();
     await vehicles.closeDialog();
+    // The run may hold >5 vehicles (default page size): the plate search proves no duplicate row exists.
+    await vehicles.search(plate);
     await expect(vehicles.row(plate)).toHaveCount(1);
   });
 

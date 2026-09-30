@@ -1,5 +1,7 @@
 import { request, type APIRequestContext } from '@playwright/test';
+import { DatabaseSync } from 'node:sqlite';
 import { API, authHeaders, signIn } from './support/api';
+import { E2E_DB_PATH } from './support/paths';
 
 /** Shape of the paged list endpoints the reset walks to collect ids. */
 type ListBody = { items: { id: number }[]; totalCount: number };
@@ -28,14 +30,37 @@ export default async function globalSetup(): Promise<void> {
     const { accessToken } = await signIn(context, 'Admin');
     const headers = authHeaders(accessToken);
 
-    // Collections are reset in dependency order: once routes exist (LOGI-0009) they reference
-    // vehicles and drivers, so routes must be deleted first. A collection whose arm has not landed
-    // yet answers 404 and is skipped.
+    // Routes are reset first and *directly*: LOGI-0009 deliberately ships no DELETE endpoint
+    // (route deletion is out of scope), so the API cannot empty the table — yet a leftover route
+    // makes every vehicle/driver delete below answer 409 (their FKs are `Restrict`). Writing rows
+    // from a second SQLite connection is the same, accepted idiom as `support/shipments.ts`
+    // (WAL mode + busy timeout); this is a row delete, never the file-unlink LOGI-0013 removed.
+    resetRoutes();
+    // The remaining collections are reset through the API, in dependency order: routes referenced
+    // them, so routes had to go first. A collection whose arm has not landed yet answers 404 and
+    // is skipped.
     await resetCollection(context, headers, 'warehouses');
     await resetCollection(context, headers, 'vehicles');
     await resetCollection(context, headers, 'drivers');
   } finally {
     await context.dispose();
+  }
+}
+
+/**
+ * Deletes every `routes` row straight from the throwaway SQLite file (see the call site for why
+ * this one collection cannot go through the API). A missing table means the LOGI-0009 migration
+ * has not been applied to this database yet — treated like the API's 404 for a not-yet-landed arm.
+ */
+function resetRoutes(): void {
+  const db = new DatabaseSync(E2E_DB_PATH);
+  try {
+    db.exec('PRAGMA busy_timeout = 5000');
+    db.prepare('DELETE FROM routes').run();
+  } catch (error) {
+    if (!String((error as Error).message).includes('no such table')) throw error;
+  } finally {
+    db.close();
   }
 }
 

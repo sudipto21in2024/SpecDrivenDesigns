@@ -16,6 +16,13 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 7_000 },
   globalSetup: './global-setup.ts',
+  // One worker, always (LOGI-0009). Every spec shares the single throwaway SQLite database:
+  // `support/*.ts` fixtures write rows into it directly (WAL + busy timeout, safe only while the
+  // API is idle) and `drivers.user_id` is 1:1 shared state that more than one suite links. Running
+  // files concurrently would let one spec's fixture race another's API call and let two specs fight
+  // over that link (409), which is exactly the "API is idle whenever a fixture runs" assumption
+  // `support/shipments.ts` documents. Tests inside a file were already serial (`fullyParallel`).
+  workers: 1,
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
