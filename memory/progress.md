@@ -3,7 +3,7 @@
 Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS.md`.
 
 | Ticket | Description | Status |
-| LOGI-0009 | Platform | BLUE architect+backend+frontend arms sealed - routes client/contract sync, RBAC caps, MSW /routes handlers, zod schemas, TanStack Query hooks, RoutesPage list+status filter+pagination, create+edit dialogs, Routes tab, RoutesPage.test.tsx AC-1..AC-10 with 25 tests; tsc + build clean, frontend suite 94/94; schema.d.ts regenerated from contract. Pending: qa/e2e Playwright smoke. |
+| LOGI-0009 | Platform | DONE - all four arms sealed; 17 new e2e tests (routes create/assign/conflict/RBAC API + Routes screen seam), full 92/92 local Playwright; AC-1..AC-10 mapped; spec status done |
 | LOGI-0008 | Platform | in_progress |
 | LOGI-0015 | Platform | DONE (tracker status-derivation + dispatch-queue fix) |
 | LOGI-0007 | Platform | 🟢 DONE — all four arms sealed; 16 new e2e tests, full 63/63 local; CI run #42 (tip 3cc010a) GREEN; follow-ups: LOGI-0007-F2 concurrent-create 500 race (CI-only) + F1 query-binder 500-vs-400 → backend scope |

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-29T12:54:18.950Z",
+  "generated": "2026-09-30T06:38:38.449Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -314,10 +314,19 @@
           "planStatus": "locked",
           "lastStep": "sealed: npx tsc --noEmit clean; npm run build succeeds; npx vitest run => 6 files / 94 tests pass, RoutesPage.test.tsx 25/25; schema.d.ts regenerated from contracts/v1-openapi.yaml with a codegen-only diff; AC-1..AC-10 each mapped to a named test.",
           "lastStepAt": "2026-09-29T12:52:52.945Z"
+        },
+        "qa": {
+          "status": "done",
+          "agent": null,
+          "started": "2026-09-29T15:08:12.331Z",
+          "plan": "state\\plans\\LOGI-0009-qa.plan.md",
+          "planStatus": "locked",
+          "lastStep": "sealed: npx playwright test => 92 passed, 0 failed, 0 flaky; 17 new tests (routes-create 7, routes-list 2, routes-authz 3, routes-ui 5); real JWT authz matrix proven; AC-8 delete-when-referenced 409s proven; no src, contracts or backend change; working tree clean apart from tracker state",
+          "lastStepAt": "2026-09-30T06:37:31.701Z"
         }
       },
-      "status": "in_progress",
-      "next": "qa"
+      "status": "done",
+      "next": "done"
     }
   }
 }
