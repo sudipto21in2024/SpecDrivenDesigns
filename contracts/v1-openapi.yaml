@@ -25,6 +25,7 @@ tags:
   - { name: Drivers, description: Driver master data }
   - { name: Shipments, description: Shipment lifecycle }
   - { name: Routes, description: Route planning and assignment }
+  - { name: Planning, description: Read-only planning board aggregate (kanban and list views) }
 components:
   securitySchemes:
     BearerAuth:
@@ -384,6 +385,98 @@ components:
         totalPages: { type: integer, minimum: 0 }
         capacity: { $ref: '#/components/schemas/RouteCapacityView' }
 
+    BoardShipmentCard:
+      type: object
+      description: |
+        Read-only projection of a shipment for one planning-board card (LOGI-0011 / PRD F11).
+        This is a SUBSET of ShipmentResponse, not a second source of truth: every field is copied
+        from the same shipment read model that GET /shipments serves, so the board and the shipment
+        list can never disagree. atRisk is the read-time BR-2 projection, never stored. routeId is
+        null for an unassigned shipment (AC-5) and the UI shows those in the unassigned lane.
+      required: [id, referenceCode, status, priority, weightKg, originWarehouseId, destinationAddress, atRisk, createdAt]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        referenceCode: { type: string, pattern: '^SHP-[0-9]{6}$', example: SHP-000123 }
+        status: { type: string, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled], example: Pending }
+        priority: { type: string, enum: [Standard, Express], example: Standard }
+        weightKg: { type: number, example: 1250.5 }
+        originWarehouseId: { type: integer, format: int64, example: 1 }
+        destinationAddress: { type: string, maxLength: 500, example: '12 Dock Road, Rotterdam' }
+        slaDueAt: { type: string, format: date-time, nullable: true, example: 2026-09-20T08:00:00Z }
+        routeId: { type: integer, format: int64, nullable: true, example: 7 }
+        atRisk: { type: boolean, description: Read-time BR-2 projection, copied from ShipmentResponse., example: false }
+        createdAt: { type: string, format: date-time, example: 2026-09-20T06:00:00Z }
+    BoardRouteCard:
+      type: object
+      description: |
+        Read-only route summary for the board (LOGI-0011), with the BR-5 capacity projection reused
+        from RouteCapacityView by $ref rather than recomputed — one rule, one implementation.
+        capacity fields stay null when the route has no vehicle: "no vehicle assigned" is not "full".
+      required: [id, name, status, plannedStart, plannedEnd, capacity]
+      properties:
+        id: { type: integer, format: int64, example: 7 }
+        name: { type: string, example: North loop }
+        status: { type: string, enum: [Planned, InProgress, Completed, Cancelled], example: Planned }
+        vehicleId: { type: integer, format: int64, nullable: true, example: 1 }
+        driverId: { type: integer, format: int64, nullable: true, example: 2 }
+        plannedStart: { type: string, format: date-time, example: 2026-10-01T08:00:00Z }
+        plannedEnd: { type: string, format: date-time, example: 2026-10-01T16:00:00Z }
+        capacity: { $ref: '#/components/schemas/RouteCapacityView' }
+    BoardColumn:
+      type: object
+      description: |
+        One kanban column: the shipments in exactly one BR-7 status (LOGI-0011 AC-1). All six
+        statuses are always present in the server-supplied lifecycle order, including empty ones.
+        totalCount is the UNTRUNCATED count for the active filters, while cards is capped by
+        maxPerColumn; truncated=true tells the client the column holds more than it returned, so a
+        wrong "50 of 312" can never be rendered (AC-8).
+      required: [status, totalCount, truncated, cards]
+      properties:
+        status: { type: string, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled], example: Pending }
+        totalCount: { type: integer, minimum: 0, example: 312 }
+        truncated: { type: boolean, example: false }
+        cards:
+          type: array
+          items: { $ref: '#/components/schemas/BoardShipmentCard' }
+    BoardFilters:
+      type: object
+      description: |
+        Echo of the filter set the server actually applied (LOGI-0011 AC-3), so the UI can render
+        the active filters and restore them from the URL. Absent filters are null, never omitted,
+        so the client never has to distinguish "unset" from "not returned".
+      properties:
+        status: { type: string, nullable: true, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled], example: Pending }
+        priority: { type: string, nullable: true, enum: [Standard, Express], example: Express }
+        originWarehouseId: { type: integer, format: int64, nullable: true, example: 1 }
+        slaRisk: { type: boolean, nullable: true, example: true }
+        routeId: { type: integer, format: int64, nullable: true, example: 7 }
+        q: { type: string, nullable: true, example: SHP-000123 }
+        sort: { type: string, example: slaDueAt }
+        maxPerColumn: { type: integer, minimum: 1, maximum: 200, example: 50 }
+    PlanningBoardResponse:
+      type: object
+      description: |
+        Read-only aggregate board (LOGI-0011 / PRD F11): one request returns every kanban column, the
+        route cards with their BR-5 capacity bars, the applied filters, and the unassigned backlog
+        count. There is no board write in v1 — status transitions and assignments stay on the
+        shipment and route surfaces (AC-7).
+      required: [generatedAt, appliedFilters, columns, unassignedTotalCount, routes]
+      properties:
+        generatedAt: { type: string, format: date-time, example: 2026-09-20T08:00:00Z }
+        appliedFilters: { $ref: '#/components/schemas/BoardFilters' }
+        columns:
+          type: array
+          description: Exactly six columns, always in BR-7 lifecycle order (LOGI-0011 O2).
+          items: { $ref: '#/components/schemas/BoardColumn' }
+        unassignedTotalCount:
+          type: integer
+          minimum: 0
+          description: Shipments matching the filters with a null routeId (AC-5).
+          example: 12
+        routes:
+          type: array
+          description: Route cards for the routes referenced by the filtered shipments, plus every Planned route.
+          items: { $ref: '#/components/schemas/BoardRouteCard' }
   responses:
     ValidationProblem:
       description: Validation failed
@@ -1119,6 +1212,45 @@ paths:
         "403": { $ref: '#/components/responses/Forbidden' }
         "404": { $ref: '#/components/responses/NotFound' }
         "409": { $ref: '#/components/responses/Conflict' }
+  /planning-board:
+    get:
+      tags: [Planning]
+      summary: Get the planning board (read-only kanban aggregate)
+      description: >
+        Read-only aggregate for the dispatcher's planning board (LOGI-0011 / PRD F11): every BR-7
+        status as a kanban column, the route cards with their BR-5 capacity projection, the applied
+        filter set, and the count of unassigned shipments. One request replaces the dispatcher
+        scanning a shipment list plus a route list plus a spreadsheet (BRD BO-3).
+        All six columns are always returned in lifecycle order, including empty ones, and each
+        column reports its UNTRUNCATED totalCount alongside the cards actually returned, with
+        truncated set when maxPerColumn capped it. The default card order is slaDueAt ascending
+        with id ascending as the tiebreak, so consecutive identical requests are stable.
+        This endpoint is read-only in v1: a status transition (BR-7) and an assignment (BR-5)
+        remain the job of their own endpoints, so BR-5 and BR-7 are enforced in exactly one place.
+        Viewer is read-allowed like on every other v1 read; Driver is 403 because the board is
+        org-wide while BR-6 scopes a Driver to their own route (see the LOGI-0011 O1 decision);
+        anonymous is 401. Unknown routeId or warehouse id yields an empty result rather than 404 —
+        the board is a filtered view, not a resource lookup.
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: getPlanningBoard
+      parameters:
+        - { name: status, in: query, description: Restrict to one shipment status., schema: { type: string, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled] } }
+        - { name: priority, in: query, schema: { type: string, enum: [Standard, Express] } }
+        - { name: originWarehouseId, in: query, schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: slaRisk, in: query, description: Read-time BR-2 projection filter., schema: { type: boolean } }
+        - { name: routeId, in: query, description: Restrict to one route; a null routeId is not implied., schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: q, in: query, description: Case-insensitive match on reference code or destination address., schema: { type: string, maxLength: 200 } }
+        - { name: sort, in: query, schema: { type: string, enum: [slaDueAt, -slaDueAt, createdAt, -createdAt], default: slaDueAt } }
+        - { name: maxPerColumn, in: query, schema: { type: integer, default: 50, minimum: 1, maximum: 200 } }
+      responses:
+        "200":
+          description: The board — six columns, route cards with capacity, applied filters, unassigned count.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlanningBoardResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
   /auth/login:
     post:
       tags: [Auth]

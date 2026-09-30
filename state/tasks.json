@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T15:34:45.790Z",
+  "generated": "2026-09-30T16:16:46.133Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -368,6 +368,20 @@
       },
       "status": "done",
       "next": "done"
+    },
+    "LOGI-0011": {
+      "ticket": "LOGI-0011",
+      "arms": {
+        "architect": {
+          "status": "done",
+          "agent": null,
+          "started": "2026-09-30T15:58:46.221Z",
+          "lastStep": "sealed: spec slicers ac/summary resolve with 10 ACs; v1-openapi regenerated +132/-0 additive; spectral lint 0 errors; bundle --check clean; planning slicer lists the op with 8 params; shipments/routes slices byte-identical; fragments 92/39 lines; validate-plan 0 errors",
+          "lastStepAt": "2026-09-30T16:12:05.694Z"
+        }
+      },
+      "status": "in_progress",
+      "next": "backend"
     }
   }
 }

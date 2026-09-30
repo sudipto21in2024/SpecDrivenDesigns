@@ -1,0 +1,39 @@
+  /planning-board:
+    get:
+      tags: [Planning]
+      summary: Get the planning board (read-only kanban aggregate)
+      description: >
+        Read-only aggregate for the dispatcher's planning board (LOGI-0011 / PRD F11): every BR-7
+        status as a kanban column, the route cards with their BR-5 capacity projection, the applied
+        filter set, and the count of unassigned shipments. One request replaces the dispatcher
+        scanning a shipment list plus a route list plus a spreadsheet (BRD BO-3).
+        All six columns are always returned in lifecycle order, including empty ones, and each
+        column reports its UNTRUNCATED totalCount alongside the cards actually returned, with
+        truncated set when maxPerColumn capped it. The default card order is slaDueAt ascending
+        with id ascending as the tiebreak, so consecutive identical requests are stable.
+        This endpoint is read-only in v1: a status transition (BR-7) and an assignment (BR-5)
+        remain the job of their own endpoints, so BR-5 and BR-7 are enforced in exactly one place.
+        Viewer is read-allowed like on every other v1 read; Driver is 403 because the board is
+        org-wide while BR-6 scopes a Driver to their own route (see the LOGI-0011 O1 decision);
+        anonymous is 401. Unknown routeId or warehouse id yields an empty result rather than 404 —
+        the board is a filtered view, not a resource lookup.
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: getPlanningBoard
+      parameters:
+        - { name: status, in: query, description: Restrict to one shipment status., schema: { type: string, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled] } }
+        - { name: priority, in: query, schema: { type: string, enum: [Standard, Express] } }
+        - { name: originWarehouseId, in: query, schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: slaRisk, in: query, description: Read-time BR-2 projection filter., schema: { type: boolean } }
+        - { name: routeId, in: query, description: Restrict to one route; a null routeId is not implied., schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: q, in: query, description: Case-insensitive match on reference code or destination address., schema: { type: string, maxLength: 200 } }
+        - { name: sort, in: query, schema: { type: string, enum: [slaDueAt, -slaDueAt, createdAt, -createdAt], default: slaDueAt } }
+        - { name: maxPerColumn, in: query, schema: { type: integer, default: 50, minimum: 1, maximum: 200 } }
+      responses:
+        "200":
+          description: The board — six columns, route cards with capacity, applied filters, unassigned count.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlanningBoardResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }

@@ -14,12 +14,14 @@ const ORDER = [
   ['components:', '  schemas:', 'components/schemas/common.yaml',
     'components/schemas/auth.yaml', 'components/schemas/warehouses.yaml',
     'components/schemas/vehicles.yaml', 'components/schemas/drivers.yaml',
-    'components/schemas/shipments.yaml', 'components/schemas/routes.yaml'],
+    'components/schemas/shipments.yaml', 'components/schemas/routes.yaml',
+    'components/schemas/planning-board.yaml'],
   ['components:', '  responses:', 'components/responses.yaml'],
   ['components:', '  x-role-sets:', 'components/extensions.yaml'],
   ['paths:', 'paths/health.yaml', 'paths/warehouses.yaml',
     'paths/vehicles.yaml', 'paths/drivers.yaml', 'paths/shipments.yaml',
-    'paths/shipments-lifecycle.yaml', 'paths/routes.yaml', 'paths/routes-shipments.yaml', 'paths/auth.yaml'],
+    'paths/shipments-lifecycle.yaml', 'paths/routes.yaml', 'paths/routes-shipments.yaml',
+    'paths/planning-board.yaml', 'paths/auth.yaml'],
   'foot.yaml',
 ];
 function build() {
@@ -50,13 +52,13 @@ function build() {
   parts.push('  securitySchemes:');
   parts.push(R('components/security.yaml'));
   parts.push('  schemas:');
-  for (const f of ['common','auth','warehouses','vehicles','drivers','shipments','routes'])
+  for (const f of ['common','auth','warehouses','vehicles','drivers','shipments','routes','planning-board'])
     parts.push(R('components/schemas/'+f+'.yaml'));
   parts.push('  responses:');
   parts.push(R('components/responses.yaml'));
   parts.push(R('components/extensions.yaml'));
   parts.push('paths:');
-  for (const f of ['health','warehouses','vehicles','drivers','shipments','shipments-lifecycle','routes','routes-shipments','auth'])
+  for (const f of ['health','warehouses','vehicles','drivers','shipments','shipments-lifecycle','routes','routes-shipments','planning-board','auth'])
     parts.push(R('paths/'+f+'.yaml'));
   parts.push(R('foot.yaml'));
   return parts.join('\n') + '\n';
