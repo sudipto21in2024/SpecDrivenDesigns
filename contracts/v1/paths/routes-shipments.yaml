@@ -1,0 +1,84 @@
+  /routes/{id}/shipments:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+    post:
+      tags: [Routes]
+      summary: Assign a shipment to the route (BR-5 capacity check)
+      description: >
+        Adds one shipment to a route and auto-transitions it Pending -> Assigned (PRD F10,
+        LOGI-0010). Guards, each rejected atomically with nothing written: unknown route or
+        shipment responds 404; a route that is not Planned responds 409 with the required status
+        in the ProblemDetails detail; a shipment that is not Pending, or is already assigned to a
+        different route, responds 409; adding the weight would exceed the assigned vehicle's
+        capacityKg (BR-5) responds 409 with the assigned / adding / capacity numbers in the
+        detail. A route with no vehicle assigned has no capacity to check and accepts the
+        assignment. Re-assigning a shipment already on this route is an idempotent 200 no-op with
+        no second history row. The capacity check and the write happen in one transaction and the
+        running total is re-read inside it, so two concurrent boundary assigns cannot both win.
+      x-roles: [Admin, Dispatcher]
+      operationId: assignShipmentToRoute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssignShipmentToRouteRequest' }
+      responses:
+        "200":
+          description: >
+            Assigned — the shipment is returned with routeId set and status "Assigned", and one
+            Pending -> Assigned entry was appended to its status history.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShipmentResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }
+    get:
+      tags: [Routes]
+      summary: List the shipments assigned to a route (paged, with capacity projection)
+      description: >
+        Returns the route's assigned shipments (LOGI-0010) in the standard paged envelope plus a
+        RouteCapacityView carrying assignedWeightKg, shipmentCount and the remaining capacity.
+        capacityKg / vehicleId / remainingCapacityKg are null for a route with no vehicle. Driver
+        tokens receive 200 only for a route assigned to their own linked driver and 403 for any
+        other route (BR-6); Viewer is read-only. Responds 404 when the route id does not exist.
+      x-roles: [Admin, Dispatcher, Viewer, Driver]
+      operationId: listRouteShipments
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1, minimum: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 25, minimum: 1, maximum: 100 } }
+      responses:
+        "200":
+          description: Paged route shipments with the BR-5 capacity projection
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RouteShipmentsPage' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /routes/{id}/shipments/{shipmentId}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+      - { name: shipmentId, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+    delete:
+      tags: [Routes]
+      summary: Remove a shipment from the route (unassign)
+      description: >
+        Unassigns a shipment from a route (LOGI-0010): routeId is nulled, the shipment returns to
+        status "Pending", one Assigned -> Pending entry is appended to its status history, and the
+        freed weight is available again for the BR-5 check. BR-7 has no Assigned -> Pending edge,
+        so this is a first-class unassign rather than a generic transition. Responds 404 when the
+        route or shipment does not exist or the shipment is not on this route; 409 when the
+        shipment has already left "Assigned" by another path (InTransit / Delivered / Cancelled).
+      x-roles: [Admin, Dispatcher]
+      operationId: removeShipmentFromRoute
+      responses:
+        "204": { description: Unassigned — the shipment is back to Pending with no route }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }

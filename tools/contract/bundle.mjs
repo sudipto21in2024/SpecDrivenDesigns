@@ -19,7 +19,7 @@ const ORDER = [
   ['components:', '  x-role-sets:', 'components/extensions.yaml'],
   ['paths:', 'paths/health.yaml', 'paths/warehouses.yaml',
     'paths/vehicles.yaml', 'paths/drivers.yaml', 'paths/shipments.yaml',
-    'paths/shipments-lifecycle.yaml', 'paths/routes.yaml', 'paths/auth.yaml'],
+    'paths/shipments-lifecycle.yaml', 'paths/routes.yaml', 'paths/routes-shipments.yaml', 'paths/auth.yaml'],
   'foot.yaml',
 ];
 function build() {
@@ -56,7 +56,7 @@ function build() {
   parts.push(R('components/responses.yaml'));
   parts.push(R('components/extensions.yaml'));
   parts.push('paths:');
-  for (const f of ['health','warehouses','vehicles','drivers','shipments','shipments-lifecycle','routes','auth'])
+  for (const f of ['health','warehouses','vehicles','drivers','shipments','shipments-lifecycle','routes','routes-shipments','auth'])
     parts.push(R('paths/'+f+'.yaml'));
   parts.push(R('foot.yaml'));
   return parts.join('\n') + '\n';

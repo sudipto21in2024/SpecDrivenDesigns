@@ -18,7 +18,7 @@ const RESOURCES = {
   warehouses: { schemas: ['WarehouseRequest', 'WarehouseResponse'], paths: ['/warehouses', '/warehouses/{id}'] },
   auth: { schemas: ['LoginRequest', 'RefreshRequest', 'AuthUser', 'TokenResponse'], paths: ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/me'] },
   shipments: { schemas: ['ShipmentRequest', 'ShipmentUpdateRequest', 'ShipmentResponse', 'StatusTransitionRequest', 'ShipmentStatusEvent', 'PagedResponse'], paths: ['/shipments', '/shipments/{id}', '/shipments/{id}/status-transitions', '/shipments/{id}/status-history'] },
-  routes: { schemas: ['RouteRequest', 'RouteUpdateRequest', 'RouteResponse', 'PagedResponse'], paths: ['/routes', '/routes/{id}'] },
+  routes: { schemas: ['RouteRequest', 'RouteUpdateRequest', 'RouteResponse', 'PagedResponse', 'AssignShipmentToRouteRequest', 'RouteCapacityView', 'RouteShipmentsPage'], paths: ['/routes', '/routes/{id}', '/routes/{id}/shipments', '/routes/{id}/shipments/{shipmentId}'] },
 };
 
 // Slice contiguous blocks: a 2-space header (`  /x:` or `  components:`-level key)

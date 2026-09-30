@@ -53,3 +53,45 @@
         pageSize: { type: integer, minimum: 1, maximum: 100, default: 25 }
         totalCount: { type: integer, minimum: 0 }
         totalPages: { type: integer, minimum: 0 }
+    AssignShipmentToRouteRequest:
+      type: object
+      description: |
+        Assigns one shipment to a route (LOGI-0010 / PRD F10). The shipment must exist and be
+        Pending, the route must be Planned, and the route's assigned vehicle must have enough
+        remaining capacity (BR-5). On success the shipment's routeId is set and its status
+        auto-transitions Pending -> Assigned in the same transaction, appending one
+        shipment_status_history row. Re-assigning a shipment that is already on THIS route is an
+        idempotent no-op; moving it to a different route is 409 (unassign first).
+      required: [shipmentId]
+      additionalProperties: false
+      properties:
+        shipmentId: { type: integer, format: int64, minimum: 1, example: 42 }
+    RouteCapacityView:
+      type: object
+      description: |
+        Read-only BR-5 capacity projection for a route's assigned shipments (LOGI-0010).
+        capacityKg / vehicleId / remainingCapacityKg are null when the route has no vehicle
+        assigned — a route with an unknown capacity is not "full", and 0 would read as full.
+        remainingCapacityKg is negative-safe: it is never negative because an over-capacity
+        assignment is rejected, not persisted.
+      required: [assignedWeightKg, shipmentCount]
+      properties:
+        vehicleId: { type: integer, format: int64, nullable: true, example: 1 }
+        capacityKg: { type: number, format: double, nullable: true, example: 12000 }
+        assignedWeightKg: { type: number, format: double, minimum: 0, example: 9000 }
+        remainingCapacityKg: { type: number, format: double, nullable: true, example: 3000 }
+        shipmentCount: { type: integer, minimum: 0, example: 3 }
+    RouteShipmentsPage:
+      type: object
+      description: Paged envelope for GET /routes/{id}/shipments plus the BR-5 capacity projection.
+      required: [items, page, pageSize, totalCount, totalPages, capacity]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ShipmentResponse' }
+        page: { type: integer, minimum: 1, default: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        totalCount: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+        capacity: { $ref: '#/components/schemas/RouteCapacityView' }
+
