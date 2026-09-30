@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T08:16:07.513Z",
+  "generated": "2026-09-30T15:34:05.136Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -355,10 +355,19 @@
           "planStatus": "locked",
           "lastStep": "sealed: tsc 0 errors; npm run build ok; npm test 114/114 across 7 suites",
           "lastStepAt": "2026-09-30T08:16:01.709Z"
+        },
+        "qa": {
+          "status": "done",
+          "agent": null,
+          "started": "2026-09-30T14:50:48.903Z",
+          "plan": "state\\plans\\LOGI-0010-qa.plan.md",
+          "planStatus": "locked",
+          "lastStep": "sealed: npx playwright test => 116 passed, 0 failed, 0 flaky; AC-1..AC-9 each carry a LOGI-0010 AC-n marker; no pre-existing spec edited",
+          "lastStepAt": "2026-09-30T15:32:58.818Z"
         }
       },
       "status": "done",
-      "next": "qa"
+      "next": "done"
     }
   }
 }

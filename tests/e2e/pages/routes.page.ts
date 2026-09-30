@@ -154,4 +154,55 @@ export class RoutesPage {
   dialogAlert(): ReturnType<Page['getByRole']> {
     return this.dialog().getByRole('alert');
   }
+
+  // ------------------------------------------------ Shipments panel (LOGI-0010)
+
+  /** The "Shipments" row action for a route id (readable by every role that may read routes). */
+  readonly shipmentsButton = (routeId: number) => this.page.getByTestId(`route-shipments-${routeId}`);
+  readonly shipmentsPanel = () => this.page.getByTestId('route-shipments-panel');
+  readonly capacityBanner = () => this.page.getByTestId('capacity-banner');
+  /** "100 kg remaining of 1000 kg capacity" — present only when the route has a vehicle. */
+  readonly capacityNumbers = () => this.page.getByTestId('capacity-numbers');
+  /** The "capacity not checked" note, shown for a route with no vehicle (nulls, not 0). */
+  readonly capacityUnknown = () => this.page.getByTestId('capacity-unknown');
+  readonly assignSelect = () => this.page.getByLabel('Shipment to assign');
+  readonly assignButton = () => this.page.getByTestId('assign-shipment');
+  readonly unassignButton = (shipmentId: number) => this.page.getByTestId(`unassign-shipment-${shipmentId}`);
+  readonly shipmentRow = (shipmentId: number) => this.page.getByTestId(`route-shipment-${shipmentId}`);
+  readonly emptyShipments = () => this.page.getByTestId('route-shipments-empty');
+  /** The panel's own error Alert (a 409 capacity/status detail). */
+  readonly panelAlert = () => this.page.getByTestId('panel-error');
+  /** The read-only reason shown to a writer when the route is not Planned. */
+  readonly readOnlyReason = () => this.page.getByTestId('panel-readonly-reason');
+
+  /** Opens the Shipments panel for `routeId` and waits for its first read to settle. */
+  async openShipments(routeId: number): Promise<void> {
+    await this.shipmentsButton(routeId).click();
+    await expect(this.shipmentsPanel()).toBeVisible();
+    await expect(this.shipmentsPanel().getByText('Loading shipments…')).toHaveCount(0);
+  }
+
+  /**
+   * Assigns `reference` through the candidate select. The option label is
+   * "<REFERENCE> — <weight> kg", so the reference alone is enough to pick it.
+   */
+  async assignShipment(reference: string): Promise<void> {
+    await this.assignSelect().click();
+    await this.page.getByRole('option', { name: new RegExp(reference) }).click();
+    await this.assignButton().click();
+  }
+
+  async unassignShipment(shipmentId: number): Promise<void> {
+    await this.unassignButton(shipmentId).click();
+  }
+
+  async closeShipments(): Promise<void> {
+    await this.page.getByTestId('close-route-shipments').click();
+    await expect(this.shipmentsPanel()).toHaveCount(0);
+  }
+
+  /** Asserts the panel's error Alert carries `text` (the server's ProblemDetails detail). */
+  async expectPanelError(text: string | RegExp): Promise<void> {
+    await expect(this.panelAlert()).toContainText(text);
+  }
 }

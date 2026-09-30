@@ -362,3 +362,9 @@
 {"ts":"2026-09-30T08:15:56.199Z","type":"STEP_DONE","ticket":"LOGI-0010","arm":"frontend","note":"M1 contract sync + client/permissions/hooks/MSW guards; M2 RouteShipmentsPanel + RoutesPage wiring; M3 20 new AC tests. tsc 0 errors, build ok, 114/114 tests pass."}
 {"ts":"2026-09-30T08:16:01.709Z","type":"STEP_DONE","ticket":"LOGI-0010","arm":"frontend","note":"sealed: tsc 0 errors; npm run build ok; npm test 114/114 across 7 suites"}
 {"ts":"2026-09-30T08:16:07.510Z","type":"HANDOFF","ticket":"LOGI-0010","from":"frontend","to":"qa","toState":"done","summary_ptr":"state/plans/LOGI-0010-frontend.plan.md","gates":["tsc","build","test-114"]}
+{"ts":"2026-09-30T14:50:48.903Z","type":"TASK_STARTED","ticket":"LOGI-0010","arm":"qa"}
+{"ts":"2026-09-30T14:50:48.935Z","type":"PLAN_CREATED","ticket":"LOGI-0010","arm":"qa","plan_ptr":"state\\plans\\LOGI-0010-qa.plan.md"}
+{"ts":"2026-09-30T14:54:18.016Z","type":"PLAN_LOCKED","ticket":"LOGI-0010","arm":"qa","plan_ptr":"state\\plans\\LOGI-0010-qa.plan.md"}
+{"ts":"2026-09-30T15:32:42.213Z","type":"STEP_DONE","ticket":"LOGI-0010","arm":"qa","note":"M1 fixtures+helpers, M2 API+authz specs (17), M3 UI spec (7); full suite 116/116 green, 0 flaky, no pre-existing spec modified"}
+{"ts":"2026-09-30T15:32:58.818Z","type":"STEP_DONE","ticket":"LOGI-0010","arm":"qa","note":"sealed: npx playwright test => 116 passed, 0 failed, 0 flaky; AC-1..AC-9 each carry a LOGI-0010 AC-n marker; no pre-existing spec edited"}
+{"ts":"2026-09-30T15:33:37.129Z","type":"HANDOFF","ticket":"LOGI-0010","from":"qa","to":"done","toState":"done","summary_ptr":"LOGI-0010 fully delivered: architect+backend+frontend+qa all sealed. E2E suite 116/116.","gates":["playwright-116"," tsc"," build"," dotnet-158"," vitest-114"]}
