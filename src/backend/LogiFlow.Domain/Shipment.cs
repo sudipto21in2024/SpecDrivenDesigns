@@ -96,6 +96,62 @@ public class Shipment
         // client — the endpoint rejects updatedAt with 400 (AC-4).
         UpdatedAt = at;
     }
+    /// <summary>
+    /// Books the shipment onto a route (LOGI-0010, PRD F10, BR-5). The route-side guards (route is
+    /// Planned, BR-5 capacity, one-route-per-shipment) are evaluated by the Application handler
+    /// because they need other aggregates; the shipment-side guards live here, so the invariant
+    /// "only a Pending, unassigned shipment can be booked" cannot be bypassed by a future caller.
+    ///
+    /// Returns the audit event for the single shipment_status_history row (BO-4). The route
+    /// transition is a Pending → Assigned move that BR-7 *does* have an edge for, so unlike
+    /// <see cref="UnassignFromRoute"/> this legitimately goes through the same status write.
+    ///
+    /// Throws <see cref="ShipmentNotAssignableException"/> when the shipment is not Pending — the
+    /// Application handler turns it into 409 naming the required status (AC-4).
+    /// </summary>
+    public ShipmentStatusEvent AssignToRoute(long routeId, long changedByUserId, DateTime at)
+    {
+        if (!string.Equals(Status, nameof(ShipmentStatus.Pending), StringComparison.Ordinal))
+            throw new ShipmentNotAssignableException(Status);
+
+        if (RouteId.HasValue)
+            throw new ShipmentAlreadyAssignedException(RouteId.Value, Status);
+
+        var from = Status;
+        RouteId = routeId;
+        Status = nameof(ShipmentStatus.Assigned);
+        UpdatedAt = at;
+        return new ShipmentStatusEvent(0, from, Status, changedByUserId, at, null);
+    }
+
+    /// <summary>
+    /// Detaches the shipment from its route (LOGI-0010 AC-6) and returns the audit event.
+    ///
+    /// This deliberately does NOT call <see cref="TransitionTo"/>. BR-7 is exhaustive and has no
+    /// Assigned → Pending edge, so routing the revert through the generic validator would extend a
+    /// BRD business rule by implementation. Unassigning is a different intent with a different
+    /// author, and the spec (LOGI-0010 §7 O4) requires it to be modelled as its own domain
+    /// operation so the BR-7 validator stays exactly as LOGI-0006 shipped it.
+    ///
+    /// Throws <see cref="ShipmentNotOnRouteException"/> when the shipment is not the one named — a
+    /// 404, because from the caller's point of view "that shipment is not on this route" means there
+    /// is nothing to remove. Throws <see cref="ShipmentNotAssignableException"/> when the shipment
+    /// has already left Assigned by another path (InTransit/Delivered/Cancelled) — a 409.
+    /// </summary>
+    public ShipmentStatusEvent UnassignFromRoute(long expectedRouteId, long changedByUserId, DateTime at)
+    {
+        if (RouteId != expectedRouteId)
+            throw new ShipmentNotOnRouteException(Id, expectedRouteId, RouteId);
+
+        if (!string.Equals(Status, nameof(ShipmentStatus.Assigned), StringComparison.Ordinal))
+            throw new ShipmentNotAssignableException(Status);
+
+        var from = Status;
+        RouteId = null;
+        Status = nameof(ShipmentStatus.Pending);
+        UpdatedAt = at;
+        return new ShipmentStatusEvent(0, from, Status, changedByUserId, at, null);
+    }
 }
 
 /// <summary>
@@ -105,3 +161,26 @@ public class Shipment
 /// </summary>
 public class ShipmentNotEditableException(string status)
     : Exception($"Cannot edit a shipment with status {status}: only Pending shipments can be edited.");
+
+/// <summary>
+/// Raised by <c>Shipment.AssignToRoute</c> when the shipment is not Pending (AC-4). Named
+/// separately from <see cref="ShipmentNotEditableException"/> because the two surface different
+/// required states and the message is what the API echoes.
+/// </summary>
+public class ShipmentNotAssignableException(string status)
+    : Exception($"Cannot assign a shipment with status {status}: only Pending shipments can be assigned to a route.");
+
+/// <summary>
+/// Raised when a shipment is already booked on a route. AC-4 O3: moving it is refused, so the
+/// Dispatcher must unassign first — a silent move would hide which vehicle carries the load.
+/// </summary>
+public class ShipmentAlreadyAssignedException(long routeId, string status)
+    : Exception($"Shipment is already assigned to route {routeId} (status {status}): unassign it before assigning it to another route.");
+
+/// <summary>
+/// Raised by <c>Shipment.UnassignFromRoute</c> when the shipment is not on the named route.
+/// </summary>
+public class ShipmentNotOnRouteException(long shipmentId, long expectedRouteId, long? actualRouteId)
+    : Exception(actualRouteId is null
+        ? $"Shipment with id '{shipmentId}' is not assigned to any route, so it cannot be removed from route {expectedRouteId}."
+        : $"Shipment with id '{shipmentId}' is assigned to route {actualRouteId.Value}, not route {expectedRouteId}.");

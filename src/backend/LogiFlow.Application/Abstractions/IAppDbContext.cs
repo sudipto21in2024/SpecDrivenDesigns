@@ -32,4 +32,17 @@ public interface IAppDbContext
     DbSet<Domain.Route> Routes { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs <paramref name="work"/> inside an explicit database transaction, committing when it
+    /// returns and rolling back when it throws (LOGI-0010 AC-9).
+    ///
+    /// This exists because a BR-5 capacity guard is a *read* (the running weight sum) that must not
+    /// be separable from the *write* it authorises. Exposing the transaction as a method rather
+    /// than a `Database` property keeps the transaction an implementation detail of Infrastructure
+    /// while letting Application handlers compose read-then-write atomically. The work delegate is
+    /// expected to read everything it guards on *inside* this call — a read performed before the
+    /// transaction opens is exactly the TOCTOU hole the seam is meant to close.
+    /// </summary>
+    Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken = default);
 }

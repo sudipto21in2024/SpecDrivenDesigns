@@ -45,6 +45,11 @@ public static class DependencyInjection
         services.AddScoped<IValidator<Features.Routes.UpdateRouteCommand>, Features.Routes.UpdateRouteValidator>();
         services.AddScoped<IValidator<Features.Routes.ListRoutesQuery>, Features.Routes.ListRoutesValidator>();
 
+        // LOGI-0010 shipment→route assignment use cases.
+        services.AddScoped<IValidator<Features.Routes.AssignShipmentToRouteCommand>, Features.Routes.AssignShipmentToRouteValidator>();
+        services.AddScoped<IValidator<Features.Routes.RemoveShipmentFromRouteCommand>, Features.Routes.RemoveShipmentFromRouteValidator>();
+        services.AddScoped<IValidator<Features.Routes.ListRouteShipmentsQuery>, Features.Routes.ListRouteShipmentsValidator>();
+
         // LOGI-0003 auth use cases. Registered per-type (not assembly-scanned) to match the existing
         // convention and keep the pipeline's validator set explicit.
         services.AddScoped<IValidator<Features.Auth.LoginCommand>, Features.Auth.LoginCommandValidator>();

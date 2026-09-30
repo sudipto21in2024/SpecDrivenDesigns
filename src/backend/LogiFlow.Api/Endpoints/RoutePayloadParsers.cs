@@ -59,6 +59,25 @@ public static class RoutePayloadParsers
         return new CreateRouteCommand(name!, plannedStart!.Value, plannedEnd!.Value, vehicleId, driverId);
     }
 
+    /// <summary>
+    /// Parses the assign body (AC-5). The contract marks <c>shipmentId</c> required, and every
+    /// failure is reported as a field-keyed ValidationFailure so the ProblemDetails `errors` map
+    /// names `shipmentId` — the same shape ParseCreate/ParseUpdate use.
+    /// </summary>
+    public static AssignShipmentToRouteCommand ParseAssign(long routeId, JsonElement body)
+    {
+        var failures = new List<ValidationFailure>();
+
+        if (!body.TryGetProperty("shipmentId", out var sProp))
+            failures.Add(new ValidationFailure("shipmentId", "ShipmentId is required."));
+        else if (sProp.ValueKind == JsonValueKind.Number && sProp.TryGetInt64(out var sVal) && sVal > 0)
+            return new AssignShipmentToRouteCommand(routeId, sVal);
+        else
+            failures.Add(new ValidationFailure("shipmentId", "ShipmentId must be a positive integer."));
+
+        throw new ValidationException(failures);
+    }
+
     public static UpdateRouteCommand ParseUpdate(long id, JsonElement body)
     {
         ValidateNoServerOwned(body);

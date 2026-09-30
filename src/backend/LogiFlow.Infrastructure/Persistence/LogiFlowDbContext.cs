@@ -1,3 +1,4 @@
+using System.Data;
 using LogiFlow.Application.Abstractions;
 using LogiFlow.Domain;
 using Microsoft.AspNetCore.Identity;
@@ -25,6 +26,28 @@ public class LogiFlowDbContext(DbContextOptions<LogiFlowDbContext> options)
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     public DbSet<Route> Routes => Set<Route>();
+
+    public async Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken = default)
+    {
+        // IsolationLevel.Serializable is the load-bearing choice, not decoration. SQLite defaults to a
+        // DEFERRED transaction, which does not take a write lock until the first write — so two
+        // concurrent BR-5 guards could both read the same free capacity and both commit an
+        // over-capacity load. SERIALIZABLE maps to SQLite's IMMEDIATE transaction, which takes the
+        // write lock at BEGIN, so the second caller waits and then re-reads the committed total.
+        // (PostgreSQL maps it to SERIALIZABLE, so ADR-005's port keeps the same guarantee.)
+        await using var transaction = await Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        try
+        {
+            var result = await work(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
