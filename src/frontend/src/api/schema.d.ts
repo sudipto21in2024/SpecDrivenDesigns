@@ -341,6 +341,55 @@ export interface paths {
         patch: operations["updateRoute"];
         trace?: never;
     };
+    "/routes/{id}/shipments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * List the shipments assigned to a route (paged, with capacity projection)
+         * @description Returns the route's assigned shipments (LOGI-0010) in the standard paged envelope plus a RouteCapacityView carrying assignedWeightKg, shipmentCount and the remaining capacity. capacityKg / vehicleId / remainingCapacityKg are null for a route with no vehicle. Driver tokens receive 200 only for a route assigned to their own linked driver and 403 for any other route (BR-6); Viewer is read-only. Responds 404 when the route id does not exist.
+         */
+        get: operations["listRouteShipments"];
+        put?: never;
+        /**
+         * Assign a shipment to the route (BR-5 capacity check)
+         * @description Adds one shipment to a route and auto-transitions it Pending -> Assigned (PRD F10, LOGI-0010). Guards, each rejected atomically with nothing written: unknown route or shipment responds 404; a route that is not Planned responds 409 with the required status in the ProblemDetails detail; a shipment that is not Pending, or is already assigned to a different route, responds 409; adding the weight would exceed the assigned vehicle's capacityKg (BR-5) responds 409 with the assigned / adding / capacity numbers in the detail. A route with no vehicle assigned has no capacity to check and accepts the assignment. Re-assigning a shipment already on this route is an idempotent 200 no-op with no second history row. The capacity check and the write happen in one transaction and the running total is re-read inside it, so two concurrent boundary assigns cannot both win.
+         */
+        post: operations["assignShipmentToRoute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/routes/{id}/shipments/{shipmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                shipmentId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a shipment from the route (unassign)
+         * @description Unassigns a shipment from a route (LOGI-0010): routeId is nulled, the shipment returns to status "Pending", one Assigned -> Pending entry is appended to its status history, and the freed weight is available again for the BR-5 check. BR-7 has no Assigned -> Pending edge, so this is a first-class unassign rather than a generic transition. Responds 404 when the route or shipment does not exist or the shipment is not on this route; 409 when the shipment has already left "Assigned" by another path (InTransit / Delivered / Cancelled).
+         */
+        delete: operations["removeShipmentFromRoute"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -907,6 +956,63 @@ export interface components {
             pageSize: number;
             totalCount: number;
             totalPages: number;
+        };
+        /**
+         * @description Assigns one shipment to a route (LOGI-0010 / PRD F10). The shipment must exist and be
+         *     Pending, the route must be Planned, and the route's assigned vehicle must have enough
+         *     remaining capacity (BR-5). On success the shipment's routeId is set and its status
+         *     auto-transitions Pending -> Assigned in the same transaction, appending one
+         *     shipment_status_history row. Re-assigning a shipment that is already on THIS route is an
+         *     idempotent no-op; moving it to a different route is 409 (unassign first).
+         */
+        AssignShipmentToRouteRequest: {
+            /**
+             * Format: int64
+             * @example 42
+             */
+            shipmentId: number;
+        };
+        /**
+         * @description Read-only BR-5 capacity projection for a route's assigned shipments (LOGI-0010).
+         *     capacityKg / vehicleId / remainingCapacityKg are null when the route has no vehicle
+         *     assigned — a route with an unknown capacity is not "full", and 0 would read as full.
+         *     remainingCapacityKg is negative-safe: it is never negative because an over-capacity
+         *     assignment is rejected, not persisted.
+         */
+        RouteCapacityView: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            vehicleId?: number | null;
+            /**
+             * Format: double
+             * @example 12000
+             */
+            capacityKg?: number | null;
+            /**
+             * Format: double
+             * @example 9000
+             */
+            assignedWeightKg: number;
+            /**
+             * Format: double
+             * @example 3000
+             */
+            remainingCapacityKg?: number | null;
+            /** @example 3 */
+            shipmentCount: number;
+        };
+        /** @description Paged envelope for GET /routes/{id}/shipments plus the BR-5 capacity projection. */
+        RouteShipmentsPage: {
+            items: components["schemas"]["ShipmentResponse"][];
+            /** @default 1 */
+            page: number;
+            /** @default 25 */
+            pageSize: number;
+            totalCount: number;
+            totalPages: number;
+            capacity: components["schemas"]["RouteCapacityView"];
         };
     };
     responses: {
@@ -1695,6 +1801,92 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RouteResponse"];
                 };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listRouteShipments: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged route shipments with the BR-5 capacity projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouteShipmentsPage"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    assignShipmentToRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignShipmentToRouteRequest"];
+            };
+        };
+        responses: {
+            /** @description Assigned — the shipment is returned with routeId set and status "Assigned", and one Pending -> Assigned entry was appended to its status history. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShipmentResponse"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    removeShipmentFromRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                shipmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unassigned — the shipment is back to Pending with no route */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             400: components["responses"]["ValidationProblem"];
             401: components["responses"]["Unauthorized"];

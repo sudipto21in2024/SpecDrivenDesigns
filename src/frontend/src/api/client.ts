@@ -33,6 +33,14 @@ export type RouteInput = components['schemas']['RouteRequest'];
 export type RouteUpdateInput = components['schemas']['RouteUpdateRequest'];
 export type RouteStatus = NonNullable<Route['status']>;
 export type ListRoutesParams = NonNullable<operations['listRoutes']['parameters']['query']>;
+/** LOGI-0010 AC-8: the paged route-shipments envelope + its BR-5 capacity projection. */
+export type RouteShipmentsPage = components['schemas']['RouteShipmentsPage'];
+/** LOGI-0010 AC-2/AC-8: capacityKg/vehicleId/remainingCapacityKg are null for a vehicle-less route. */
+export type RouteCapacityView = components['schemas']['RouteCapacityView'];
+/** LOGI-0010 AC-1: the assign body — the only field is the shipment to add. */
+export type AssignShipmentToRouteInput = components['schemas']['AssignShipmentToRouteRequest'];
+/** Optional paging params for GET /routes/{id}/shipments (contract-derived). */
+export type ListRouteShipmentsParams = NonNullable<operations['listRouteShipments']['parameters']['query']>;
 /** Sort keys accepted by GET /shipments — createdAt|-createdAt|slaDueAt|-slaDueAt (default -createdAt). */
 export type ShipmentSort = NonNullable<
   NonNullable<operations['listShipments']['parameters']['query']>['sort']
@@ -301,6 +309,34 @@ export const api = {
   /** LOGI-0009: partial update / assignment of a Planned route. */
   updateRoute(id: number, body: RouteUpdateInput): Promise<Route> {
     return request<Route>('/api/v1/routes/' + id, { method: 'PATCH', body: JSON.stringify(body) });
+  },
+
+  /** LOGI-0010 AC-8: paged assigned shipments plus the BR-5 capacity projection. */
+  listRouteShipments(
+    routeId: number,
+    params: ListRouteShipmentsParams = {},
+  ): Promise<RouteShipmentsPage> {
+    const query = new URLSearchParams();
+    if (params.page != null) query.set('page', String(params.page));
+    if (params.pageSize != null) query.set('pageSize', String(params.pageSize));
+    return request<RouteShipmentsPage>(`/api/v1/routes/${routeId}/shipments?${query.toString()}`);
+  },
+
+  /**
+   * LOGI-0010 AC-1: assign a shipment to a route. The 200 body is the authoritative read-back —
+   * it carries `routeId` and status "Assigned" — so the caller can show the new state without a
+   * second read. Every guard is a ProblemDetails failure (404/409/400) surfaced as `ApiError`.
+   */
+  assignShipmentToRoute(routeId: number, body: AssignShipmentToRouteInput): Promise<Shipment> {
+    return request<Shipment>(`/api/v1/routes/${routeId}/shipments`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+
+  /** LOGI-0010 AC-6: unassign — 204 with an empty body, so there is nothing to return. */
+  removeShipmentFromRoute(routeId: number, shipmentId: number): Promise<void> {
+    return request<void>(`/api/v1/routes/${routeId}/shipments/${shipmentId}`, { method: 'DELETE' });
   },
 
   createShipment(body: ShipmentInput): Promise<Shipment> {

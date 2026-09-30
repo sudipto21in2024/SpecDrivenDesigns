@@ -80,6 +80,20 @@ export const capabilities = {
 
   /** PATCH /routes/{id} — x-roles: [Admin, Dispatcher] (LOGI-0009). */
   editRoutes: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
+
+  /**
+   * GET /routes/{id}/shipments — x-roles: [Admin, Dispatcher, Viewer, Driver] (LOGI-0010 AC-7).
+   * A Driver's read is additionally row-scoped to their own route server-side (BR-6); the role
+   * whitelist here can only express "may open the panel at all".
+   */
+  viewRouteShipments: (role: Role): boolean => allRoles.includes(role),
+
+  /**
+   * POST /routes/{id}/shipments and DELETE /routes/{id}/shipments/{shipmentId} — x-roles:
+   * [Admin, Dispatcher] (LOGI-0010 AC-7). One capability for both, because assign and unassign
+   * are the same operator action on the same panel.
+   */
+  assignRouteShipments: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
 } as const;
 
 const allRoles: readonly Role[] = ['Admin', 'Dispatcher', 'Driver', 'Viewer'];

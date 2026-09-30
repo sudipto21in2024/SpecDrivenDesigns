@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AuthUser, ProblemDetails, Role, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput, ShipmentStatusEvent, ShipmentStatus, StatusTransitionRequest, Shipment, ShipmentInput, ShipmentPriority, Route, RouteStatus } from '../api/client';
+import type { AuthUser, ProblemDetails, Role, RouteCapacityView, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput, ShipmentStatusEvent, ShipmentStatus, StatusTransitionRequest, Shipment, ShipmentInput, ShipmentPriority, Route, RouteStatus } from '../api/client';
 
 /**
  * MSW handlers derived from contracts/v1-openapi.yaml (ADR-004). The in-memory store mirrors the API
@@ -493,6 +493,36 @@ function toRouteResponse(route: MockRoute): Route {
     createdAt: route.createdAt,
     updatedAt: route.updatedAt,
   };
+}
+
+/**
+ * LOGI-0010 AC-8: the BR-5 capacity projection for a route's assigned shipments.
+ *
+ * `vehicleId`/`capacityKg`/`remainingCapacityKg` are explicitly null (NOT 0) when the route has no
+ * vehicle: an unknown capacity is not a full truck, and rendering 0 would tell the dispatcher the
+ * route cannot take anything. `remainingCapacityKg` cannot go negative in practice because an
+ * over-capacity assign is rejected rather than persisted (AC-2), but it is clamped anyway so the
+ * projection never reports a nonsensical negative remainder.
+ */
+function toRouteCapacityView(route: MockRoute, assignedShipments: MockShipment[]): RouteCapacityView {
+  const vehicle =
+    route.vehicleId == null ? null : vehiclesDb.find((v) => v.id === route.vehicleId) ?? null;
+  const assignedWeightKg = assignedShipments.reduce((sum, s) => sum + s.weightKg, 0);
+  if (vehicle == null) {
+    return { vehicleId: null, capacityKg: null, assignedWeightKg, remainingCapacityKg: null, shipmentCount: assignedShipments.length };
+  }
+  return {
+    vehicleId: vehicle.id,
+    capacityKg: vehicle.capacityKg,
+    assignedWeightKg,
+    remainingCapacityKg: Math.max(0, vehicle.capacityKg - assignedWeightKg),
+    shipmentCount: assignedShipments.length,
+  };
+}
+
+/** The shipments currently linked to a route, in stable id order (the paged list's source). */
+function shipmentsForRoute(routeId: number): MockShipment[] {
+  return shipmentsDb.filter((s) => s.routeId === routeId).sort((a, b) => a.id - b.id);
 }
 
 /** Whole-second UTC instant, mirroring the backend's Kind=Utc normalization; null when unparseable. */
@@ -1570,5 +1600,243 @@ export const handlers = [
     route.driverId = driverId;
     route.updatedAt = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString();
     return HttpResponse.json(toRouteResponse(route));
+  }),
+
+  // ------------------------------------------- Route shipments (LOGI-0010 AC-1..AC-9)
+
+  /**
+   * GET /routes/{id}/shipments — AC-8: the standard paged envelope over the route's assigned
+   * shipments plus the `capacity` projection, whose capacityKg/vehicleId/remainingCapacityKg are
+   * null when the route has no vehicle. Page params are validated the same way as /routes, so an
+   * out-of-range page is a field-keyed 400 rather than a silently clamped read. AC-7/BR-6: a Driver
+   * token gets 200 only for a route assigned to their own linked driver, 403 otherwise.
+   */
+  http.get('/api/v1/routes/:id/shipments', ({ request, params }) => {
+    const auth = authorize(request, 'read', 'route shipments', routeRoleRules);
+    if (!('user' in auth)) return auth;
+
+    // The path id is a contract int64 with minimum 1, so a non-numeric segment is a 400 (AC-5)
+    // rather than a lookup that silently misses.
+    const routeIdRaw = String(params.id);
+    if (!/^\d+$/.test(routeIdRaw) || Number(routeIdRaw) < 1) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', {
+        id: ['The route id must be an integer greater than or equal to 1.'],
+      });
+    }
+    const routeId = Number(routeIdRaw);
+    const route = routesDb.find((r) => r.id === routeId);
+    if (!route) return problem(404, 'Resource not found', `Route with id '${routeIdRaw}' was not found.`);
+
+    if (auth.user.role === 'Driver' && route.driverId !== linkedDriverId(auth.user.id)) {
+      return problem(403, 'Forbidden', 'The Driver role is not permitted to read the shipments of a route assigned to another driver.');
+    }
+
+    const url = new URL(request.url);
+    const errors: Record<string, string[]> = {};
+    const pageRaw = url.searchParams.get('page');
+    const page = pageRaw == null ? 1 : Number(pageRaw);
+    if (pageRaw != null && (!Number.isInteger(page) || page < 1)) {
+      errors.page = ['Page must be an integer greater than or equal to 1.'];
+    }
+    const pageSizeRaw = url.searchParams.get('pageSize');
+    const pageSize = pageSizeRaw == null ? 25 : Number(pageSizeRaw);
+    if (pageSizeRaw != null && (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100)) {
+      errors.pageSize = ['Page size must be an integer between 1 and 100.'];
+    }
+    if (Object.keys(errors).length > 0) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+    }
+
+    const assigned = shipmentsForRoute(routeId);
+    const totalCount = assigned.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const start = (page - 1) * pageSize;
+
+    return HttpResponse.json({
+      items: assigned.slice(start, start + pageSize).map((s) => toShipmentResponse(s)),
+      page,
+      pageSize,
+      totalCount,
+      totalPages,
+      // The projection covers ALL assigned shipments, not just the current page, so the remaining
+      // capacity does not drift as the operator pages through the list.
+      capacity: toRouteCapacityView(route, assigned),
+    });
+  }),
+
+  /**
+   * POST /routes/{id}/shipments — AC-1/AC-2/AC-3/AC-4/AC-5/AC-9: assign one shipment to a route,
+   * auto-transitioning it Pending -> Assigned and appending exactly one history row.
+   *
+   * EVERY guard runs before a single field is mutated, so a rejected assign leaves the shipment,
+   * its history and the route's derived numbers byte-identical (AC-9 atomicity). The capacity
+   * total is re-read from the store immediately before the write rather than trusted from the
+   * caller, so two concurrent boundary assigns cannot both win: the second one observes the
+   * first's weight and is rejected with 409.
+   */
+  http.post('/api/v1/routes/:id/shipments', async ({ request, params }) => {
+    const auth = authorize(request, 'write', 'route shipments', routeRoleRules);
+    if (!('user' in auth)) return auth;
+
+    const routeIdRaw = String(params.id);
+    if (!/^\d+$/.test(routeIdRaw) || Number(routeIdRaw) < 1) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', {
+        id: ['The route id must be an integer greater than or equal to 1.'],
+      });
+    }
+    const routeId = Number(routeIdRaw);
+
+    // Parsed defensively: an absent/empty body must still produce a field-keyed 400 on shipmentId
+    // (AC-5) rather than a 500 from `request.json()`.
+    let raw: Record<string, unknown> = {};
+    try {
+      raw = (await request.json()) as Record<string, unknown>;
+    } catch {
+      raw = {};
+    }
+    const errors: Record<string, string[]> = {};
+    const shipmentId = raw.shipmentId;
+    if (typeof shipmentId !== 'number' || !Number.isInteger(shipmentId) || shipmentId < 1) {
+      errors.shipmentId = ['ShipmentId must be an integer greater than or equal to 1.'];
+    }
+
+    const route = routesDb.find((r) => r.id === routeId);
+    if (!route) {
+      return problem(404, 'Resource not found', `Route with id '${routeIdRaw}' was not found.`);
+    }
+
+    let shipment: MockShipment | undefined;
+    if (Object.keys(errors).length === 0) {
+      shipment = shipmentsDb.find((s) => s.id === shipmentId);
+      if (!shipment) {
+        return problem(404, 'Resource not found', `Shipment with id '${String(shipmentId)}' was not found.`);
+      }
+
+      // AC-4: the idempotent no-op is checked FIRST, before the status and capacity guards. A
+      // shipment already on this route is a success (200, current read model, no second history
+      // row) even though it is no longer "Pending" and its weight is already inside the assigned
+      // total — re-checking capacity here would count the shipment against itself.
+      if (shipment.routeId === routeId) {
+        return HttpResponse.json(toShipmentResponse(shipment));
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+    }
+
+    // AC-3: assignment is Planned-only; the 409 names the required status.
+    if (route.status !== 'Planned') {
+      return problem409(
+        `Cannot assign a shipment to a route in status '${route.status}'. The route must be 'Planned'.`,
+      );
+    }
+
+    if (shipment!.status !== 'Pending') {
+      return problem409(
+        `Cannot assign a shipment in status '${shipment!.status}'. The shipment must be 'Pending'.`,
+      );
+    }
+
+    // AC-4 / spec §7 O3: one route at a time — moving requires an explicit unassign first.
+    if (shipment!.routeId != null) {
+      return problem409(
+        `Shipment ${shipment!.id} is already assigned to route ${shipment!.routeId}. Unassign it first.`,
+      );
+    }
+
+    // AC-2 / BR-5: the capacity guard. A route with no vehicle has no capacity to check and
+    // accepts the assignment; the 409 detail carries all three numbers the operator needs.
+    const vehicle =
+      route.vehicleId == null ? null : vehiclesDb.find((v) => v.id === route.vehicleId) ?? null;
+    if (vehicle != null) {
+      const assignedWeightKg = shipmentsForRoute(routeId).reduce((sum, s) => sum + s.weightKg, 0);
+      if (assignedWeightKg + shipment!.weightKg > vehicle.capacityKg) {
+        return problem409(
+          `Assigning shipment ${shipment!.id} would exceed the vehicle capacity: ` +
+            `assigned ${assignedWeightKg} kg + adding ${shipment!.weightKg} kg ` +
+            `exceeds capacity ${vehicle.capacityKg} kg.`,
+        );
+      }
+    }
+
+    // All guards passed — the single write point, so any rejection above leaves nothing behind.
+    const event: ShipmentStatusEvent = {
+      id: ++historyCounter,
+      fromStatus: 'Pending',
+      toStatus: 'Assigned',
+      changedByUserId: auth.user.id,
+      changedAt: new Date().toISOString(),
+      note: null,
+    };
+    shipment!.routeId = routeId;
+    shipment!.status = 'Assigned';
+    shipment!.updatedAt = new Date().toISOString();
+    shipment!.statusHistory.push(event);
+
+    return HttpResponse.json(toShipmentResponse(shipment!));
+  }),
+  /**
+   * DELETE /routes/{id}/shipments/{shipmentId} — AC-6: unassign. The shipment returns to
+   * `Pending` with a null routeId and gains exactly one Assigned -> Pending history row, which
+   * frees its weight for the BR-5 check again. BR-7 has no Assigned -> Pending edge, so this is
+   * a first-class endpoint rather than a call to the generic transitions handler.
+   *
+   * 404 when the route is unknown, the shipment is unknown, or the shipment is simply not on this
+   * route (a repeat unassign is therefore a 404, not an idempotent 204). 409 once the shipment has
+   * left "Assigned" by another path (InTransit / Delivered / Cancelled).
+   */
+  http.delete('/api/v1/routes/:id/shipments/:shipmentId', ({ request, params }) => {
+    const auth = authorize(request, 'write', 'route shipments', routeRoleRules);
+    if (!('user' in auth)) return auth;
+
+    const routeIdRaw = String(params.id);
+    const shipmentIdRaw = String(params.shipmentId);
+    const errors: Record<string, string[]> = {};
+    if (!/^\d+$/.test(routeIdRaw) || Number(routeIdRaw) < 1) {
+      errors.id = ['The route id must be an integer greater than or equal to 1.'];
+    }
+    if (!/^\d+$/.test(shipmentIdRaw) || Number(shipmentIdRaw) < 1) {
+      errors.shipmentId = ['The shipment id must be an integer greater than or equal to 1.'];
+    }
+    if (Object.keys(errors).length > 0) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+    }
+
+    const routeId = Number(routeIdRaw);
+    const shipmentId = Number(shipmentIdRaw);
+    const route = routesDb.find((r) => r.id === routeId);
+    if (!route) {
+      return problem(404, 'Resource not found', `Route with id '${routeIdRaw}' was not found.`);
+    }
+    const shipment = shipmentsDb.find((s) => s.id === shipmentId);
+    if (!shipment) {
+      return problem(404, 'Resource not found', `Shipment with id '${shipmentIdRaw}' was not found.`);
+    }
+    // "On another route" and "already unassigned" are the same answer from this route's point of
+    // view: the shipment is not on it.
+    if (shipment.routeId !== routeId) {
+      return problem(404, 'Resource not found', `Shipment ${shipmentId} is not assigned to route ${routeId}.`);
+    }
+    if (shipment.status !== 'Assigned') {
+      return problem409(
+        `Cannot unassign a shipment in status '${shipment.status}'. The shipment must be 'Assigned'.`,
+      );
+    }
+
+    const event: ShipmentStatusEvent = {
+      id: ++historyCounter,
+      fromStatus: 'Assigned',
+      toStatus: 'Pending',
+      changedByUserId: auth.user.id,
+      changedAt: new Date().toISOString(),
+      note: null,
+    };
+    shipment.routeId = null;
+    shipment.status = 'Pending';
+    shipment.updatedAt = new Date().toISOString();
+    shipment.statusHistory.push(event);
+
+    return new HttpResponse(null, { status: 204 });
   }),
 ];

@@ -30,6 +30,7 @@ import { useCreateRoute, useRoutes, useUpdateRoute } from './hooks';
 import { routeStatusOptions } from './schema';
 import RouteFormDialog from './RouteFormDialog';
 import EditRouteDialog from './EditRouteDialog';
+import RouteShipmentsPanel from './RouteShipmentsPanel';
 
 /** AC-6: PATCH is Planned-only, so the row action is offered on Planned routes alone. */
 const editableStatus: RouteStatus = 'Planned';
@@ -88,6 +89,8 @@ export default function RoutesPage() {
   const updateMutation = useUpdateRoute();
   const [formOpen, setFormOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
+  /** The route whose Shipments panel is open, plus the name/status it renders in its title. */
+  const [shipmentsFor, setShipmentsFor] = useState<{ id: number; name: string; status: RouteStatus } | null>(null);
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(
     null,
   );
@@ -242,6 +245,9 @@ export default function RoutesPage() {
                 <TableCell>Vehicle</TableCell>
                 <TableCell>Driver</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell align="right" data-testid="routes-shipments-header">
+                  Shipments
+                </TableCell>
                 {canEdit && (
                   <TableCell align="right" data-testid="routes-actions-header">
                     Actions
@@ -252,14 +258,14 @@ export default function RoutesPage() {
             <TableBody>
               {isPending && (
                 <TableRow>
-                  <TableCell colSpan={canEdit ? 7 : 6} align="center">
+                  <TableCell colSpan={canEdit ? 8 : 7} align="center">
                     Loading routes…
                   </TableCell>
                 </TableRow>
               )}
               {data != null && data.items.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={canEdit ? 7 : 6} align="center">
+                  <TableCell colSpan={canEdit ? 8 : 7} align="center">
                     No routes found
                   </TableCell>
                 </TableRow>
@@ -276,6 +282,18 @@ export default function RoutesPage() {
                     {route.driverId == null ? 'Unassigned' : driverName(route.driverId)}
                   </TableCell>
                   <TableCell>{route.status}</TableCell>
+                  {/* LOGI-0010 AC-7: the panel is readable by every role that may read routes, so
+                      the affordance sits outside the canEdit column (which is write-gated). */}
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      aria-label={`Shipments on ${route.name}`}
+                      onClick={() => setShipmentsFor({ id: route.id, name: route.name, status: route.status })}
+                      data-testid={`route-shipments-${route.id}`}
+                    >
+                      Shipments
+                    </Button>
+                  </TableCell>
                   {canEdit && (
                     <TableCell align="right">
                       {/* AC-6: the API rejects a non-Planned PATCH with 409, so the affordance
@@ -334,6 +352,15 @@ export default function RoutesPage() {
         onClose={() => setSnackbar(null)}
         message={snackbar?.message}
         data-testid="snackbar"
+      />
+
+      {/* LOGI-0010: the route-scoped shipments panel, mounted for every role that can read it. */}
+      <RouteShipmentsPanel
+        open={shipmentsFor != null}
+        routeId={shipmentsFor?.id ?? null}
+        routeName={shipmentsFor?.name ?? ''}
+        routeStatus={shipmentsFor?.status ?? null}
+        onClose={() => setShipmentsFor(null)}
       />
     </Box>
   );

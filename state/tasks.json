@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T07:41:42.716Z",
+  "generated": "2026-09-30T08:16:07.513Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -346,10 +346,19 @@
           "planStatus": "locked",
           "lastStep": "sealed: dotnet build 0 errors 0 warnings; dotnet test LogiFlow.Api.Tests 158/158 green; dotnet ef migrations has-pending-model-changes -> no changes; AC-1..AC-10 each covered by a // LOGI-0010 AC-n marker; no pre-existing test edited.",
           "lastStepAt": "2026-09-30T07:41:25.505Z"
+        },
+        "frontend": {
+          "status": "done",
+          "agent": null,
+          "started": "2026-09-30T08:04:22.273Z",
+          "plan": "state\\plans\\LOGI-0010-frontend.plan.md",
+          "planStatus": "locked",
+          "lastStep": "sealed: tsc 0 errors; npm run build ok; npm test 114/114 across 7 suites",
+          "lastStepAt": "2026-09-30T08:16:01.709Z"
         }
       },
-      "status": "in_progress",
-      "next": "frontend"
+      "status": "done",
+      "next": "qa"
     }
   }
 }
