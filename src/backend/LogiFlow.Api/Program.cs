@@ -128,6 +128,7 @@ app.MapVehicleEndpoints();
 app.MapDriverEndpoints();
 app.MapShipmentEndpoints();
 app.MapRouteEndpoints();
+app.MapPlanningBoardEndpoints();
 
 app.Run();
 

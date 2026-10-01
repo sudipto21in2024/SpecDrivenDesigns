@@ -50,6 +50,9 @@ public static class DependencyInjection
         services.AddScoped<IValidator<Features.Routes.RemoveShipmentFromRouteCommand>, Features.Routes.RemoveShipmentFromRouteValidator>();
         services.AddScoped<IValidator<Features.Routes.ListRouteShipmentsQuery>, Features.Routes.ListRouteShipmentsValidator>();
 
+        // LOGI-0011 planning board read use cases.
+        services.AddScoped<IValidator<Features.Planning.GetPlanningBoardQuery>, Features.Planning.GetPlanningBoardValidator>();
+
         // LOGI-0003 auth use cases. Registered per-type (not assembly-scanned) to match the existing
         // convention and keep the pipeline's validator set explicit.
         services.AddScoped<IValidator<Features.Auth.LoginCommand>, Features.Auth.LoginCommandValidator>();

@@ -61,8 +61,9 @@ public class ListRouteShipmentsHandler(IAppDbContext db, ICurrentUser currentUse
             ?? throw new NotFoundException(nameof(Route), request.RouteId);
 
         // AC-7 / BR-6: a Driver sees only the shipments on their own routes. The same check as
-        // GetRouteByIdHandler (LOGI-0009) — the third call site is LOGI-0011's board, which is when
-        // this becomes worth extracting into a shared helper.
+        // GetRouteByIdHandler (LOGI-0009). LOGI-0011 originally looked like the third call site that
+        // would justify a shared helper, but its board is 403 for Drivers by decision (spec O1), so
+        // it adds none — the helper stays deferred until a genuine third one appears (F12).
         if (currentUser.Role == Roles.Driver)
         {
             var driver = await db.Drivers
@@ -99,7 +100,10 @@ public class ListRouteShipmentsHandler(IAppDbContext db, ICurrentUser currentUse
     }
 }
 
-internal static class RouteCapacityViewFactory
+// Visible to Features/Planning (LOGI-0011 O4): the board's route cards reuse this exact projection
+// so the board's capacity bar can never disagree with the assignment guard. Widening visibility is
+// deliberate — moving or duplicating the calculation would create a second BR-5 implementation.
+public static class RouteCapacityViewFactory
 {
     /// <summary>
     /// Builds the projection from three cheap reads: the vehicle's capacity (only when the route

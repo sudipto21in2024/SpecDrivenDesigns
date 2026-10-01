@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T16:20:35.691Z",
+  "generated": "2026-10-01T07:19:01.795Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -378,10 +378,17 @@
           "started": "2026-09-30T15:58:46.221Z",
           "lastStep": "sealed: spec slicers ac/summary resolve with 10 ACs; v1-openapi regenerated +132/-0 additive; spectral lint 0 errors; bundle --check clean; planning slicer lists the op with 8 params; shipments/routes slices byte-identical; fragments 92/39 lines; validate-plan 0 errors",
           "lastStepAt": "2026-09-30T16:12:05.694Z"
+        },
+        "backend": {
+          "status": "done",
+          "agent": null,
+          "started": "2026-10-01T06:59:32.209Z",
+          "lastStep": "sealed: dotnet build 0 errors 0 warnings; dotnet test 182/182 green; ef migrations has-pending-model-changes -> no changes; AC-1..AC-9 each carry a // LOGI-0011 AC-n marker; check-size clean on all 9 new files; no pre-existing test edited",
+          "lastStepAt": "2026-10-01T07:18:43.646Z"
         }
       },
       "status": "in_progress",
-      "next": "backend"
+      "next": "frontend"
     }
   }
 }
