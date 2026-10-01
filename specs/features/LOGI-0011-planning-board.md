@@ -1,7 +1,7 @@
 ---
 id: LOGI-0011
 title: Planning board (kanban + list views)
-status: spec_approved
+status: done
 owner_agent: spec-agent
 created: 2026-09-30
 depends_on:

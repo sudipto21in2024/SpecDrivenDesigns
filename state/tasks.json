@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-01T16:06:38.816Z",
+  "generated": "2026-10-01T17:27:56.803Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -394,10 +394,19 @@
           "planStatus": "locked",
           "lastStep": "sealed: npx tsc --noEmit 0 errors; npm run build clean; npm test 131/131 green (114 pre-existing + 17 new); every AC-1..AC-10 carries a // LOGI-0011 AC-n comment; scratch M1 mock spec (7 cases) passed then deleted; schema.d.ts regenerated with no hand-edited drift; git status shows only §2 manifest paths",
           "lastStepAt": "2026-10-01T16:04:59.545Z"
+        },
+        "qa": {
+          "status": "done",
+          "agent": "main",
+          "started": "2026-10-01T16:12:44.040Z",
+          "plan": "state\\plans\\LOGI-0011-qa.plan.md",
+          "planStatus": "locked",
+          "lastStep": "sealed: M1 12 passed; M2 8 passed; full suite 136 passed 0 failed 0 flaky (116 pre-existing + 20 new); API run log has 0 SQLITE_BUSY / database is locked / no such table; every pre-existing spec green and unmodified; git status shows only the §2 manifest paths",
+          "lastStepAt": "2026-10-01T17:27:08.794Z"
         }
       },
-      "status": "in_progress",
-      "next": "qa"
+      "status": "done",
+      "next": "done"
     }
   }
 }
