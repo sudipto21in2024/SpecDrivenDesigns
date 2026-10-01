@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-01T17:27:56.803Z",
+  "generated": "2026-10-01T17:56:06.787Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -407,6 +407,20 @@
       },
       "status": "done",
       "next": "done"
+    },
+    "LOGI-0012": {
+      "ticket": "LOGI-0012",
+      "arms": {
+        "architect": {
+          "status": "done",
+          "agent": "cline",
+          "started": "2026-10-01T17:37:39.888Z",
+          "lastStep": "M3: arm verification - validate-plan 0 errors, spectral 0/0, bundle --check clean, contracts diff additions-only (190+/0-), both new fragments under 150 lines (39 and 129), spec slicer resolves 9 ACs, x-roles Admin/Dispatcher/Viewer.",
+          "lastStepAt": "2026-10-01T17:52:40.576Z"
+        }
+      },
+      "status": "in_progress",
+      "next": "backend"
     }
   }
 }

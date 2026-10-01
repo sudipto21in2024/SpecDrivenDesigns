@@ -1,0 +1,128 @@
+    StatusCount:
+      type: object
+      description: |
+        One BR-7 shipment status and its UNTRUNCATED count for the active filters (LOGI-0012 AC-1).
+        The enum is the same six-value lifecycle as the planning board and the shipment lifecycle, so
+        the dashboard tile, the board column and GET /shipments can never disagree. All six entries are
+        always returned in lifecycle order, including the zero counts, so the UI never has to invent a
+        missing tile.
+      required: [status, count]
+      properties:
+        status: { type: string, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled], example: Pending }
+        count: { type: integer, minimum: 0, example: 312 }
+    DashboardAtRiskShipment:
+      type: object
+      description: |
+        One row of the dashboard's SLA-at-risk list (LOGI-0012 AC-2). This is a PROJECTION of
+        ShipmentResponse for the at-risk subset, not a second source of truth: the fields are copied
+        from the same shipment read model GET /shipments serves, so the tile and the drill-down list
+        always show the same rows. minutesToDue is the whole-second distance from generatedAt to
+        slaDueAt and is negative once the shipment is overdue; it is null when there is no promise
+        recorded, and a shipment with no sla_due_at is never at risk (BR-2 rule 2.7).
+      required: [id, referenceCode, status, priority, slaDueAt, minutesToDue, originWarehouseId, destinationAddress]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        referenceCode: { type: string, pattern: '^SHP-[0-9]{6}$', example: SHP-000123 }
+        status: { type: string, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled], example: InTransit }
+        priority: { type: string, enum: [Standard, Express], example: Express }
+        slaDueAt: { type: string, format: date-time, nullable: true, example: 2026-09-20T08:00:00Z }
+        minutesToDue: { type: integer, nullable: true, description: Whole minutes from generatedAt to slaDueAt; negative when overdue., example: 95 }
+        originWarehouseId: { type: integer, format: int64, example: 1 }
+        destinationAddress: { type: string, maxLength: 500, example: '12 Dock Road, Rotterdam' }
+
+    ResourceUtilization:
+      type: object
+      description: |
+        Base status-bucket utilization for a fleet resource (LOGI-0012 AC-4/AC-5, O3). v1 has no shift or
+        duty-hour data, so "utilization" is deliberately the honest count over the schema's own status
+        enum plus a derived percent — never a percentage of hours worked. Bucket keys are the exact
+        enum values of the underlying resource, and a bucket that is not available capacity
+        (Maintenance, Suspended) is never folded into an "available" number.
+        VehicleUtilization and DriverUtilization both build on this shape via allOf, so the bucket and
+        percent semantics have exactly one definition in the contract.
+      required: [totalCount, utilizationPercent]
+      properties:
+        totalCount: { type: integer, minimum: 0, example: 12 }
+        byStatus:
+          type: object
+          description: Count per resource status. Buckets with zero members are present with 0.
+          additionalProperties: { type: integer, minimum: 0 }
+          example: { Available: 4, InRoute: 6, Maintenance: 2 }
+        utilizationPercent:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: The in-use share as a percentage, or null when the denominator is 0 — an empty fleet is "no capacity", never "0% used".
+          example: 50.0
+    VehicleUtilization:
+      allOf:
+        - $ref: '#/components/schemas/ResourceUtilization'
+        - type: object
+          description: |
+            Fleet utilization snapshot (LOGI-0012 AC-4, PRD F14 "available vs in-route"). Adds the
+            capacity-weighted view on top of the bucket counts: inUseCapacityKg sums only the InRoute
+            vehicles, so a vehicle in Maintenance is never counted as available capacity.
+            capacityUtilizationPercent is null when totalCapacityKg is 0.
+          required: [inUseCapacityKg, totalCapacityKg, capacityUtilizationPercent]
+          properties:
+            inUseCapacityKg: { type: number, minimum: 0, description: Summed capacityKg of the InRoute vehicles only., example: 14500 }
+            totalCapacityKg: { type: number, minimum: 0, example: 30000 }
+            capacityUtilizationPercent: { type: number, nullable: true, minimum: 0, maximum: 100, description: inUseCapacityKg over totalCapacityKg, or null when totalCapacityKg is 0., example: 48.33 }
+    DriverUtilization:
+      allOf:
+        - $ref: '#/components/schemas/ResourceUtilization'
+        - type: object
+          description: |
+            Driver pool utilization snapshot (LOGI-0012 AC-5, PRD F14 "off-duty"). Same construction as
+            ResourceUtilization over the driver status enum; a Suspended driver is never counted as
+            available capacity.
+          properties: {}
+    AtRiskShipmentPage:
+      type: object
+      description: |
+        The SLA-at-risk page carried by the dashboard (LOGI-0012 AC-2/AC-3). It uses the standard
+        paging envelope field-for-field — page, pageSize, totalCount, totalPages — so the manager UI
+        reuses its existing list pager, but the items are the at-risk projection rows rather than the
+        full shipment shape. totalCount is by construction the same number as DashboardResponse's
+        atRiskTotalCount, because both come from one query at one captured instant.
+      required: [items, page, pageSize, totalCount, totalPages]
+      properties:
+        items:
+          type: array
+          description: One page of at-risk shipments, sorted by slaDueAt ascending with id ascending as the tiebreak.
+          items: { $ref: '#/components/schemas/DashboardAtRiskShipment' }
+        page: { type: integer, minimum: 1, example: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100, example: 20 }
+        totalCount: { type: integer, minimum: 0, example: 7 }
+        totalPages: { type: integer, minimum: 0, example: 1 }
+    DashboardResponse:
+      type: object
+      description: |
+        Read-only operations dashboard (LOGI-0012 / PRD F14, BRD BO-2). One request returns the counts
+        by status, the SLA-at-risk list and the vehicle/driver utilization snapshot, so the manager
+        landing page issues a single call instead of a fan-out (PRD §5.3). Everything is evaluated at
+        ONE captured instant, exposed as generatedAt, so atRiskTotalCount is by construction the
+        totalCount of the at-risk page it carries (AC-3) and no row is filtered by a different `now`.
+        Nothing is persisted: the at-risk flag is the read-time BR-2 projection exactly as
+        BR-sla-rules.md rule 2.5 requires, and there is no dashboard write in v1.
+      required: [generatedAt, statusCounts, atRiskTotalCount, atRiskShipments, vehicleUtilization, driverUtilization]
+      properties:
+        generatedAt: { type: string, format: date-time, description: The single instant every count, row and percentage in this response was evaluated at., example: 2026-09-20T08:00:00Z }
+        appliedFilters:
+          type: object
+          description: Echo of the filter set the server actually applied, so the UI can render and restore the active filters; every dashboard filter is also a GET /shipments filter (AC-6).
+          additionalProperties: true
+        statusCounts:
+          type: array
+          description: Exactly six entries, always in BR-7 lifecycle order, zero counts included (AC-1).
+          items: { $ref: '#/components/schemas/StatusCount' }
+        atRiskTotalCount:
+          type: integer
+          minimum: 0
+          description: Number of shipments matching the BR-2 at-risk projection for the active filters; equals the at-risk page totalCount (AC-3).
+          example: 7
+        atRiskShipments:
+          $ref: '#/components/schemas/AtRiskShipmentPage'
+        vehicleUtilization: { $ref: '#/components/schemas/VehicleUtilization' }
+        driverUtilization: { $ref: '#/components/schemas/DriverUtilization' }

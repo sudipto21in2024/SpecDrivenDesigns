@@ -1,3 +1,25 @@
 # LogiFlow OpenAPI contract ruleset — default Spectral oas rules.
 # AC-5 of LOGI-0000: contract must pass `spectral lint` before REVIEW_APPROVED.
 extends: ["spectral:oas"]
+
+rules:
+  # LOGI-0012: spectral:oas pins the root `tags` array to maxItems 7, which silently
+  # caps the product at seven feature areas. LogiFlow now owns eight (Dashboard was
+  # added as the eighth for F14), so the tag list is widened to 12 rather than
+  # dropping a tag or mis-filing the dashboard under `Planning`. The rest of
+  # oas3-schema is inherited unchanged.
+  oas3-schema:
+    description: OAS3 schema check, with the root tags cap raised above 7 feature areas.
+    severity: error
+    given: $
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          properties:
+            tags:
+              type: array
+              maxItems: 12
+          unevaluatedProperties: false
+

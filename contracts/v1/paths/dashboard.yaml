@@ -1,0 +1,38 @@
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Get the operations dashboard (read-only aggregate)
+      description: >
+        Read-only aggregate for the manager's operational dashboard (LOGI-0012 / PRD F14, BRD BO-2):
+        counts by shipment status, the SLA-at-risk list under the BR-2 projection, and the
+        vehicle/driver utilization snapshot. One request replaces a fan-out of list endpoints and a
+        spreadsheet, and the whole response is evaluated at a single captured instant (generatedAt),
+        so atRiskTotalCount is always the totalCount of the at-risk page it carries (AC-3).
+        All six BR-7 statuses are always present in statusCounts, zero counts included, and every
+        count is the UNTRUNCATED number for the active filters. Utilization is the status-bucket
+        count over the existing vehicle/driver enums plus a capacity-weighted percent; v1 has no
+        duty-hour data, so no hours-worked figure is defined (LOGI-0012 O3).
+        Every dashboard filter is also a GET /shipments filter, so each tile drills down into the
+        existing list surface with no lossy translation (AC-6). There is no dashboard write in v1:
+        status transitions (BR-7) and assignments (BR-5) keep their own endpoints, and at_risk is
+        the read-time BR-2 projection, never a stored column (BR-sla-rules.md rule 2.5).
+        Viewer is read-allowed like on every other v1 read; Driver is 403 because the dashboard is
+        org-wide while BR-6 scopes a Driver to their own route (LOGI-0012 O1); anonymous is 401.
+      x-roles: [Admin, Dispatcher, Viewer]
+      operationId: getDashboard
+      parameters:
+        - { name: status, in: query, description: Restrict counts and the at-risk list to one shipment status., schema: { type: string, enum: [Pending, Assigned, InTransit, Delivered, Delayed, Cancelled] } }
+        - { name: priority, in: query, schema: { type: string, enum: [Standard, Express] } }
+        - { name: originWarehouseId, in: query, schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: routeId, in: query, description: Restrict to one route; a null routeId is not implied., schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: page, in: query, schema: { type: integer, default: 1, minimum: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20, minimum: 1, maximum: 100 } }
+      responses:
+        "200":
+          description: The dashboard — status counts, the SLA-at-risk page, vehicle and driver utilization.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardResponse' }
+        "400": { $ref: '#/components/responses/ValidationProblem' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }

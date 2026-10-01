@@ -24,3 +24,4 @@ tags:
   - { name: Shipments, description: Shipment lifecycle }
   - { name: Routes, description: Route planning and assignment }
   - { name: Planning, description: Read-only planning board aggregate (kanban and list views) }
+  - { name: Dashboard, description: Read-only operations dashboard aggregate (counts, SLA risk, utilization) }

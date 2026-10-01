@@ -3,6 +3,7 @@
 Derived from ticket front matter in `specs/features/*.md` + `Docs/PROJECT_STATUS.md`.
 
 | Ticket | Description | Status |
+| LOGI-0012 | Platform | in_progress |
 | LOGI-0010 | Platform | in_progress |
 | LOGI-0009 | Platform | DONE - all four arms sealed; 17 new e2e tests (routes create/assign/conflict/RBAC API + Routes screen seam), full 92/92 local Playwright; AC-1..AC-10 mapped; spec status done |
 | LOGI-0008 | Platform | in_progress |

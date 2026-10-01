@@ -20,6 +20,7 @@ const RESOURCES = {
   shipments: { schemas: ['ShipmentRequest', 'ShipmentUpdateRequest', 'ShipmentResponse', 'StatusTransitionRequest', 'ShipmentStatusEvent', 'PagedResponse'], paths: ['/shipments', '/shipments/{id}', '/shipments/{id}/status-transitions', '/shipments/{id}/status-history'] },
   routes: { schemas: ['RouteRequest', 'RouteUpdateRequest', 'RouteResponse', 'PagedResponse', 'AssignShipmentToRouteRequest', 'RouteCapacityView', 'RouteShipmentsPage'], paths: ['/routes', '/routes/{id}', '/routes/{id}/shipments', '/routes/{id}/shipments/{shipmentId}'] },
   planning: { schemas: ['BoardShipmentCard', 'BoardRouteCard', 'BoardColumn', 'BoardFilters', 'PlanningBoardResponse'], paths: ['/planning-board'] },
+  dashboard: { schemas: ['StatusCount', 'DashboardAtRiskShipment', 'ResourceUtilization', 'VehicleUtilization', 'DriverUtilization', 'DashboardResponse'], paths: ['/dashboard'] },
 };
 
 // Slice contiguous blocks: a 2-space header (`  /x:` or `  components:`-level key)
