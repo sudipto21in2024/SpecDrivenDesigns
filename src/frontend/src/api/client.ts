@@ -47,6 +47,20 @@ export type ShipmentSort = NonNullable<
 >;
 /** Optional query params for GET /shipments (every field optional, contract-derived). */
 export type ListShipmentsParams = NonNullable<operations['listShipments']['parameters']['query']>;
+/** LOGI-0011 AC-1: the whole board in one response — six columns + route cards + applied filters. */
+export type PlanningBoardResponse = components['schemas']['PlanningBoardResponse'];
+/** LOGI-0011 AC-1: one kanban column; `totalCount` is UNTRUNCATED, `cards` is capped. */
+export type BoardColumn = components['schemas']['BoardColumn'];
+/** LOGI-0011 AC-1: a read-only shipment card, a SUBSET of Shipment — never a second source. */
+export type BoardShipmentCard = components['schemas']['BoardShipmentCard'];
+/** LOGI-0011 AC-4: a route card whose `capacity` is the same RouteCapacityView BR-5 enforces. */
+export type BoardRouteCard = components['schemas']['BoardRouteCard'];
+/** LOGI-0011 AC-3: the echo of the filters the server actually applied; unsupplied ones are null. */
+export type BoardFilters = components['schemas']['BoardFilters'];
+/** Optional query params for GET /planning-board (contract-derived, eight params). */
+export type GetPlanningBoardParams = NonNullable<
+  operations['getPlanningBoard']['parameters']['query']
+>;
 export type ProblemDetails = components['schemas']['ProblemDetails'];
 export type AuthUser = components['schemas']['AuthUser'];
 export type LoginInput = components['schemas']['LoginRequest'];
@@ -337,6 +351,30 @@ export const api = {
   /** LOGI-0010 AC-6: unassign — 204 with an empty body, so there is nothing to return. */
   removeShipmentFromRoute(routeId: number, shipmentId: number): Promise<void> {
     return request<void>(`/api/v1/routes/${routeId}/shipments/${shipmentId}`, { method: 'DELETE' });
+  },
+
+  /**
+   * LOGI-0011 AC-1/AC-3/AC-8: the whole planning board in ONE read — six status columns, the route
+   * cards with their BR-5 capacity, the echo of the applied filters and the unassigned count.
+   *
+   * Read-only by design (spec §7 O3): the board is the only surface it calls, because a drag would
+   * be a second BR-7 entry point and a drop-on-route a second BR-5 one. Every filter is a query
+   * param — never a client-side filter over an unpaged list (spec §5).
+   *
+   * Absent params are omitted rather than sent empty, so the server's own defaults apply; the
+   * response's `appliedFilters` is then the authority for what was actually applied (AC-3).
+   */
+  getPlanningBoard(params: GetPlanningBoardParams = {}): Promise<PlanningBoardResponse> {
+    const query = new URLSearchParams();
+    if (params.status) query.set('status', params.status);
+    if (params.priority) query.set('priority', params.priority);
+    if (params.originWarehouseId != null) query.set('originWarehouseId', String(params.originWarehouseId));
+    if (params.slaRisk != null) query.set('slaRisk', String(params.slaRisk));
+    if (params.routeId != null) query.set('routeId', String(params.routeId));
+    if (params.q) query.set('q', params.q);
+    if (params.sort) query.set('sort', params.sort);
+    if (params.maxPerColumn != null) query.set('maxPerColumn', String(params.maxPerColumn));
+    return request<PlanningBoardResponse>(`/api/v1/planning-board?${query.toString()}`);
   },
 
   createShipment(body: ShipmentInput): Promise<Shipment> {

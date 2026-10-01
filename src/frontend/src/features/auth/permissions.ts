@@ -94,6 +94,18 @@ export const capabilities = {
    * are the same operator action on the same panel.
    */
   assignRouteShipments: (role: Role): boolean => role === 'Admin' || role === 'Dispatcher',
+
+  /**
+   * GET /planning-board — x-roles: [Admin, Dispatcher, Viewer] (LOGI-0011 AC-6).
+   *
+   * Driver is deliberately EXCLUDED (spec §7 O1): the board is org-wide, while BR-6 and
+   * LOGI-0009/0010 both scope a Driver to their own route's shipments. A 200 here would need an
+   * implicit own-route filter the contract never describes, and the column `totalCount`s would then
+   * mean "of what you may see" rather than "of the column" — unreadable and untestable. Viewer keeps
+   * read access, matching every other v1 read.
+   */
+  viewPlanningBoard: (role: Role): boolean =>
+    role === 'Admin' || role === 'Dispatcher' || role === 'Viewer',
 } as const;
 
 const allRoles: readonly Role[] = ['Admin', 'Dispatcher', 'Driver', 'Viewer'];

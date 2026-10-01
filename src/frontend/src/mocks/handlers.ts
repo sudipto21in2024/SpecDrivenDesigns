@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AuthUser, ProblemDetails, Role, RouteCapacityView, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput, ShipmentStatusEvent, ShipmentStatus, StatusTransitionRequest, Shipment, ShipmentInput, ShipmentPriority, Route, RouteStatus } from '../api/client';
+import type { AuthUser, ProblemDetails, Role, RouteCapacityView, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput, ShipmentStatusEvent, ShipmentStatus, StatusTransitionRequest, Shipment, ShipmentInput, ShipmentPriority, Route, RouteStatus, BoardColumn, BoardRouteCard, BoardShipmentCard, PlanningBoardResponse } from '../api/client';
 
 /**
  * MSW handlers derived from contracts/v1-openapi.yaml (ADR-004). The in-memory store mirrors the API
@@ -596,6 +596,76 @@ function parseOptionalId(value: unknown): { id: number | null; error?: string } 
     return { id: null, error: 'Must be an integer greater than or equal to 1, or null.' };
   }
   return { id: value };
+}
+
+/** ------------------------------------------- Planning board (LOGI-0011 AC-1..AC-9) ------------ */
+
+/**
+ * LOGI-0011 AC-6: the board is read for Admin/Dispatcher/Viewer ONLY.
+ *
+ * Driver is excluded because the board is org-wide while BR-6 and LOGI-0009/0010 scope a Driver to
+ * their own route's shipments (spec §7 O1). There is deliberately no "own-route" branch here: a 200
+ * would need an implicit filter the contract never describes, and the column `totalCount`s would
+ * then mean "of what you may see" instead of "of the column".
+ */
+const planningBoardRules: Record<Role, { read: boolean; write: boolean; delete: boolean }> = {
+  Admin: { read: true, write: false, delete: false },
+  Dispatcher: { read: true, write: false, delete: false },
+  Driver: { read: false, write: false, delete: false },
+  Viewer: { read: true, write: false, delete: false },
+};
+
+/** Contract sort enum for the board; the default is the earliest SLA first. */
+const boardSorts = ['slaDueAt', '-slaDueAt', 'createdAt', '-createdAt'] as const;
+type BoardSort = (typeof boardSorts)[number];
+
+/** AC-1: the six BR-7 statuses in lifecycle order. Every one is always returned, empty or not. */
+const boardColumnOrder: ShipmentStatus[] = [
+  'Pending',
+  'Assigned',
+  'InTransit',
+  'Delivered',
+  'Delayed',
+  'Cancelled',
+];
+
+/**
+ * AC-4: the board card is a SUBSET of the shipment read model, projected from the same store row the
+ * shipment handlers read, so `atRisk` cannot drift between the board and GET /shipments.
+ */
+function toBoardShipmentCard(shipment: MockShipment, atRisk: boolean): BoardShipmentCard {
+  return {
+    id: shipment.id,
+    referenceCode: shipment.referenceCode,
+    status: shipment.status,
+    priority: shipment.priority,
+    weightKg: shipment.weightKg,
+    originWarehouseId: shipment.originWarehouseId,
+    destinationAddress: shipment.destinationAddress,
+    slaDueAt: shipment.slaDueAt,
+    routeId: shipment.routeId,
+    atRisk,
+    createdAt: shipment.createdAt,
+  };
+}
+
+/**
+ * AC-4: the board reuses `toRouteCapacityView` — the very function that serves
+ * GET /routes/{id}/shipments — so the capacity bar on a route card and the number the assign dialog
+ * rejects against are computed once (spec §7 O4). A route with no vehicle yields null
+ * capacityKg/remainingCapacityKg, which the UI must read as "no vehicle", never as 0.
+ */
+function toBoardRouteCard(route: MockRoute): BoardRouteCard {
+  return {
+    id: route.id,
+    name: route.name,
+    status: route.status,
+    vehicleId: route.vehicleId,
+    driverId: route.driverId,
+    plannedStart: route.plannedStart,
+    plannedEnd: route.plannedEnd,
+    capacity: toRouteCapacityView(route, shipmentsForRoute(route.id)),
+  };
 }
 
 export const handlers = [
@@ -1839,4 +1909,149 @@ export const handlers = [
 
     return new HttpResponse(null, { status: 204 });
   }),
+
+  /**
+   * GET /planning-board — LOGI-0011 AC-1..AC-9, the dispatcher's read-only aggregate.
+   *
+   * One request returns six status columns in lifecycle order, the route cards with their BR-5
+   * capacity, the echo of the filters actually applied, and the unassigned backlog count. Every card
+   * is projected from the same store row the shipment handlers read, so the board and
+   * GET /shipments can never disagree (AC-4/AC-9).
+   *
+   * Two details are load-bearing and easy to get wrong:
+   *  - `totalCount` is the UNTRUNCATED count while `cards` is capped by `maxPerColumn`, and
+   *    `truncated` says so (AC-8). Returning the capped length as the count would let the UI render
+   *    "50 of 312" as "50".
+   *  - an empty column is still returned with `totalCount: 0` and `cards: []` (AC-1): omitting it
+   *    would make a Dispatcher read "no Cancelled work" as "the board forgot to ask".
+   *
+   * The board holds no state, so a rejected request mutates nothing (AC-8) and two identical
+   * requests are byte-comparable apart from `generatedAt` (AC-9).
+   */
+  http.get('/api/v1/planning-board', ({ request }) => {
+    const auth = authorize(request, 'read', 'the planning board', planningBoardRules);
+    if (!('user' in auth)) return auth;
+
+    const url = new URL(request.url);
+    const errors: Record<string, string[]> = {};
+
+    const statusRaw = url.searchParams.get('status');
+    if (statusRaw != null && !shipmentStatuses.includes(statusRaw as ShipmentStatus)) {
+      errors.status = ['Status must be one of: Pending, Assigned, InTransit, Delivered, Delayed, Cancelled.'];
+    }
+    const priorityRaw = url.searchParams.get('priority');
+    if (priorityRaw != null && !shipmentPriorities.includes(priorityRaw as ShipmentPriority)) {
+      errors.priority = ['Priority must be one of: Standard, Express.'];
+    }
+    const slaRiskRaw = url.searchParams.get('slaRisk');
+    if (slaRiskRaw != null && slaRiskRaw !== 'true' && slaRiskRaw !== 'false') {
+      errors.slaRisk = ['slaRisk must be true or false.'];
+    }
+    const sortRaw = url.searchParams.get('sort');
+    const sort = (sortRaw ?? 'slaDueAt') as BoardSort;
+    if (sortRaw != null && !boardSorts.includes(sort)) {
+      errors.sort = ['Sort must be one of: slaDueAt, -slaDueAt, createdAt, -createdAt.'];
+    }
+    const maxPerColumnRaw = url.searchParams.get('maxPerColumn');
+    const maxPerColumn = maxPerColumnRaw == null ? 50 : Number(maxPerColumnRaw);
+    if (
+      maxPerColumnRaw != null &&
+      (!Number.isInteger(maxPerColumn) || maxPerColumn < 1 || maxPerColumn > 200)
+    ) {
+      errors.maxPerColumn = ['maxPerColumn must be an integer between 1 and 200.'];
+    }
+    const originRaw = url.searchParams.get('originWarehouseId');
+    const originWarehouseId = originRaw == null ? null : Number(originRaw);
+    if (
+      originRaw != null &&
+      (originWarehouseId == null || !Number.isInteger(originWarehouseId) || originWarehouseId < 1)
+    ) {
+      errors.originWarehouseId = ['originWarehouseId must be an integer greater than or equal to 1.'];
+    }
+    const routeRaw = url.searchParams.get('routeId');
+    const routeId = routeRaw == null ? null : Number(routeRaw);
+    if (routeRaw != null && (routeId == null || !Number.isInteger(routeId) || routeId < 1)) {
+      errors.routeId = ['routeId must be an integer greater than or equal to 1.'];
+    }
+    const qRaw = url.searchParams.get('q');
+    if (qRaw != null && qRaw.length > 200) {
+      errors.q = ['q must be 200 characters or fewer.'];
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+    }
+
+    // Read-time BR-2 projection, computed once per request so every card in this response shares
+    // the same instant (AC-9).
+    const now = Date.now();
+    const qNeedle = qRaw == null ? null : qRaw.toLowerCase();
+
+    // AC-5: `routeId` is a filter, not an implicit equality on null — narrowing by route does NOT
+    // hide the unassigned backlog, because hiding it would be a silent extra filter the caller never
+    // asked for. An unknown route id yields an empty board rather than 404: this is a filtered view,
+    // not a resource lookup.
+    const rows = shipmentsDb
+      .map((shipment) => ({ shipment, atRisk: computeAtRisk(shipment, now) }))
+      .filter(
+        ({ shipment, atRisk }) =>
+          (statusRaw == null || shipment.status === statusRaw) &&
+          (priorityRaw == null || shipment.priority === priorityRaw) &&
+          (originWarehouseId == null || shipment.originWarehouseId === originWarehouseId) &&
+          (slaRiskRaw == null || atRisk === (slaRiskRaw === 'true')) &&
+          (routeId == null || shipment.routeId === routeId) &&
+          (qNeedle == null ||
+            shipment.referenceCode.toLowerCase().includes(qNeedle) ||
+            shipment.destinationAddress.toLowerCase().includes(qNeedle)),
+      )
+      .sort((a, b) => compareShipments(a.shipment, b.shipment, sort));
+
+    const columns: BoardColumn[] = boardColumnOrder.map((status) => {
+      const matching = rows.filter(({ shipment }) => shipment.status === status);
+      return {
+        status,
+        // UNTRUNCATED: the count the Dispatcher is actually asking about (AC-1/AC-8).
+        totalCount: matching.length,
+        truncated: matching.length > maxPerColumn,
+        cards: matching
+          .slice(0, maxPerColumn)
+          .map(({ shipment, atRisk }) => toBoardShipmentCard(shipment, atRisk)),
+      };
+    });
+
+    // AC-5: the unassigned lane is a COUNT, never a synthetic "unassigned route" row — inventing a
+    // route would put a fake id into a filter and a fake capacity bar onto the board.
+    const unassignedTotalCount = rows.filter(({ shipment }) => shipment.routeId == null).length;
+
+    // Every route referenced by a filtered shipment, plus every Planned route (the work not yet
+    // loaded onto the board is exactly what a Dispatcher needs to see capacity for).
+    const referencedRouteIds = new Set(
+      rows.map(({ shipment }) => shipment.routeId).filter((id): id is number => id != null),
+    );
+    const routeCards = routesDb
+      .filter((route) => referencedRouteIds.has(route.id) || route.status === 'Planned')
+      .map(toBoardRouteCard);
+
+    const body: PlanningBoardResponse = {
+      generatedAt: new Date(Math.floor(now / 1000) * 1000).toISOString(),
+      // AC-3: the echo names every filter, null when it was not supplied, so the client never has to
+      // distinguish "unset" from "not returned".
+      appliedFilters: {
+        status: (statusRaw as ShipmentStatus | null) ?? null,
+        priority: (priorityRaw as ShipmentPriority | null) ?? null,
+        originWarehouseId,
+        slaRisk: slaRiskRaw == null ? null : slaRiskRaw === 'true',
+        routeId,
+        q: qRaw,
+        sort,
+        maxPerColumn,
+      },
+      columns,
+      unassignedTotalCount,
+      routes: routeCards,
+    };
+
+    return HttpResponse.json(body);
+  }),
 ];
+

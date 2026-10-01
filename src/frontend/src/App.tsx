@@ -26,6 +26,7 @@ import VehiclesPage from './features/vehicles/VehiclesPage';
 import DriversPage from './features/drivers/DriversPage';
 import ShipmentsPage from './features/shipments/ShipmentsPage';
 import RoutesPage from './features/routes/RoutesPage';
+import PlanningBoardPage from './features/planning/PlanningBoardPage';
 import { Tab, Tabs } from '@mui/material';
 
 const queryClient = new QueryClient({
@@ -110,9 +111,12 @@ function AppHeader() {
  */
 function MasterDataTabs() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'warehouses' | 'vehicles' | 'drivers' | 'shipments' | 'routes'>(
+  // The default tab stays Warehouses: it is the surface every pre-existing suite renders directly,
+  // and re-pointing the landing tab would be a UX decision outside this ticket's read-only scope.
+  const [tab, setTab] = useState<'warehouses' | 'vehicles' | 'drivers' | 'shipments' | 'routes' | 'board'>(
     'warehouses',
   );
+  const canViewBoard = user != null && can(user.role, 'viewPlanningBoard');
   const canViewDrivers = user != null && can(user.role, 'viewDrivers');
   const canViewShipments = user != null && can(user.role, 'viewShipments');
   const canViewRoutes = user != null && can(user.role, 'viewRoutes');
@@ -130,8 +134,12 @@ function MasterDataTabs() {
         {canViewDrivers && <Tab value="drivers" label="Drivers" data-testid="tab-drivers" />}
         {canViewShipments && <Tab value="shipments" label="Shipments" data-testid="tab-shipments" />}
         {canViewRoutes && <Tab value="routes" label="Routes" data-testid="tab-routes" />}
+        {/* LOGI-0011 AC-6: hidden for Driver because the API 403s the org-wide board (spec §7 O1). */}
+        {canViewBoard && <Tab value="board" label="Board" data-testid="tab-board" />}
       </Tabs>
-      {tab === 'warehouses' ? (
+      {tab === 'board' && canViewBoard ? (
+        <PlanningBoardPage />
+      ) : tab === 'warehouses' ? (
         <WarehousesPage />
       ) : tab === 'vehicles' ? (
         <VehiclesPage />

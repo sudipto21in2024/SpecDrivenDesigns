@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-01T15:32:52.643Z",
+  "generated": "2026-10-01T16:06:16.078Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -385,10 +385,19 @@
           "started": "2026-10-01T06:59:32.209Z",
           "lastStep": "sealed: dotnet build 0 errors 0 warnings; dotnet test 182/182 green; ef migrations has-pending-model-changes -> no changes; AC-1..AC-9 each carry a // LOGI-0011 AC-n marker; check-size clean on all 9 new files; no pre-existing test edited",
           "lastStepAt": "2026-10-01T07:18:43.646Z"
+        },
+        "frontend": {
+          "status": "done",
+          "agent": null,
+          "started": "2026-10-01T15:38:08.302Z",
+          "plan": "state\\plans\\LOGI-0011-frontend.plan.md",
+          "planStatus": "locked",
+          "lastStep": "sealed: npx tsc --noEmit 0 errors; npm run build clean; npm test 131/131 green (114 pre-existing + 17 new); every AC-1..AC-10 carries a // LOGI-0011 AC-n comment; scratch M1 mock spec (7 cases) passed then deleted; schema.d.ts regenerated with no hand-edited drift; git status shows only §2 manifest paths",
+          "lastStepAt": "2026-10-01T16:04:59.545Z"
         }
       },
       "status": "in_progress",
-      "next": "frontend"
+      "next": "qa"
     }
   }
 }
