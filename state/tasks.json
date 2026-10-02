@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-02T07:07:56.470Z",
+  "generated": "2026-10-02T08:31:43.675Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -433,6 +433,15 @@
           "planStatus": "locked",
           "lastStep": "sealed: npx tsc --noEmit 0 errors; npm run build clean; npm test 145/145 green (131 pre-existing + 14 new); every AC-1..AC-9 carries a // LOGI-0012 AC-n marker; schema.d.ts regenerated is idempotent and hand-edit-free; no useMutation in the feature; validate-plan 0 errors; git status limited to section 2 manifest paths",
           "lastStepAt": "2026-10-02T07:07:27.426Z"
+        },
+        "qa": {
+          "status": "in_progress",
+          "agent": null,
+          "started": "2026-10-02T07:14:18.995Z",
+          "plan": "state\\plans\\LOGI-0012-qa.plan.md",
+          "planStatus": "locked",
+          "lastStep": "sealed: npx playwright test: 162 passed, 0 failed (136 pre-existing + 26 new); every AC-1..AC-9 carries a // LOGI-0012 AC-n comment; no pre-existing spec, page object or support module edited - git status shows only the 5 new files; no test asserts a 400/401/403/405 the running API does not actually produce; no SQLITE_BUSY / database-is-locked / no-such-table in the API run log",
+          "lastStepAt": "2026-10-02T08:31:43.671Z"
         }
       },
       "status": "in_progress",
