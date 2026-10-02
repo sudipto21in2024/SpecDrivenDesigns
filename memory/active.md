@@ -3,14 +3,14 @@
 > Read this file first at every session start. Position: `tracker current` + this file.
 
 ## Current work
-- **2026-10-01: LOGI-0012 architect arm sealed: spec (AC-1..AC-9) + additive contract GET /api/v1/dashboard; spectral 0 errors, bundle clean, contracts additions-only.**
-  - Active arms: LOGI-0012 (architect)
+- **2026-10-02: LOGI-0012 backend arm sealed and committed (e973de7): GET /api/v1/dashboard read path, 6 untruncated status counts, BR-2 at-risk page, vehicle/driver utilization; 231/231 green, build 0/0, no pending EF model changes, AC-1..AC-9 all traced.**
+  - Active arms: none
   - Recent commits:
+    - e973de7 feat(LOGI-0012): implement operations dashboard backend arm
+    - e9e4fc0 chore: refresh generated tasks snapshot
+    - 5e29be5 chore: refresh generated tasks snapshot
+    - 78de430 feat(LOGI-0012): specify F14 operations dashboard architect arm
     - d3f599a test(LOGI-0011): planning board e2e - 136 green, qa arm sealed
-    - 322b7e0 chore: refresh agent state after LOGI-0011 frontend seal
-    - ef2eae9 feat(LOGI-0011): implement planning board frontend arm
-    - e325c48 feat(LOGI-0011): implement planning board backend arm
-    - 04abe93 chore: refresh generated tasks snapshot
 
 ## Next action
-1. LOGI-0012 backend arm - plan, lock, then implement the dashboard aggregate endpoint per AC-1..AC-9.
+1. LOGI-0012 frontend arm: claim, plan (skills plan-arm -> validate-plan -> tracker plan lock), then build the dashboard route, tiles, at-risk list and the two utilization panels behind Admin/Dispatcher/Viewer with Driver nav hidden.
