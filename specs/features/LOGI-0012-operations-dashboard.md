@@ -119,6 +119,9 @@ Then the target is an existing endpoint with the equivalent filter —
     GET /api/v1/vehicles?status=…, GET /api/v1/drivers?status=…
 And the dashboard defines no query parameter that GET /shipments does not already accept
 And following the link shows exactly the rows the tile counted
+And every dashboard parameter — including routeId — is one GET /shipments accepts
+    (routeId was added to GET /shipments by this follow-up so the vocabulary is
+    genuinely shared and the drill-down is lossless in both directions)
 ```
 
 **AC-7 — Authorization**
