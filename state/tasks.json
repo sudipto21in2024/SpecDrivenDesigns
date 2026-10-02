@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-02T07:07:27.429Z",
+  "generated": "2026-10-02T07:07:56.146Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -426,7 +426,7 @@
           "lastStepAt": "2026-10-02T06:42:53.779Z"
         },
         "frontend": {
-          "status": "in_progress",
+          "status": "done",
           "agent": null,
           "started": "2026-10-02T06:46:14.382Z",
           "plan": "state\\plans\\LOGI-0012-frontend.plan.md",
@@ -436,7 +436,7 @@
         }
       },
       "status": "in_progress",
-      "next": "frontend"
+      "next": "qa"
     }
   }
 }

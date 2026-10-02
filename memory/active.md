@@ -3,14 +3,14 @@
 > Read this file first at every session start. Position: `tracker current` + this file.
 
 ## Current work
-- **2026-10-02: LOGI-0012 backend arm sealed and committed (e973de7): GET /api/v1/dashboard read path, 6 untruncated status counts, BR-2 at-risk page, vehicle/driver utilization; 231/231 green, build 0/0, no pending EF model changes, AC-1..AC-9 all traced.**
+- **2026-10-02: LOGI-0012 frontend arm sealed and committed (b754ac3): regenerated contract types, getDashboard client method, /api/v1/dashboard MSW handler, and the manager dashboard (six untruncated tiles, at-risk list + pager, vehicle/driver utilization panels) behind a role-gated Dashboard tab with real-anchor drill-downs to existing list endpoints. tsc 0 errors, build clean, 145/145 tests (14 new), all 9 ACs traced.**
   - Active arms: none
   - Recent commits:
+    - b754ac3 feat(LOGI-0012): implement operations dashboard frontend arm
+    - beccc65 chore(LOGI-0012): record status snapshot event
+    - 59ca917 chore(LOGI-0012): mark backend plan done
+    - bd0f528 chore(LOGI-0012): seal backend arm and record frontend handoff
     - e973de7 feat(LOGI-0012): implement operations dashboard backend arm
-    - e9e4fc0 chore: refresh generated tasks snapshot
-    - 5e29be5 chore: refresh generated tasks snapshot
-    - 78de430 feat(LOGI-0012): specify F14 operations dashboard architect arm
-    - d3f599a test(LOGI-0011): planning board e2e - 136 green, qa arm sealed
 
 ## Next action
-1. LOGI-0012 frontend arm: claim, plan (skills plan-arm -> validate-plan -> tracker plan lock), then build the dashboard route, tiles, at-risk list and the two utilization panels behind Admin/Dispatcher/Viewer with Driver nav hidden.
+1. LOGI-0012 qa arm: claim, plan (skills plan-arm -> validate-plan -> tracker plan lock), then Playwright specs against the real API + real SQLite covering the manager landing page, the six tiles incl. zeros, at-risk ordering/envelope/pager, both utilization panels incl. the null-percent case, the Driver-absent nav item plus direct 403, the 400 keyed-errors path, and the AC-9 non-regression sweep.

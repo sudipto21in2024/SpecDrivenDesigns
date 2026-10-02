@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0012
 arm: frontend
-status: locked
+status: done
 created: 2026-10-02T06:50:00.000Z
 depends_on_plans:
   - state/plans/LOGI-0012-architect.plan.md
