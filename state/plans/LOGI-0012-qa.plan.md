@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0012
 arm: qa
-status: locked
+status: done
 created: 2026-10-02T07:16:00.000Z
 depends_on_plans:
   - state/plans/LOGI-0012-architect.plan.md

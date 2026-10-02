@@ -3,14 +3,14 @@
 > Read this file first at every session start. Position: `tracker current` + this file.
 
 ## Current work
-- **2026-10-02: LOGI-0012 frontend arm sealed and committed (b754ac3): regenerated contract types, getDashboard client method, /api/v1/dashboard MSW handler, and the manager dashboard (six untruncated tiles, at-risk list + pager, vehicle/driver utilization panels) behind a role-gated Dashboard tab with real-anchor drill-downs to existing list endpoints. tsc 0 errors, build clean, 145/145 tests (14 new), all 9 ACs traced.**
+- **2026-10-02: LOGI-0012 qa arm sealed and committed (3e5c26b): support/dashboard.ts + pages/dashboard.page.ts + dashboard.spec.ts (11) + dashboard-authz.spec.ts (5) + dashboard-ui.spec.ts (10). Full Playwright suite 162/162 green (136 pre-existing + 26 new); no pre-existing spec, page object or support module edited. All arms of LOGI-0012 are now done and verified (backend 231/231, frontend 145/145, e2e 162/162).**
   - Active arms: none
   - Recent commits:
+    - 3e5c26b test(LOGI-0012): add operations dashboard end-to-end coverage
+    - 9998bf5 chore(LOGI-0012): record status snapshot event
+    - 81fa5e6 chore(LOGI-0012): seal frontend arm and record qa handoff
     - b754ac3 feat(LOGI-0012): implement operations dashboard frontend arm
     - beccc65 chore(LOGI-0012): record status snapshot event
-    - 59ca917 chore(LOGI-0012): mark backend plan done
-    - bd0f528 chore(LOGI-0012): seal backend arm and record frontend handoff
-    - e973de7 feat(LOGI-0012): implement operations dashboard backend arm
 
 ## Next action
-1. LOGI-0012 qa arm: claim, plan (skills plan-arm -> validate-plan -> tracker plan lock), then Playwright specs against the real API + real SQLite covering the manager landing page, the six tiles incl. zeros, at-risk ordering/envelope/pager, both utilization panels incl. the null-percent case, the Driver-absent nav item plus direct 403, the 400 keyed-errors path, and the AC-9 non-regression sweep.
+1. DECISION REQUIRED before LOGI-0012 can close - the contract finding from the qa arm: AC-6 claims the dashboard defines no query parameter that GET /shipments does not already accept, but getDashboard accepts routeId and GET /shipments does not. Either add routeId to GET /shipments or remove it from the dashboard (an architect/contract change, not a test workaround). After that, close the ticket and pick the next roadmap item.
