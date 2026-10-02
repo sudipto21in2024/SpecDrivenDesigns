@@ -27,6 +27,7 @@ import DriversPage from './features/drivers/DriversPage';
 import ShipmentsPage from './features/shipments/ShipmentsPage';
 import RoutesPage from './features/routes/RoutesPage';
 import PlanningBoardPage from './features/planning/PlanningBoardPage';
+import DashboardPage from './features/dashboard/DashboardPage';
 import { Tab, Tabs } from '@mui/material';
 
 const queryClient = new QueryClient({
@@ -113,10 +114,12 @@ function MasterDataTabs() {
   const { user } = useAuth();
   // The default tab stays Warehouses: it is the surface every pre-existing suite renders directly,
   // and re-pointing the landing tab would be a UX decision outside this ticket's read-only scope.
-  const [tab, setTab] = useState<'warehouses' | 'vehicles' | 'drivers' | 'shipments' | 'routes' | 'board'>(
+  const [tab, setTab] = useState<'warehouses' | 'vehicles' | 'drivers' | 'shipments' | 'routes' | 'board' | 'dashboard'>(
     'warehouses',
   );
   const canViewBoard = user != null && can(user.role, 'viewPlanningBoard');
+  // LOGI-0012 AC-7: hidden for Driver because the API 403s the org-wide dashboard (spec §7 O1).
+  const canViewDashboard = user != null && can(user.role, 'viewDashboard');
   const canViewDrivers = user != null && can(user.role, 'viewDrivers');
   const canViewShipments = user != null && can(user.role, 'viewShipments');
   const canViewRoutes = user != null && can(user.role, 'viewRoutes');
@@ -136,8 +139,11 @@ function MasterDataTabs() {
         {canViewRoutes && <Tab value="routes" label="Routes" data-testid="tab-routes" />}
         {/* LOGI-0011 AC-6: hidden for Driver because the API 403s the org-wide board (spec §7 O1). */}
         {canViewBoard && <Tab value="board" label="Board" data-testid="tab-board" />}
+        {canViewDashboard && <Tab value="dashboard" label="Dashboard" data-testid="tab-dashboard" />}
       </Tabs>
-      {tab === 'board' && canViewBoard ? (
+      {tab === 'dashboard' && canViewDashboard ? (
+        <DashboardPage />
+      ) : tab === 'board' && canViewBoard ? (
         <PlanningBoardPage />
       ) : tab === 'warehouses' ? (
         <WarehousesPage />

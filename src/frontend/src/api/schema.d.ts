@@ -410,6 +410,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the operations dashboard (read-only aggregate)
+         * @description Read-only aggregate for the manager's operational dashboard (LOGI-0012 / PRD F14, BRD BO-2): counts by shipment status, the SLA-at-risk list under the BR-2 projection, and the vehicle/driver utilization snapshot. One request replaces a fan-out of list endpoints and a spreadsheet, and the whole response is evaluated at a single captured instant (generatedAt), so atRiskTotalCount is always the totalCount of the at-risk page it carries (AC-3). All six BR-7 statuses are always present in statusCounts, zero counts included, and every count is the UNTRUNCATED number for the active filters. Utilization is the status-bucket count over the existing vehicle/driver enums plus a capacity-weighted percent; v1 has no duty-hour data, so no hours-worked figure is defined (LOGI-0012 O3). Every dashboard filter is also a GET /shipments filter, so each tile drills down into the existing list surface with no lossy translation (AC-6). There is no dashboard write in v1: status transitions (BR-7) and assignments (BR-5) keep their own endpoints, and at_risk is the read-time BR-2 projection, never a stored column (BR-sla-rules.md rule 2.5). Viewer is read-allowed like on every other v1 read; Driver is 403 because the dashboard is org-wide while BR-6 scopes a Driver to their own route (LOGI-0012 O1); anonymous is 401.
+         */
+        get: operations["getDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -1205,6 +1225,160 @@ export interface components {
             unassignedTotalCount: number;
             /** @description Route cards for the routes referenced by the filtered shipments, plus every Planned route. */
             routes: components["schemas"]["BoardRouteCard"][];
+        };
+        /**
+         * @description One BR-7 shipment status and its UNTRUNCATED count for the active filters (LOGI-0012 AC-1).
+         *     The enum is the same six-value lifecycle as the planning board and the shipment lifecycle, so
+         *     the dashboard tile, the board column and GET /shipments can never disagree. All six entries are
+         *     always returned in lifecycle order, including the zero counts, so the UI never has to invent a
+         *     missing tile.
+         */
+        StatusCount: {
+            /**
+             * @example Pending
+             * @enum {string}
+             */
+            status: "Pending" | "Assigned" | "InTransit" | "Delivered" | "Delayed" | "Cancelled";
+            /** @example 312 */
+            count: number;
+        };
+        /**
+         * @description One row of the dashboard's SLA-at-risk list (LOGI-0012 AC-2). This is a PROJECTION of
+         *     ShipmentResponse for the at-risk subset, not a second source of truth: the fields are copied
+         *     from the same shipment read model GET /shipments serves, so the tile and the drill-down list
+         *     always show the same rows. minutesToDue is the whole-second distance from generatedAt to
+         *     slaDueAt and is negative once the shipment is overdue; it is null when there is no promise
+         *     recorded, and a shipment with no sla_due_at is never at risk (BR-2 rule 2.7).
+         */
+        DashboardAtRiskShipment: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id: number;
+            /** @example SHP-000123 */
+            referenceCode: string;
+            /**
+             * @example InTransit
+             * @enum {string}
+             */
+            status: "Pending" | "Assigned" | "InTransit" | "Delivered" | "Delayed" | "Cancelled";
+            /**
+             * @example Express
+             * @enum {string}
+             */
+            priority: "Standard" | "Express";
+            /**
+             * Format: date-time
+             * @example 2026-09-20T08:00:00Z
+             */
+            slaDueAt: string | null;
+            /**
+             * @description Whole minutes from generatedAt to slaDueAt; negative when overdue.
+             * @example 95
+             */
+            minutesToDue: number | null;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            originWarehouseId: number;
+            /** @example 12 Dock Road, Rotterdam */
+            destinationAddress: string;
+        };
+        /**
+         * @description Base status-bucket utilization for a fleet resource (LOGI-0012 AC-4/AC-5, O3). v1 has no shift or
+         *     duty-hour data, so "utilization" is deliberately the honest count over the schema's own status
+         *     enum plus a derived percent — never a percentage of hours worked. Bucket keys are the exact
+         *     enum values of the underlying resource, and a bucket that is not available capacity
+         *     (Maintenance, Suspended) is never folded into an "available" number.
+         *     VehicleUtilization and DriverUtilization both build on this shape via allOf, so the bucket and
+         *     percent semantics have exactly one definition in the contract.
+         */
+        ResourceUtilization: {
+            /** @example 12 */
+            totalCount: number;
+            /**
+             * @description Count per resource status. Buckets with zero members are present with 0.
+             * @example {
+             *       "Available": 4,
+             *       "InRoute": 6,
+             *       "Maintenance": 2
+             *     }
+             */
+            byStatus?: {
+                [key: string]: number;
+            };
+            /**
+             * @description The in-use share as a percentage, or null when the denominator is 0 — an empty fleet is "no capacity", never "0% used".
+             * @example 50
+             */
+            utilizationPercent: number | null;
+        };
+        VehicleUtilization: components["schemas"]["ResourceUtilization"] & {
+            /**
+             * @description Summed capacityKg of the InRoute vehicles only.
+             * @example 14500
+             */
+            inUseCapacityKg: number;
+            /** @example 30000 */
+            totalCapacityKg: number;
+            /**
+             * @description inUseCapacityKg over totalCapacityKg
+             * @example 48.33
+             */
+            capacityUtilizationPercent: number | null;
+        };
+        DriverUtilization: components["schemas"]["ResourceUtilization"] & Record<string, never>;
+        /**
+         * @description The SLA-at-risk page carried by the dashboard (LOGI-0012 AC-2/AC-3). It uses the standard
+         *     paging envelope field-for-field — page, pageSize, totalCount, totalPages — so the manager UI
+         *     reuses its existing list pager, but the items are the at-risk projection rows rather than the
+         *     full shipment shape. totalCount is by construction the same number as DashboardResponse's
+         *     atRiskTotalCount, because both come from one query at one captured instant.
+         */
+        AtRiskShipmentPage: {
+            /** @description One page of at-risk shipments, sorted by slaDueAt ascending with id ascending as the tiebreak. */
+            items: components["schemas"]["DashboardAtRiskShipment"][];
+            /** @example 1 */
+            page: number;
+            /** @example 20 */
+            pageSize: number;
+            /** @example 7 */
+            totalCount: number;
+            /** @example 1 */
+            totalPages: number;
+        };
+        /**
+         * @description Read-only operations dashboard (LOGI-0012 / PRD F14, BRD BO-2). One request returns the counts
+         *     by status, the SLA-at-risk list and the vehicle/driver utilization snapshot, so the manager
+         *     landing page issues a single call instead of a fan-out (PRD §5.3). Everything is evaluated at
+         *     ONE captured instant, exposed as generatedAt, so atRiskTotalCount is by construction the
+         *     totalCount of the at-risk page it carries (AC-3) and no row is filtered by a different `now`.
+         *     Nothing is persisted: the at-risk flag is the read-time BR-2 projection exactly as
+         *     BR-sla-rules.md rule 2.5 requires, and there is no dashboard write in v1.
+         */
+        DashboardResponse: {
+            /**
+             * Format: date-time
+             * @description The single instant every count
+             * @example 2026-09-20T08:00:00Z
+             */
+            generatedAt: string;
+            /** @description Echo of the filter set the server actually applied, so the UI can render and restore the active filters; every dashboard filter is also a GET /shipments filter (AC-6). */
+            appliedFilters?: {
+                [key: string]: unknown;
+            };
+            /** @description Exactly six entries, always in BR-7 lifecycle order, zero counts included (AC-1). */
+            statusCounts: components["schemas"]["StatusCount"][];
+            /**
+             * @description Number of shipments matching the BR-2 at-risk projection for the active filters; equals the at-risk page totalCount (AC-3).
+             * @example 7
+             */
+            atRiskTotalCount: number;
+            atRiskShipments: components["schemas"]["AtRiskShipmentPage"];
+            vehicleUtilization: components["schemas"]["VehicleUtilization"];
+            driverUtilization: components["schemas"]["DriverUtilization"];
         };
     };
     responses: {
@@ -2116,6 +2290,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlanningBoardResponse"];
+                };
+            };
+            400: components["responses"]["ValidationProblem"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDashboard: {
+        parameters: {
+            query?: {
+                /** @description Restrict counts and the at-risk list to one shipment status. */
+                status?: "Pending" | "Assigned" | "InTransit" | "Delivered" | "Delayed" | "Cancelled";
+                priority?: "Standard" | "Express";
+                originWarehouseId?: number;
+                /** @description Restrict to one route; a null routeId is not implied. */
+                routeId?: number;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dashboard — status counts, the SLA-at-risk page, vehicle and driver utilization. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardResponse"];
                 };
             };
             400: components["responses"]["ValidationProblem"];

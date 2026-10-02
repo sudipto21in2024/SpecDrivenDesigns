@@ -106,6 +106,17 @@ export const capabilities = {
    */
   viewPlanningBoard: (role: Role): boolean =>
     role === 'Admin' || role === 'Dispatcher' || role === 'Viewer',
+
+  /**
+   * GET /dashboard — x-roles: [Admin, Dispatcher, Viewer] (LOGI-0012 AC-7).
+   *
+   * Driver is deliberately EXCLUDED for the same reason as the planning board (spec §7 O1): the
+   * dashboard is org-wide, and its counts and utilization buckets would mean "of the whole operation"
+   * rather than "of your route". The API returns 403 regardless; hiding the tab is affordance hygiene
+   * so a Driver is not offered a screen that cannot load.
+   */
+  viewDashboard: (role: Role): boolean =>
+    role === 'Admin' || role === 'Dispatcher' || role === 'Viewer',
 } as const;
 
 const allRoles: readonly Role[] = ['Admin', 'Dispatcher', 'Driver', 'Viewer'];

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-02T06:44:10.685Z",
+  "generated": "2026-10-02T07:07:27.429Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -424,6 +424,15 @@
           "started": "2026-10-02T05:41:25.193Z",
           "lastStep": "sealed: dotnet build 0 errors 0 warnings; dotnet test 231/231 green with no pre-existing test edited; all 9 AC-1..AC-9 carry a // LOGI-0012 AC-n marker; dotnet ef migrations has-pending-model-changes reports no changes; validate-plan 0 errors; git status limited to section 2 manifest paths.",
           "lastStepAt": "2026-10-02T06:42:53.779Z"
+        },
+        "frontend": {
+          "status": "in_progress",
+          "agent": null,
+          "started": "2026-10-02T06:46:14.382Z",
+          "plan": "state\\plans\\LOGI-0012-frontend.plan.md",
+          "planStatus": "locked",
+          "lastStep": "sealed: npx tsc --noEmit 0 errors; npm run build clean; npm test 145/145 green (131 pre-existing + 14 new); every AC-1..AC-9 carries a // LOGI-0012 AC-n marker; schema.d.ts regenerated is idempotent and hand-edit-free; no useMutation in the feature; validate-plan 0 errors; git status limited to section 2 manifest paths",
+          "lastStepAt": "2026-10-02T07:07:27.426Z"
         }
       },
       "status": "in_progress",

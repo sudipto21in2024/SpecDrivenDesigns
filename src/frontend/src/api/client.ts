@@ -61,6 +61,28 @@ export type BoardFilters = components['schemas']['BoardFilters'];
 export type GetPlanningBoardParams = NonNullable<
   operations['getPlanningBoard']['parameters']['query']
 >;
+/** LOGI-0012 AC-1: the whole dashboard in one response, evaluated at ONE captured instant. */
+export type DashboardResponse = components['schemas']['DashboardResponse'];
+/** LOGI-0012 AC-1: one BR-7 status and its UNTRUNCATED count; all six are always returned. */
+export type StatusCount = components['schemas']['StatusCount'];
+/**
+ * LOGI-0012 AC-2: one SLA-at-risk row — a PROJECTION of ShipmentResponse, not a second read model.
+ * `minutesToDue` is negative once overdue and null when there is no promise recorded.
+ */
+export type DashboardAtRiskShipment = components['schemas']['DashboardAtRiskShipment'];
+/** LOGI-0012 AC-2/AC-3: the standard paging envelope carried by the dashboard. */
+export type AtRiskShipmentPage = components['schemas']['AtRiskShipmentPage'];
+/** LOGI-0012 AC-4: bucket counts + capacityUtilizationPercent; the percent is null when there is no capacity. */
+export type VehicleUtilization = components['schemas']['VehicleUtilization'];
+/** LOGI-0012 AC-5: bucket counts + utilizationPercent over the driver status enum. */
+export type DriverUtilization = components['schemas']['DriverUtilization'];
+/**
+ * Optional query params for GET /dashboard (contract-derived, six params).
+ *
+ * Every one of them is ALSO a GET /shipments filter (AC-6) — the dashboard deliberately defines no
+ * parameter of its own, so a tile can always be drilled into the existing shipments list.
+ */
+export type GetDashboardParams = NonNullable<operations['getDashboard']['parameters']['query']>;
 export type ProblemDetails = components['schemas']['ProblemDetails'];
 export type AuthUser = components['schemas']['AuthUser'];
 export type LoginInput = components['schemas']['LoginRequest'];
@@ -377,6 +399,30 @@ export const api = {
     return request<PlanningBoardResponse>(`/api/v1/planning-board?${query.toString()}`);
   },
 
+/**
+   * LOGI-0012 AC-1/AC-3/AC-6/AC-8: the whole operations dashboard in ONE read — the six untruncated
+   * BR-7 counts, the SLA-at-risk page and the vehicle/driver utilization snapshots.
+   *
+   * One call is the point, not an optimisation: everything in the response was evaluated at a single
+   * captured instant (`generatedAt`), so the tiles and the list they carry cannot drift apart. Fetching
+   * /vehicles and /drivers separately for the utilization panels would put them on a different instant
+   * and reintroduce exactly that drift.
+   *
+   * Every parameter here is also a GET /shipments filter (AC-6) — the dashboard defines no query
+   * vocabulary of its own, which is what lets a tile drill straight into the existing list. Absent
+   * params are omitted so the server's own defaults apply; `appliedFilters` is the authority for what
+   * was actually applied.
+   */
+  getDashboard(params: GetDashboardParams = {}): Promise<DashboardResponse> {
+    const query = new URLSearchParams();
+    if (params.status) query.set('status', params.status);
+    if (params.priority) query.set('priority', params.priority);
+    if (params.originWarehouseId != null) query.set('originWarehouseId', String(params.originWarehouseId));
+    if (params.routeId != null) query.set('routeId', String(params.routeId));
+    if (params.page != null) query.set('page', String(params.page));
+    if (params.pageSize != null) query.set('pageSize', String(params.pageSize));
+    return request<DashboardResponse>(`/api/v1/dashboard?${query.toString()}`);
+  },
   createShipment(body: ShipmentInput): Promise<Shipment> {
     return request<Shipment>('/api/v1/shipments', { method: 'POST', body: JSON.stringify(body) });
   },

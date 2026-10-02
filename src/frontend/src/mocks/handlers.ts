@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import type { AuthUser, ProblemDetails, Role, RouteCapacityView, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput, ShipmentStatusEvent, ShipmentStatus, StatusTransitionRequest, Shipment, ShipmentInput, ShipmentPriority, Route, RouteStatus, BoardColumn, BoardRouteCard, BoardShipmentCard, PlanningBoardResponse } from '../api/client';
+import type { AuthUser, ProblemDetails, Role, RouteCapacityView, Vehicle, VehicleInput, Warehouse, WarehouseInput, Driver, DriverInput, ShipmentStatusEvent, ShipmentStatus, StatusTransitionRequest, Shipment, ShipmentInput, ShipmentPriority, Route, RouteStatus, BoardColumn, BoardRouteCard, BoardShipmentCard, PlanningBoardResponse, StatusCount, DashboardAtRiskShipment, DashboardResponse, VehicleUtilization, DriverUtilization } from '../api/client';
 
 /**
  * MSW handlers derived from contracts/v1-openapi.yaml (ADR-004). The in-memory store mirrors the API
@@ -628,6 +628,104 @@ const boardColumnOrder: ShipmentStatus[] = [
   'Delayed',
   'Cancelled',
 ];
+
+/**
+ * LOGI-0012 AC-7: GET /dashboard — x-roles: [Admin, Dispatcher, Viewer].
+ *
+ * Driver is excluded for the same reason as the board (spec §7 O1): the dashboard is org-wide, so its
+ * counts and utilization buckets would mean "of the whole operation" rather than "of your route".
+ */
+const dashboardRules: Record<Role, { read: boolean; write: boolean; delete: boolean }> = {
+  Admin: { read: true, write: false, delete: false },
+  Dispatcher: { read: true, write: false, delete: false },
+  Driver: { read: false, write: false, delete: false },
+  Viewer: { read: true, write: false, delete: false },
+};
+
+/**
+ * LOGI-0012 AC-2: the at-risk row is a PROJECTION of the shipment read model, not a second one.
+ *
+ * The fields are copied from the same store row `toShipmentResponse` reads, so the dashboard list and
+ * GET /shipments can never show different data for the same shipment (AC-6/AC-9). `minutesToDue` is the
+ * whole-minute distance from the captured instant: negative once overdue, null when no promise is
+ * recorded (BR-2 rule 2.7).
+ */
+function toDashboardAtRiskShipment(shipment: MockShipment, nowSec: number): DashboardAtRiskShipment {
+  const dueMs = shipment.slaDueAt == null ? null : Math.floor(Date.parse(shipment.slaDueAt) / 1000) * 1000;
+  return {
+    id: shipment.id,
+    referenceCode: shipment.referenceCode,
+    status: shipment.status,
+    priority: shipment.priority,
+    slaDueAt: shipment.slaDueAt,
+    minutesToDue: dueMs == null ? null : Math.round((dueMs - nowSec) / 60_000),
+    originWarehouseId: shipment.originWarehouseId,
+    destinationAddress: shipment.destinationAddress,
+  };
+}
+
+/**
+ * AC-2: earliest SLA first, with the id ascending as the tiebreak.
+ *
+ * The tiebreak is not cosmetic — two shipments due in the same whole second must have a stable order,
+ * or the same page could render differently between two identical reads (AC-8 determinism).
+ */
+function compareAtRiskRows(a: DashboardAtRiskShipment, b: DashboardAtRiskShipment): number {
+  const aDue = a.slaDueAt == null ? Number.POSITIVE_INFINITY : Date.parse(a.slaDueAt);
+  const bDue = b.slaDueAt == null ? Number.POSITIVE_INFINITY : Date.parse(b.slaDueAt);
+  if (aDue !== bDue) return aDue - bDue;
+  return a.id - b.id;
+}
+
+/**
+ * AC-4: fleet utilization — bucket counts over the SAME `vehicleStatuses` list the write validator uses,
+ * plus the capacity-weighted view.
+ *
+ * `inUseCapacityKg` sums ONLY InRoute vehicles, so a vehicle in Maintenance is never counted as
+ * available capacity. The percentage is null when there is no capacity at all: an empty fleet means
+ * "no capacity", which is a different statement from "0% used" (AC-4).
+ */
+function toVehicleUtilization(): VehicleUtilization {
+  const byStatus: Record<string, number> = {};
+  for (const status of vehicleStatuses) byStatus[status] = 0;
+  let inUseCapacityKg = 0;
+  let totalCapacityKg = 0;
+  for (const vehicle of vehiclesDb) {
+    byStatus[vehicle.status] = (byStatus[vehicle.status] ?? 0) + 1;
+    totalCapacityKg += vehicle.capacityKg;
+    if (vehicle.status === 'InRoute') inUseCapacityKg += vehicle.capacityKg;
+  }
+  return {
+    totalCount: vehiclesDb.length,
+    byStatus,
+    utilizationPercent:
+      vehiclesDb.length === 0 ? null : Math.round((byStatus.InRoute / vehiclesDb.length) * 10000) / 100,
+    inUseCapacityKg,
+    totalCapacityKg,
+    capacityUtilizationPercent:
+      totalCapacityKg === 0 ? null : Math.round((inUseCapacityKg / totalCapacityKg) * 10000) / 100,
+  } as VehicleUtilization;
+}
+
+/**
+ * AC-5: driver pool utilization over the SAME `driverStatuses` list the write validator uses.
+ *
+ * `utilizationPercent` is the Active share, and a Suspended driver is never counted as available. It is
+ * null when there are no drivers at all (AC-5).
+ */
+function toDriverUtilization(): DriverUtilization {
+  const byStatus: Record<string, number> = {};
+  for (const status of driverStatuses) byStatus[status] = 0;
+  for (const driver of driversDb) {
+    byStatus[driver.status] = (byStatus[driver.status] ?? 0) + 1;
+  }
+  return {
+    totalCount: driversDb.length,
+    byStatus,
+    utilizationPercent:
+      driversDb.length === 0 ? null : Math.round((byStatus.Active / driversDb.length) * 10000) / 100,
+  } as DriverUtilization;
+}
 
 /**
  * AC-4: the board card is a SUBSET of the shipment read model, projected from the same store row the
@@ -2049,6 +2147,114 @@ export const handlers = [
       columns,
       unassignedTotalCount,
       routes: routeCards,
+    };
+
+    return HttpResponse.json(body);
+  }),
+
+  /**
+   * GET /dashboard — LOGI-0012 AC-1..AC-9, the manager's read-only landing aggregate.
+   *
+   * ONE request returns everything: the six BR-7 counts, the SLA-at-risk page and the vehicle/driver
+   * utilization snapshots. Every figure is computed from a SINGLE captured instant (truncated to whole
+   * seconds), which is the point of the endpoint — the at-risk tile, the at-risk list and the
+   * utilization panels all describe the same moment, so they cannot drift apart (AC-3).
+   *
+   * The handler holds no state and writes nothing (spec §7 O2), so a rejected request mutates nothing
+   * (AC-8) and two identical requests are byte-comparable apart from `generatedAt` (AC-8).
+   */
+  http.get('/api/v1/dashboard', ({ request }) => {
+    const auth = authorize(request, 'read', 'the dashboard', dashboardRules);
+    if (!('user' in auth)) return auth;
+
+    const url = new URL(request.url);
+    const errors: Record<string, string[]> = {};
+
+    const statusRaw = url.searchParams.get('status');
+    if (statusRaw != null && !shipmentStatuses.includes(statusRaw as ShipmentStatus)) {
+      errors.status = ['Status must be one of: Pending, Assigned, InTransit, Delivered, Delayed, Cancelled.'];
+    }
+    const priorityRaw = url.searchParams.get('priority');
+    if (priorityRaw != null && !shipmentPriorities.includes(priorityRaw as ShipmentPriority)) {
+      errors.priority = ['Priority must be one of: Standard, Express.'];
+    }
+    const originRaw = url.searchParams.get('originWarehouseId');
+    const originWarehouseId = originRaw == null ? null : Number(originRaw);
+    if (
+      originRaw != null &&
+      (originWarehouseId == null || !Number.isInteger(originWarehouseId) || originWarehouseId < 1)
+    ) {
+      errors.originWarehouseId = ['originWarehouseId must be an integer greater than or equal to 1.'];
+    }
+    const routeRaw = url.searchParams.get('routeId');
+    const routeId = routeRaw == null ? null : Number(routeRaw);
+    if (routeRaw != null && (routeId == null || !Number.isInteger(routeId) || routeId < 1)) {
+      errors.routeId = ['routeId must be an integer greater than or equal to 1.'];
+    }
+    const pageRaw = url.searchParams.get('page');
+    const page = pageRaw == null ? 1 : Number(pageRaw);
+    if (pageRaw != null && (!Number.isInteger(page) || page < 1)) {
+      errors.page = ['page must be an integer greater than or equal to 1.'];
+    }
+    // AC-8: the contract default is 20 and the ceiling is 100; an out-of-range value is a 400 with a
+    // KEYED error, so the UI can attach the message to the offending control.
+    const pageSizeRaw = url.searchParams.get('pageSize');
+    const pageSize = pageSizeRaw == null ? 20 : Number(pageSizeRaw);
+    if (pageSizeRaw != null && (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100)) {
+      errors.pageSize = ['pageSize must be an integer between 1 and 100.'];
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return problem(400, 'Validation failed', 'One or more validation errors occurred.', errors);
+    }
+
+    // ONE captured instant for the whole response (AC-3).
+    const nowSec = Math.floor(Date.now() / 1000) * 1000;
+
+    // AC-1/AC-2/AC-6: the same filter predicate the planning board and GET /shipments use. Every
+    // dashboard filter is a shipments filter — there is no dashboard-only vocabulary here.
+    const rows = shipmentsDb
+      .map((shipment) => ({ shipment, atRisk: computeAtRisk(shipment, nowSec) }))
+      .filter(
+        ({ shipment }) =>
+          (statusRaw == null || shipment.status === statusRaw) &&
+          (priorityRaw == null || shipment.priority === priorityRaw) &&
+          (originWarehouseId == null || shipment.originWarehouseId === originWarehouseId) &&
+          (routeId == null || shipment.routeId === routeId),
+      );
+
+    // AC-1: all six, in lifecycle order, zero counts included.
+    const statusCounts: StatusCount[] = boardColumnOrder.map((status) => ({
+      status,
+      count: rows.filter(({ shipment }) => shipment.status === status).length,
+    }));
+
+    // AC-2: the BR-2 at-risk projection over the SAME filtered rows. A Delivered/Cancelled row can
+    // never be at risk, a Delayed one can, and a row with no sla_due_at never is (BR-2 2.4/2.7).
+    const atRiskRows = rows
+      .filter(({ atRisk }) => atRisk)
+      .map(({ shipment }) => toDashboardAtRiskShipment(shipment, nowSec))
+      .sort(compareAtRiskRows);
+
+    // AC-3: ONE number, used for both the tile and the page envelope.
+    const atRiskTotalCount = atRiskRows.length;
+    const totalPages = Math.ceil(atRiskTotalCount / pageSize);
+    const items = atRiskRows.slice((page - 1) * pageSize, page * pageSize);
+const body: DashboardResponse = {
+      generatedAt: new Date(nowSec).toISOString(),
+      appliedFilters: {
+        status: (statusRaw as ShipmentStatus | null) ?? null,
+        priority: (priorityRaw as ShipmentPriority | null) ?? null,
+        originWarehouseId,
+        routeId,
+      },
+      statusCounts,
+      atRiskTotalCount,
+      atRiskShipments: { items, page, pageSize, totalCount: atRiskTotalCount, totalPages },
+      // AC-4/AC-5: read off the shared stores, NOT via a second request — a separate read would be
+      // evaluated at a different instant and break AC-3.
+      vehicleUtilization: toVehicleUtilization(),
+      driverUtilization: toDriverUtilization(),
     };
 
     return HttpResponse.json(body);
