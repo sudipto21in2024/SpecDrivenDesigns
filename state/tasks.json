@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-01T17:56:59.172Z",
+  "generated": "2026-10-02T06:42:53.784Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -417,6 +417,13 @@
           "started": "2026-10-01T17:37:39.888Z",
           "lastStep": "M3: arm verification - validate-plan 0 errors, spectral 0/0, bundle --check clean, contracts diff additions-only (190+/0-), both new fragments under 150 lines (39 and 129), spec slicer resolves 9 ACs, x-roles Admin/Dispatcher/Viewer.",
           "lastStepAt": "2026-10-01T17:52:40.576Z"
+        },
+        "backend": {
+          "status": "in_progress",
+          "agent": null,
+          "started": "2026-10-02T05:41:25.193Z",
+          "lastStep": "sealed: dotnet build 0 errors 0 warnings; dotnet test 231/231 green with no pre-existing test edited; all 9 AC-1..AC-9 carry a // LOGI-0012 AC-n marker; dotnet ef migrations has-pending-model-changes reports no changes; validate-plan 0 errors; git status limited to section 2 manifest paths.",
+          "lastStepAt": "2026-10-02T06:42:53.779Z"
         }
       },
       "status": "in_progress",
