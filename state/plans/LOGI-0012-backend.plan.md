@@ -1,7 +1,7 @@
 ---
 ticket: LOGI-0012
 arm: backend
-status: locked
+status: done
 created: 2026-10-02T05:10:00.000Z
 depends_on_plans: LOGI-0012-architect
 ---
