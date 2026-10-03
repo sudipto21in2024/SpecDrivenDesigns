@@ -316,6 +316,8 @@ export const api = {
     if (params.slaRisk != null) query.set('slaRisk', String(params.slaRisk));
     if (params.q) query.set('q', params.q);
     if (params.sort) query.set('sort', params.sort);
+    // AC-6: the dashboard's route-scoped drill-down targets /shipments?routeId=…
+    if (params.routeId != null) query.set('routeId', String(params.routeId));
     return request<Paged<Shipment>>(`/api/v1/shipments?${query.toString()}`);
   },
 

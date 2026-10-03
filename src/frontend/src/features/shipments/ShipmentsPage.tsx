@@ -23,7 +23,6 @@ import {
 } from '@mui/material';
 import { SearchIcon } from '../../components/icons';
 import type {
-  ListShipmentsParams,
   ShipmentPriority,
   ShipmentSort,
   ShipmentStatus,
@@ -32,6 +31,10 @@ import { useAuth } from '../auth/AuthContext';
 import { can } from '../auth/permissions';
 import { useWarehouses } from '../warehouses/hooks';
 import { useCreateShipment, useCancelShipment, useShipments, useUpdateShipment } from './hooks';
+import {
+  initialShipmentFilters,
+  shipmentsParamsFromFilters,
+} from './shipmentsFilterParams';
 import {
   shipmentPriorities,
   shipmentSortOptions,
@@ -47,22 +50,27 @@ import type { Shipment, ShipmentInput, ShipmentUpdateInput } from '../../api/cli
 const cancellableStatuses: readonly ShipmentStatus[] = ['Pending', 'Assigned'];
 
 /**
- * Shipment list + create page (LOGI-0007 F5/F8, AC-1..AC-10; LOGI-0008 F6, AC-11). Paged table with
- * AND filters, 4 sorts, a read-time at-risk chip, a role-gated create dialog, and the row actions
- * this ticket adds: Edit (Pending only) and Cancel (Pending/Assigned), both role-gated to
+ * Shipment list + create page (LOGI-0007 F5/F8, AC-1..AC-10; LOGI-0008 F6, AC-11; LOGI-0012 AC-6).
+ * Paged table with AND filters, 4 sorts, a read-time at-risk chip, a role-gated create dialog, and
+ * the row actions: Edit (Pending only) and Cancel (Pending/Assigned), both role-gated to
  * Admin/Dispatcher, with a 409 on either surfacing a message and refreshing the row.
  */
 export default function ShipmentsPage() {
+  // AC-6 (LOGI-0012): filters are seeded from the URL on the FIRST render, not in an effect —
+  // `useShipments` keys its query on the params, so an effect would fire one UNFILTERED read
+  // first and flash the rows the dispatcher just filtered out.
+  const [initial] = useState(initialShipmentFilters);
   // MUI TablePagination is zero-based; the API is one-based (page defaults to 1, pageSize 25).
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [searchText, setSearchText] = useState('');
-  const [q, setQ] = useState('');
-  const [status, setStatus] = useState<ShipmentStatus | ''>('');
-  const [priority, setPriority] = useState<ShipmentPriority | ''>('');
-  const [originWarehouseId, setOriginWarehouseId] = useState('');
-  const [slaRisk, setSlaRisk] = useState('');
-  const [sort, setSort] = useState<ShipmentSort>('-createdAt');
+  const [q, setQ] = useState(initial.q);
+  const [status, setStatus] = useState<ShipmentStatus | ''>(initial.status);
+  const [priority, setPriority] = useState<ShipmentPriority | ''>(initial.priority);
+  const [originWarehouseId, setOriginWarehouseId] = useState(initial.originWarehouseId);
+  const [slaRisk, setSlaRisk] = useState(initial.slaRisk);
+  const [routeId, setRouteId] = useState(initial.routeId); // drill-down link only (AC-6)
+  const [sort, setSort] = useState<ShipmentSort>(initial.sort);
 
   const { user } = useAuth();
   const canCreate = user != null && can(user.role, 'createShipments');
@@ -80,19 +88,10 @@ export default function ShipmentsPage() {
     return (id: number) => map.get(id) ?? `warehouse #${id}`;
   }, [warehouses.data?.items]);
 
-  // Only supplied filters are serialized — `listShipments` omits falsy values.
-  const params: ListShipmentsParams = useMemo(
-    () => ({
-      page: page + 1,
-      pageSize: rowsPerPage,
-      status: status || undefined,
-      priority: priority || undefined,
-      originWarehouseId: originWarehouseId ? Number(originWarehouseId) : undefined,
-      slaRisk: slaRisk === 'true' || slaRisk === 'false' ? slaRisk === 'true' : undefined,
-      q: q || undefined,
-      sort,
-    }),
-    [page, rowsPerPage, q, status, priority, originWarehouseId, slaRisk, sort],
+  // Supplied filters only — `listShipments` omits falsy values. routeId rides along from the
+  // drill-down link (AC-6), which is why it has a setter but no control here.
+  const params = shipmentsParamsFromFilters(
+    { status, priority, originWarehouseId, slaRisk, routeId, q, sort }, page + 1, rowsPerPage,
   );
 
   const { data, isPending, isError, error, refetch } = useShipments(params);
@@ -156,6 +155,7 @@ export default function ShipmentsPage() {
     setPriority('');
     setOriginWarehouseId('');
     setSlaRisk('');
+    setRouteId('');
     setSort('-createdAt');
     setPage(0);
   };

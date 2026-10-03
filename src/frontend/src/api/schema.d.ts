@@ -1882,6 +1882,8 @@ export interface operations {
                 priority?: "Standard" | "Express";
                 /** @description Filter by origin warehouse */
                 originWarehouseId?: number;
+                /** @description Filter by assigned route; a null routeId is not implied, so unassigned shipments are not excluded (LOGI-0012 AC-6). Shared with GET /dashboard and GET /planning-board so the dashboard drill-down is lossless. */
+                routeId?: number;
                 /** @description true = only at-risk shipments (BR-2); false = only the complement */
                 slaRisk?: boolean;
                 /** @description Filter by referenceCode or destinationAddress (contains, case-insensitive) */
