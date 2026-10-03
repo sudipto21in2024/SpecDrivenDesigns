@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-02T14:42:22.107Z",
+  "generated": "2026-10-03T06:49:14.522Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -419,11 +419,11 @@
           "planStatus": "locked"
         },
         "backend": {
-          "status": "done",
+          "status": "in_progress",
           "agent": null,
-          "started": "2026-10-02T05:41:25.193Z",
-          "lastStep": "sealed: dotnet build 0 errors 0 warnings; dotnet test 231/231 green with no pre-existing test edited; all 9 AC-1..AC-9 carry a // LOGI-0012 AC-n marker; dotnet ef migrations has-pending-model-changes reports no changes; validate-plan 0 errors; git status limited to section 2 manifest paths.",
-          "lastStepAt": "2026-10-02T06:42:53.779Z"
+          "started": "2026-10-03T06:28:26.943Z",
+          "plan": "state\\plans\\LOGI-0012-backend.plan.md",
+          "planStatus": "locked"
         },
         "frontend": {
           "status": "done",
@@ -445,7 +445,7 @@
         }
       },
       "status": "in_progress",
-      "next": "backend"
+      "next": "qa"
     }
   }
 }

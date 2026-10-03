@@ -65,8 +65,8 @@ public class ListShipmentStatusHistoryHandler(IAppDbContext db)
 /// </summary>
 public record ListShipmentsQuery(
     int Page = 1, int PageSize = 25, string? Status = null, string? Priority = null,
-    long? OriginWarehouseId = null, bool? SlaRisk = null, string? Q = null, string? Sort = null)
-    : IQuery<PagedResult<ShipmentDto>>;
+    long? OriginWarehouseId = null, long? RouteId = null, bool? SlaRisk = null, string? Q = null,
+    string? Sort = null) : IQuery<PagedResult<ShipmentDto>>;
 
 public class ListShipmentsValidator : AbstractValidator<ListShipmentsQuery>
 {
@@ -85,6 +85,11 @@ public class ListShipmentsValidator : AbstractValidator<ListShipmentsQuery>
             .WithMessage($"priority must be one of: {string.Join(", ", SlaPolicy.Priorities)}.");
         RuleFor(x => x.Sort).Must(sort => sort is null || Sorts.Contains(sort))
             .WithMessage($"sort must be one of: {string.Join(", ", Sorts)}.");
+
+        // AC-6: the contract's routeId minimum is 1, so 0/negatives fail loudly rather than
+        // quietly matching an empty page — the same lie as an unknown status enum above.
+        RuleFor(x => x.RouteId).GreaterThan(0).When(x => x.RouteId.HasValue)
+            .WithMessage("routeId must be greater than 0.");
     }
 }
 
@@ -99,43 +104,37 @@ public class ListShipmentsHandler(IAppDbContext db)
 
         var query = db.Shipments.AsNoTracking();
 
-        if (request.Status is not null)
-        {
-            query = query.Where(s => s.Status == request.Status);
-        }
+        if (request.Status is not null) query = query.Where(s => s.Status == request.Status);
 
-        if (request.Priority is not null)
-        {
-            query = query.Where(s => s.Priority == request.Priority);
-        }
+        if (request.Priority is not null) query = query.Where(s => s.Priority == request.Priority);
 
         if (request.OriginWarehouseId is not null)
-        {
             query = query.Where(s => s.OriginWarehouseId == request.OriginWarehouseId);
-        }
+
+        // AC-6: an explicit routeId is an equality filter, NOT widened to
+        // "routeId = 7 OR routeId IS NULL" — that would smuggle in the unassigned backlog. Same rule
+        // and reason as PlanningBoardFilters.Apply: AC-6 makes this the vocabulary the dashboard and
+        // the board drill down with, so the two endpoints must not drift.
+        if (request.RouteId is not null) query = query.Where(s => s.RouteId == request.RouteId);
 
         if (!string.IsNullOrWhiteSpace(request.Q))
         {
             // §7 default: contains, case-insensitive, over referenceCode OR destinationAddress.
-            var q = request.Q;
+            var q = request.Q.ToLower();
             query = query.Where(s =>
-                s.ReferenceCode.ToLower().Contains(q.ToLower())
-                || s.DestinationAddress.ToLower().Contains(q.ToLower()));
+                s.ReferenceCode.ToLower().Contains(q)
+                || s.DestinationAddress.ToLower().Contains(q));
         }
 
+        // BR-2 as a SQL-translatable bound (now >= due - 2h ⇔ due <= cutoff), plus the rule 2.3
+        // exempt statuses — due <= cutoff alone would wrongly include Delivered/Cancelled. The
+        // false branch is the exact complement, null-due rows included (AC-9).
         if (request.SlaRisk == true)
-        {
-            // BR-2 as a SQL-translatable bound (now >= due - 2h ⇔ due <= cutoff), plus the rule 2.3
-            // exempt statuses — due <= cutoff alone would wrongly include Delivered/Cancelled.
             query = query.Where(s =>
                 s.SlaDueAt != null && s.SlaDueAt <= cutoff && !SlaPolicy.ExemptStatuses.Contains(s.Status));
-        }
         else if (request.SlaRisk == false)
-        {
-            // Exact complement of the at-risk set, null-due rows included (AC-9).
             query = query.Where(s =>
                 s.SlaDueAt == null || s.SlaDueAt > cutoff || SlaPolicy.ExemptStatuses.Contains(s.Status));
-        }
 
         var totalCount = await query.CountAsync(cancellationToken);
 
