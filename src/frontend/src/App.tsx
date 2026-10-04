@@ -111,7 +111,6 @@ function AppHeader() {
  * props (value/onChange/indicator) into its children with cloneElement, so wrapping a Tab in another
  * component silently breaks tab switching.
  */
-/** The tab values, as a named union the tab switch and the navigator both agree on. */
 function MasterDataTabs() {
   const { user } = useAuth();
   // The default tab stays Warehouses: it is the surface every pre-existing suite renders directly,
