@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-04T07:34:53.579Z",
+  "generated": "2026-10-04T07:36:03.333Z",
   "tasks": {
     "LOGI-0003": {
       "ticket": "LOGI-0003",
@@ -412,21 +412,21 @@
       "ticket": "LOGI-0012",
       "arms": {
         "architect": {
-          "status": "in_progress",
+          "status": "done",
           "agent": null,
           "started": "2026-10-02T08:38:17.927Z",
           "plan": "state\\plans\\LOGI-0012-architect.plan.md",
           "planStatus": "locked"
         },
         "backend": {
-          "status": "in_progress",
+          "status": "done",
           "agent": null,
           "started": "2026-10-03T06:28:26.943Z",
           "plan": "state\\plans\\LOGI-0012-backend.plan.md",
           "planStatus": "locked"
         },
         "frontend": {
-          "status": "in_progress",
+          "status": "done",
           "agent": "main-orchestrator",
           "started": "2026-10-04T06:55:23.677Z",
           "lastStep": "sealed: npx tsc --noEmit 0 errors; npm run build clean; npm test 162/162 green (155 pre-existing + 7 new, 11 files); targeted e2e dashboard-drilldown-browser.spec.ts 2 passed WITH THE SPEC BYTE-IDENTICAL to the qa arm's version (never edited); FULL PLAYWRIGHT SUITE 167 passed 0 failed (165 pre-existing + 2 new) against a real API, a real SQLite file and a real browser; every new case carries a // LOGI-0012 AC-6 marker; validate-plan 0 errors; git status shows only the section 2 manifest paths",
@@ -440,8 +440,8 @@
           "lastStepAt": "2026-10-04T06:51:21.930Z"
         }
       },
-      "status": "in_progress",
-      "next": "frontend"
+      "status": "done",
+      "next": "done"
     }
   }
 }
