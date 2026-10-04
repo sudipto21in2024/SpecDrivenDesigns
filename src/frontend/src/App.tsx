@@ -17,6 +17,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from './theme';
+import { useTabNavigation, type TabKey } from './appNavigation';
 import { AccountIcon, LogoutIcon } from './components/icons';
 import AuthGate from './features/auth/AuthGate';
 import { AuthProvider, useAuth } from './features/auth/AuthContext';
@@ -110,13 +111,12 @@ function AppHeader() {
  * props (value/onChange/indicator) into its children with cloneElement, so wrapping a Tab in another
  * component silently breaks tab switching.
  */
+/** The tab values, as a named union the tab switch and the navigator both agree on. */
 function MasterDataTabs() {
   const { user } = useAuth();
   // The default tab stays Warehouses: it is the surface every pre-existing suite renders directly,
   // and re-pointing the landing tab would be a UX decision outside this ticket's read-only scope.
-  const [tab, setTab] = useState<'warehouses' | 'vehicles' | 'drivers' | 'shipments' | 'routes' | 'board' | 'dashboard'>(
-    'warehouses',
-  );
+  const [tab, setTab] = useState<TabKey>('warehouses');
   const canViewBoard = user != null && can(user.role, 'viewPlanningBoard');
   // LOGI-0012 AC-7: hidden for Driver because the API 403s the org-wide dashboard (spec §7 O1).
   const canViewDashboard = user != null && can(user.role, 'viewDashboard');
@@ -124,11 +124,15 @@ function MasterDataTabs() {
   const canViewShipments = user != null && can(user.role, 'viewShipments');
   const canViewRoutes = user != null && can(user.role, 'viewRoutes');
 
+  // LOGI-0012 AC-6: the shell's half of a drill-down — switch tab AND write the URL. Both are needed:
+  // the list page hydrates its filters from `window.location.search` on mount. See appNavigation.ts.
+  const { navigate, selectTab } = useTabNavigation(setTab);
+
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 6 }}>
       <Tabs
         value={tab}
-        onChange={(_, next) => setTab(next)}
+        onChange={(_, next) => selectTab(next)}
         aria-label="Master data sections"
         sx={{ mb: 2 }}
       >
@@ -142,7 +146,7 @@ function MasterDataTabs() {
         {canViewDashboard && <Tab value="dashboard" label="Dashboard" data-testid="tab-dashboard" />}
       </Tabs>
       {tab === 'dashboard' && canViewDashboard ? (
-        <DashboardPage />
+        <DashboardPage onNavigate={navigate} />
       ) : tab === 'board' && canViewBoard ? (
         <PlanningBoardPage />
       ) : tab === 'warehouses' ? (
