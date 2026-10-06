@@ -103,6 +103,13 @@ if (app.Environment.IsDevelopment())
     await SeedData.EnsureSeededAsync(
         scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>(),
         scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(SeedData)));
+
+    // Optional bulk demo dataset for local UI testing. Opt-in via DemoData:Enabled and a no-op when
+    // business data already exists, so it can never double-seed or interfere with the test suites.
+    await DemoData.EnsureSeededAsync(
+        scope.ServiceProvider.GetRequiredService<LogiFlowDbContext>(),
+        app.Configuration,
+        scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(DemoData)));
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();

@@ -1,0 +1,20 @@
+# Keep build output and local dev artifacts out of the build context so they
+# cannot overwrite the container's own compiled files (COPY . . after restore).
+**/bin/
+**/obj/
+**/*.user
+
+# SQLite files are runtime state; the container creates its own in /app/data.
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+# Serilog output
+Logs/
+**/*.log
+
+.vs/
+.vscode/
+.idea/
+Dockerfile
+.dockerignore

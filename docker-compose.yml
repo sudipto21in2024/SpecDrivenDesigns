@@ -1,0 +1,46 @@
+# LogiFlow — full stack: ASP.NET Core API + nginx-served SPA.
+#
+#   docker compose up --build   # start the stack at http://localhost:8080
+#
+# The SPA is the only published port; nginx proxies /api to the api service, so the
+# browser talks to a single origin. No separate migration step: the API applies
+# `db.Database.Migrate()` on startup (Program.cs).
+
+services:
+  api:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      # Must match the volume mount below.
+      Database__ConnectionString: Data Source=/app/data/logiflow.db
+      # HS256 needs >= 32 bytes. Supply a real secret per environment; the value here
+      # is a placeholder so the stack starts locally.
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:-logiflow-local-docker-signing-key-change-me-please-64}
+      Jwt__Issuer: logiflow
+      Jwt__Audience: logiflow-api
+    volumes:
+      # Named volume: the SQLite file must survive container replacement.
+      - logiflow-data:/app/data
+      - logiflow-logs:/app/Logs
+    # Not published — reached through the `web` service on the internal network.
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  logiflow-data:
+  logiflow-logs:

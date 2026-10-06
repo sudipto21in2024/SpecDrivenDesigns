@@ -28,6 +28,9 @@ src/backend/LogiFlow.Api/logiflow.db
 Logs/
 *.log
 
+# Local Docker overrides (per-developer environment tweaks, e.g. Development seeding).
+docker-compose.override.yml
+
 # Env / secrets
 .env
 .env.local

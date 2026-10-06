@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.vite/
+
+# Tests and their results are not needed to produce a production bundle.
+src/**/*.test.ts
+src/**/*.test.tsx
+test-results/
+playwright-report/
+
+# The generated OpenAPI types are a build input, so src/ is intentionally NOT
+# excluded here.
+*.log
+npm-debug.log*
+
+.vs/
+.vscode/
+.idea/
+Dockerfile
+.dockerignore
