@@ -127,6 +127,22 @@ function MasterDataTabs() {
   // the list page hydrates its filters from `window.location.search` on mount. See appNavigation.ts.
   const { navigate, selectTab } = useTabNavigation(setTab);
 
+  // Tab body as a lookup instead of a nested ternary: each entry re-checks its
+  // permission so a stale `tab` (e.g. set via URL before role loads) can't render
+  // a page the API would 403. `null` means "not visible for this role".
+  const pages: Record<TabKey, React.ReactNode> = {
+    warehouses: <WarehousesPage />,
+    vehicles: <VehiclesPage />,
+    drivers: canViewDrivers ? <DriversPage /> : null,
+    shipments: canViewShipments ? <ShipmentsPage /> : null,
+    routes: canViewRoutes ? <RoutesPage /> : null,
+    board: canViewBoard ? <PlanningBoardPage /> : null,
+    dashboard: canViewDashboard ? <DashboardPage onNavigate={navigate} /> : null,
+  };
+  // Safe fallback is the default landing tab, not DriversPage: the old
+  // unconditional `else <DriversPage />` rendered a 403 for the Driver persona.
+  const activePage = pages[tab] ?? <WarehousesPage />;
+
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 6 }}>
       <Tabs
@@ -144,21 +160,7 @@ function MasterDataTabs() {
         {canViewBoard && <Tab value="board" label="Board" data-testid="tab-board" />}
         {canViewDashboard && <Tab value="dashboard" label="Dashboard" data-testid="tab-dashboard" />}
       </Tabs>
-      {tab === 'dashboard' && canViewDashboard ? (
-        <DashboardPage onNavigate={navigate} />
-      ) : tab === 'board' && canViewBoard ? (
-        <PlanningBoardPage />
-      ) : tab === 'warehouses' ? (
-        <WarehousesPage />
-      ) : tab === 'vehicles' ? (
-        <VehiclesPage />
-      ) : tab === 'shipments' && canViewShipments ? (
-        <ShipmentsPage />
-      ) : tab === 'routes' && canViewRoutes ? (
-        <RoutesPage />
-      ) : (
-        <DriversPage />
-      )}
+      {activePage}
     </Container>
   );
 }
